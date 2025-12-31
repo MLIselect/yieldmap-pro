@@ -591,7 +591,7 @@ with tab_anal:
         if is_pro:
             # Pass all variables including address, pm%, term
             pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years)
-            st.download_button("📂 Download Professional PDF Analysis", data=bytes(pdf_bytes), file_name=f"Report_{selected_zip}.pdf")
+            st.download_button("📂 Download Professional PDF Analysis", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf")
         else:
             st.warning("🔓 **Unlock Pro Metrics & PDF Reports**")
             c_input = st.text_input("Enter Access Code", type="password", placeholder="Enter code to unlock")
@@ -709,3 +709,4 @@ with tab_iq:
 if __name__ == "__main__":
 
     pass
+
