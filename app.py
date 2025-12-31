@@ -584,7 +584,7 @@ with tab_anal:
 
     # --- PRO GATE ---
     st.divider()
-    PRO_CODE = "YIELDPRO2026"
+    PRO_CODE = st.secrets["PRO_CODE"]
     e1, e2 = st.columns(2)
     
     with e1:
@@ -707,4 +707,5 @@ with tab_iq:
 
 # --- OPTIONAL: TESTER CODE ---
 if __name__ == "__main__":
+
     pass
