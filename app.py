@@ -484,6 +484,7 @@ if st.session_state.get('scroll_to_top'):
         </script>
         """, unsafe_allow_html=True)
     st.session_state.scroll_to_top = False
+
 # STYLING
 st.markdown("""
     <style>
@@ -767,4 +768,3 @@ with tab_iq:
 if __name__ == "__main__":
 
     pass
-
