@@ -16,14 +16,30 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- HIDE STREAMLIT BRANDING (UPDATED) ---
+# --- HIDE STREAMLIT BRANDING ---
 hide_st_style = """
     <style>
+    /* 1. Hide the standard Streamlit footer */
     footer {visibility: hidden;}
+    
+    /* 2. Hide the top header bar */
     header {visibility: hidden;}
+    
+    /* 3. Hide the hamburger menu */
     #MainMenu {visibility: hidden;}
-    button[title="View fullscreen"] {visibility: hidden; display: none;}
-    .stApp > header {display: none;}
+    
+    /* 4. Hide the "View Fullscreen" button (bottom right) */
+    button[title="View fullscreen"] {
+        visibility: hidden;
+        display: none;
+    }
+    
+    /* 5. Hide the "Built with Streamlit" (bottom left) in embed mode */
+    .stApp > header {
+        display: none;
+    }
+    
+    /* 6. Extra safety for any other viewer badges */
     [data-testid="stDecoration"] {display:none;}
     [data-testid="stToolbar"] {display:none;}
     </style>
