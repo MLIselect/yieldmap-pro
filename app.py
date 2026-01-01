@@ -449,7 +449,7 @@ if not st.session_state.agreed:
 
     st.warning("⚠️ By checking the box below, you legally agree to these Terms.")
     
-  # 1. The Checkbox
+# 1. The Checkbox
     if st.checkbox("I have read and agree to the Terms of Use, Privacy Policy, and Limitation of Liability."):
         
         # 2. The Button
@@ -458,23 +458,24 @@ if not st.session_state.agreed:
             st.session_state.scroll_to_top = True
             st.rerun()
 
-        # --- NEW: AUTO-SCROLL FIX ---
-        # We put an invisible 'anchor' here and tell the browser to scroll to it
+        # --- NEW: AGGRESSIVE AUTO-SCROLL ---
+        # This forces the app to scroll down to reveal the button
         st.markdown("""
-            <div id="scroll-target"></div>
             <script>
                 setTimeout(function() {
-                    const element = document.getElementById("scroll-target");
-                    if (element) {
-                        element.scrollIntoView({ behavior: "smooth", block: "end" });
+                    var container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
+                    if (container) {
+                        container.scrollTo({
+                            top: container.scrollHeight, 
+                            behavior: 'smooth'
+                        });
                     }
-                }, 100); 
+                }, 300);
             </script>
             """, unsafe_allow_html=True)
-        # ----------------------------
+        # -----------------------------------
             
     st.stop()
-        # ----------------------------------
 
         # 2. The Button
         if st.button("Accept & Enter Pro Analyzer"):
