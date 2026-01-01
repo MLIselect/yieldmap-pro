@@ -16,30 +16,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- HIDE STREAMLIT BRANDING ---
+# --- HIDE STREAMLIT BRANDING (UPDATED) ---
 hide_st_style = """
     <style>
-    /* 1. Hide the standard Streamlit footer */
     footer {visibility: hidden;}
-    
-    /* 2. Hide the top header bar */
     header {visibility: hidden;}
-    
-    /* 3. Hide the hamburger menu */
     #MainMenu {visibility: hidden;}
-    
-    /* 4. Hide the "View Fullscreen" button (bottom right) */
-    button[title="View fullscreen"] {
-        visibility: hidden;
-        display: none;
-    }
-    
-    /* 5. Hide the "Built with Streamlit" (bottom left) in embed mode */
-    .stApp > header {
-        display: none;
-    }
-    
-    /* 6. Extra safety for any other viewer badges */
+    button[title="View fullscreen"] {visibility: hidden; display: none;}
+    .stApp > header {display: none;}
     [data-testid="stDecoration"] {display:none;}
     [data-testid="stToolbar"] {display:none;}
     </style>
@@ -631,14 +615,12 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            # Added config={'displayModeBar': False} to hide the toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
             st.markdown('<p class="chart-label">Vacancy Risk</p>', unsafe_allow_html=True)
-            # Added config={'displayModeBar': False} to hide the toolbar
             st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Vacancy Gauge Locked")
