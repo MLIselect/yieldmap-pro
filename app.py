@@ -1,3 +1,17 @@
+It looks like you might have **pasted the new code at the bottom** of the old code instead of replacing it. (The error is on line 481, but the entire app should only be about 380 lines long).
+
+This means you likely have two copies of the app in one file, which confuses Python.
+
+### The Fix: "Select All and Replace"
+
+1. Click inside your `app.py` editor.
+2. Press **Ctrl + A** (or **Cmd + A** on Mac) to select **EVERYTHING**.
+3. Press **Delete**. (The file should be completely empty).
+4. **Copy and Paste** the full clean code block below.
+
+This is the entire app, fixed and ready to go:
+
+```python
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -768,3 +782,5 @@ with tab_iq:
 if __name__ == "__main__":
 
     pass
+
+```
