@@ -11,7 +11,7 @@ import math
 # --- 1. PRO CONFIGURATION ---
 st.set_page_config(
     page_title="YieldMap Pro | Deal Analyzer",
-    page_icon="favicon.ico",  # <--- NEW
+    page_icon="favicon.ico",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
