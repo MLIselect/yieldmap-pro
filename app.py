@@ -449,19 +449,31 @@ if not st.session_state.agreed:
 
     st.warning("⚠️ By checking the box below, you legally agree to these Terms.")
     
-   # 1. The Checkbox
+  # 1. The Checkbox
     if st.checkbox("I have read and agree to the Terms of Use, Privacy Policy, and Limitation of Liability."):
         
-        # --- NEW: AUTO-SCROLL TO BUTTON ---
-        # This script runs instantly when the box is checked
+        # 2. The Button
+        if st.button("Accept & Enter Pro Analyzer"):
+            st.session_state.agreed = True
+            st.session_state.scroll_to_top = True
+            st.rerun()
+
+        # --- NEW: AUTO-SCROLL FIX ---
+        # We put an invisible 'anchor' here and tell the browser to scroll to it
         st.markdown("""
+            <div id="scroll-target"></div>
             <script>
-                var main = window.parent.document.querySelector("section.main");
-                if (main) {
-                    main.scrollTo({top: main.scrollHeight, behavior: 'smooth'});
-                }
+                setTimeout(function() {
+                    const element = document.getElementById("scroll-target");
+                    if (element) {
+                        element.scrollIntoView({ behavior: "smooth", block: "end" });
+                    }
+                }, 100); 
             </script>
             """, unsafe_allow_html=True)
+        # ----------------------------
+            
+    st.stop()
         # ----------------------------------
 
         # 2. The Button
