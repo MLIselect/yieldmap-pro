@@ -452,9 +452,20 @@ if not st.session_state.agreed:
     if st.checkbox("I have read and agree to the Terms of Use, Privacy Policy, and Limitation of Liability."):
         if st.button("Accept & Enter Pro Analyzer"):
             st.session_state.agreed = True
+            st.session_state.scroll_to_top = True # <--- ADD THIS LINE
             st.rerun()
             
     st.stop()
+    
+    # --- SCROLL TO TOP FIX ---
+if st.session_state.get('scroll_to_top'):
+    st.markdown("""
+        <script>
+            var body = window.parent.document.querySelector(".main");
+            body.scrollTop = 0;
+        </script>
+        """, unsafe_allow_html=True)
+    st.session_state.scroll_to_top = False
 
 # STYLING
 st.markdown("""
