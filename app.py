@@ -631,13 +631,15 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True)
+            # Added config={'displayModeBar': False} to hide the toolbar
+            st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
             st.markdown('<p class="chart-label">Vacancy Risk</p>', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True)
+            # Added config={'displayModeBar': False} to hide the toolbar
+            st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Vacancy Gauge Locked")
 
