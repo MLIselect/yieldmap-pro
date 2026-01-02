@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="YieldMap Pro | Section 8 Intelligence",
     page_icon="favicon.ico",
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="collapsed" 
 )
 
 # --- 2. VISUAL UPGRADE: CUSTOM CSS (SaaS Look) ---
@@ -23,12 +23,13 @@ st.markdown("""
     <style>
     /* REMOVE DEFAULT PADDING */
     .block-container {
-        padding-top: 2rem;
+        padding-top: 1rem;
         padding-bottom: 5rem;
     }
     
-    /* HIDE DEFAULT STREAMLIT HEADER */
+    /* HIDE DEFAULT STREAMLIT ELEMENTS */
     header {visibility: hidden;}
+    [data-testid="stSidebar"] {display: none;}
     
     /* CUSTOM NAV BAR */
     .navbar {
@@ -39,11 +40,12 @@ st.markdown("""
         font-weight: 700;
         font-size: 24px;
         border-bottom: 4px solid #3b82f6; /* Lighter Blue Accent */
-        margin-bottom: 2rem;
-        border-radius: 0 0 8px 8px;
+        margin-bottom: 1rem;
+        border-radius: 8px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         display: flex;
         align-items: center;
+        justify-content: space-between;
     }
     
     /* METRIC CARDS */
@@ -57,11 +59,6 @@ st.markdown("""
         border-radius: 8px;
     }
     </style>
-    
-    <div class="navbar">
-        <span>YieldMap Pro</span>
-        <span style="font-size: 14px; font-weight: 400; margin-left: auto; opacity: 0.8; font-family: monospace;">FY 2026 ENGINE</span>
-    </div>
     """, unsafe_allow_html=True)
 
 # --- 3. REFERENCE DATA ---
@@ -204,10 +201,6 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
         data.append({
             "Year": year,
-            "Gross Rent": current_rent,
-            "Expenses": current_expenses,
-            "NOI": noi,
-            "Debt Service": mortgage_yr,
             "Cash Flow": cashflow,
             "Loan Balance": loan_balance,
             "Total Equity": total_equity
@@ -309,10 +302,21 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     # Client Info
     pdf.set_x(10)
-    pdf.set_font('Helvetica', 'B', 10); pdf.set_text_color(100, 100, 100)
-    pdf.cell(15, 6, "Client:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
-    pdf.set_font('Helvetica', 'B', 10); pdf.cell(15, 6, "Unit:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(40, 6, unit, 0, 1, 'L'); pdf.ln(6)
-    pdf.set_font('Helvetica', 'B', 10); pdf.cell(17, 6, "Address:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L'); pdf.ln(8)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(15, 6, "Client:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(15, 6, "Unit:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(40, 6, unit, 0, 1, 'L')
+    pdf.ln(6)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(17, 6, "Address:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L')
+    pdf.ln(8)
 
     # KPI Grid
     y_start = pdf.get_y()
@@ -498,31 +502,6 @@ if not st.session_state.agreed:
             
     st.stop()
 
-# --- SIDEBAR (ONLY SHOWS AFTER AGREEMENT) ---
-with st.sidebar:
-    if os.path.exists("logo.png"):
-        st.image("logo.png") 
-    else:
-        st.title("YieldMap Pro")
-    
-    st.markdown("### 📁 My Portfolio")
-    if len(st.session_state.portfolio) > 0:
-        for i, deal in enumerate(st.session_state.portfolio):
-            with st.expander(f"🏠 {deal['Address'] or 'Untitled'}", expanded=False):
-                st.write(f"**CoC:** {deal['CoC']:.1f}% | **Flow:** ${deal['Cashflow']:,.0f}")
-                if st.button(f"Remove", key=f"del_{i}"):
-                    st.session_state.portfolio.pop(i)
-                    st.rerun()
-        if st.button("🗑️ Clear All Deals"):
-            st.session_state.portfolio = []
-            st.rerun()
-    else:
-        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
-
-    st.markdown("---")
-    st.markdown("### 🔧 Settings")
-
-# --- SCROLL TO TOP FIX (Runs after the page reloads) ---
 if st.session_state.get('scroll_to_top'):
     st.markdown("""
         <script>
@@ -532,8 +511,24 @@ if st.session_state.get('scroll_to_top'):
         """, unsafe_allow_html=True)
     st.session_state.scroll_to_top = False
 
+# --- HEADER SECTION (LOGO + SETTINGS) ---
+c_head1, c_head2 = st.columns([5, 1])
+with c_head1:
+    st.markdown("""
+        <div class="navbar">
+            <span>YieldMap Pro</span>
+            <span style="font-size: 14px; font-weight: 400; margin-left: auto; opacity: 0.8; font-family: monospace;">FY 2026 ENGINE</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+with c_head2:
+    with st.popover("⚙️ Settings"):
+        st.write("**Configuration**")
+        st.caption("Enter API Keys or Configs here.")
+        api_input = st.text_input("RentCast Key (Optional)", type="password")
+
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
-tab_anal, tab_compare, tab_iq = st.tabs(["📊 Pro Analyzer", "⚖️ Compare Deals", "📖 IQ Center"])
+tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
 
 # ==========================================
 # TAB 1: PRO ANALYZER (EXISTING LOGIC)
@@ -626,8 +621,10 @@ with tab_anal:
     with st.container(border=True):
         st.markdown("#### Acquisition Details")
         col_in1, col_in2 = st.columns(2)
-        with col_in1: price = st.number_input("Acquisition Price ($)", value=250000, help="The total purchase price of the property.")
-        with col_in2: rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
+        with col_in1: 
+            price = st.number_input("Acquisition Price ($)", value=250000, help="The total purchase price of the property.")
+        with col_in2: 
+            rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
         
         # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
@@ -697,6 +694,10 @@ with tab_anal:
     else:
         st.markdown("## YieldMap Asset Rating")
 
+    # SAFETY CHECK FOR PRO VAR
+    if 'pro_unlocked' not in st.session_state:
+        st.session_state.pro_unlocked = False
+    
     is_pro = st.session_state.pro_unlocked
     
     r1, r2, r3, r4 = st.columns(4)
@@ -737,8 +738,8 @@ with tab_anal:
                 equity_vals.append(equity)
             
             fig_eq = go.Figure()
-            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False, fixedrange=True), yaxis=dict(showgrid=False, fixedrange=True))
             fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy', mode='none', fillcolor='rgba(37, 99, 235, 0.5)'))
+            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False, fixedrange=True), yaxis=dict(showgrid=False, fixedrange=True))
             st.plotly_chart(fig_eq, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
         else:
             st.info("🔒 Equity Chart Locked")
@@ -795,19 +796,30 @@ with tab_anal:
     render_footer()
 
 # ==========================================
-# TAB 2: COMPARE DEALS (NEW PHASE 3)
+# TAB 2: PORTFOLIO (NEW LOCATION)
 # ==========================================
-with tab_compare:
-    st.header("⚖️ Portfolio Comparison")
+with tab_port:
+    st.header("⚖️ Portfolio Command Center")
     
     if len(st.session_state.portfolio) == 0:
         st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
-        # Create Comparison Dataframe
-        comp_df = pd.DataFrame(st.session_state.portfolio)
+        # 1. MANAGE DEALS SECTION
+        st.markdown("### 📋 Manage Deals")
+        for i, deal in enumerate(st.session_state.portfolio):
+            with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
+                c1, c2, c3 = st.columns([2,2,1])
+                c1.write(f"**Price:** ${deal['Price']:,.0f}")
+                c2.write(f"**CoC:** {deal['CoC']:.1f}%")
+                if c3.button("🗑️ Delete", key=f"port_del_{i}"):
+                    st.session_state.portfolio.pop(i)
+                    st.rerun()
         
-        # Display as a styled table
-        st.markdown("### Deal Comparison Matrix")
+        st.divider()
+        
+        # 2. COMPARISON MATRIX
+        st.markdown("### 📊 Comparison Matrix")
+        comp_df = pd.DataFrame(st.session_state.portfolio)
         
         # Highlight logic (Pandas Styler)
         def highlight_max(s):
@@ -824,8 +836,8 @@ with tab_compare:
             use_container_width=True
         )
         
-        # Visual Comparison Chart
-        st.markdown("### 📈 Visual Performance")
+        # 3. CHARTS
+        st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
