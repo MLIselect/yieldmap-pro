@@ -146,11 +146,9 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            
-            total_rental_inventory = vacant_for_rent + renter_occupied
-            if total_rental_inventory > 0:
-                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1)
+            total = vacant_for_rent + renter_occupied
+            if total > 0:
+                return round((vacant_for_rent / total) * 100, 1)
     except:
         pass 
 
@@ -181,7 +179,7 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         test_price += step
     return 0
 
-def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, growth_rate=0.02):
+def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
     # Generates 30-year wealth chart data
     data = []
     current_rent = rent * 12
@@ -207,7 +205,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             current_equity += principal_payment
         
         # 3. Appreciation
-        property_value = price * ((1.02)**year)
+        property_value = price * ((1 + appreciation/100)**year)
         total_equity = property_value - loan_balance
         
         data.append({
@@ -222,21 +220,27 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         })
         
         # Inflate for next year
-        current_rent *= (1 + growth_rate)
-        current_expenses *= (1 + growth_rate)
+        current_rent *= (1 + rent_growth/100)
+        current_expenses *= (1 + rent_growth/100)
         
     return pd.DataFrame(data)
 
 # --- 6. MULTI-PAGE PDF GENERATOR ---
 class ProPDF(FPDF):
     def header(self):
+        # 1. SAFE WATERMARK (Centered, Light Gray)
         self.set_font('Helvetica', 'B', 50)
         self.set_text_color(240, 240, 240) 
+        # Center horizontally (approx) and vertically
         self.set_xy(0, 110) 
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
-        self.set_fill_color(37, 99, 235)  
-        self.set_xy(0,0)
+        
+        # 2. Professional Brand Banner (Draws OVER the watermark)
+        self.set_fill_color(37, 99, 235)  # YieldMap Blue
+        self.set_xy(0,0) # Reset to top
         self.rect(0, 0, 210, 22, 'F')
+        
+        # 3. Logo Integration
         if os.path.exists("logo.png"):
             self.image("logo.png", 10, 4, 35) 
         else:
@@ -244,13 +248,18 @@ class ProPDF(FPDF):
             self.set_text_color(255, 255, 255)
             self.set_xy(10, 6)
             self.cell(40, 10, "YieldMap", 0, 0, 'L')
+
+        # 4. Report Title
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(255, 255, 255)
         self.set_xy(0, 6)
         self.cell(210, 10, "SECTION 8 ANALYSIS REPORT", 0, 0, 'C')
+        
+        # 5. Date
         self.set_font('Helvetica', '', 9)
         self.set_xy(160, 6)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
+        
         self.ln(18)
 
     def footer(self):
@@ -261,35 +270,40 @@ class ProPDF(FPDF):
 
     def chapter_title(self, title):
         self.set_font('Helvetica', 'B', 12)
-        self.set_text_color(37, 99, 235)
+        self.set_text_color(37, 99, 235) # Blue text
         self.cell(0, 10, title, 0, 1, 'L')
         self.set_draw_color(200, 200, 200)
-        self.line(10, self.get_y(), 200, self.get_y())
+        self.line(10, self.get_y(), 200, self.get_y()) # Underline
         self.ln(2)
 
     def kpi_card(self, title, value, x, y, w=45, h=25):
+        # Background Card
         self.set_xy(x, y)
-        self.set_fill_color(248, 250, 252)
-        self.set_draw_color(226, 232, 240)
+        self.set_fill_color(248, 250, 252) # Very light gray
+        self.set_draw_color(226, 232, 240) # Border color
         self.rect(x, y, w, h, 'DF')
+        
+        # Label
         self.set_xy(x, y+6)
         self.set_font('Helvetica', 'B', 9)
-        self.set_text_color(100, 116, 139) 
+        self.set_text_color(100, 116, 139) # Muted text
         self.cell(w, 5, title, 0, 1, 'C')
+        
+        # Value
         self.set_xy(x, y+13)
         self.set_font('Helvetica', 'B', 14)
-        self.set_text_color(37, 99, 235) 
+        self.set_text_color(37, 99, 235) # Brand Blue
         self.cell(w, 8, value, 0, 1, 'C')
 
     def add_table_row(self, label, value, fill=False):
         self.set_font('Helvetica', '', 10)
-        self.set_fill_color(240, 253, 244)
+        self.set_fill_color(240, 253, 244) # Green tint
         self.cell(140, 8, label, 1, 0, 'L', fill)
         self.cell(50, 8, value, 1, 1, 'R', fill)
 
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation):
     pdf = ProPDF()
-    pdf.alias_nb_pages() 
+    pdf.alias_nb_pages() # Enable total page count
     
     # --- PAGE 1: EXECUTIVE SUMMARY ---
     pdf.add_page()
@@ -301,10 +315,21 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     # Client Info
     pdf.set_x(10)
-    pdf.set_font('Helvetica', 'B', 10); pdf.set_text_color(100, 100, 100)
-    pdf.cell(15, 6, "Client:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
-    pdf.set_font('Helvetica', 'B', 10); pdf.cell(15, 6, "Unit:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(40, 6, unit, 0, 1, 'L'); pdf.ln(6)
-    pdf.set_font('Helvetica', 'B', 10); pdf.cell(17, 6, "Address:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L'); pdf.ln(8)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(15, 6, "Client:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(15, 6, "Unit:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(40, 6, unit, 0, 1, 'L')
+    pdf.ln(6)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(17, 6, "Address:", 0, 0, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L')
+    pdf.ln(8)
 
     # KPI Grid
     y_start = pdf.get_y()
@@ -343,7 +368,8 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_page()
     pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
     pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, "This projection assumes a conservative 2% annual rent increase and 2% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
+    # DYNAMIC TEXT
+    pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
     pdf.ln(5)
     
     # Table Header
@@ -362,6 +388,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     snapshot_years = [1, 2, 3, 5, 10, 20, 30]
     total_cf = 0
+    initial_cash = (price*(down_pct/100)) + (price*0.03) + repairs
     
     for index, r in projections_df.iterrows():
         yr = int(r['Year'])
@@ -373,7 +400,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             # Total Profit = Cumulative Cash Flow + Equity (minus initial investment)
-            initial_cash = (price*(down_pct/100)) + (price*0.03) + repairs
             total_profit = total_cf + r['Total Equity'] - initial_cash
             pdf.cell(40, 8, f"${total_profit:,.0f}", 1, 1, 'C')
 
@@ -383,7 +409,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT (CORRECTED COLORS & NO TOOLS) ---
+# --- 6. GAUGE COMPONENT ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
     fig = go.Figure(go.Indicator(
@@ -637,6 +663,9 @@ with tab_anal:
                 loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
                 # NEW: Section 8 Repairs
                 initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
+                # NEW: APPRECIATION & RENT GROWTH INPUTS
+                appreciation = st.number_input("Appreciation %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual property value increase.")
+                rent_growth = st.number_input("Rent Growth %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual rent increase.")
             with c2:
                 taxes_yr = st.number_input("Property Taxes ($/yr)", value=3000, disabled=not is_unlocked, help="Pro Only")
                 insurance_yr = st.number_input("Insurance ($/yr)", value=1200, disabled=not is_unlocked, help="Pro Only")
@@ -697,6 +726,8 @@ with tab_anal:
     if is_pro:
         mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, prop_mgmt_amount/12)
         st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
+    else:
+        st.info("🎯 **Max Allowable Offer (MAO):** 🔒 Unlock Pro to see the exact price you should pay to hit your target return.")
 
     st.divider()
     g1, g2 = st.columns(2)
@@ -719,7 +750,7 @@ with tab_anal:
                 paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
                 if paid_principal < 0: paid_principal = 0 # Interest only guard
                 current_bal -= paid_principal
-                equity = price - current_bal # Assuming 0% appreciation for conservatism
+                equity = price * ((1 + appreciation/100)**y) - current_bal
                 equity_vals.append(equity)
             
             fig_eq = go.Figure()
@@ -770,8 +801,8 @@ with tab_anal:
         if is_pro:
             # PDF BUTTON
             # GENERATE PROJECTIONS FOR PDF
-            proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years)
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df)
+            proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years, rent_growth, appreciation)
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df, rent_growth, appreciation)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
 
     with e3: 
