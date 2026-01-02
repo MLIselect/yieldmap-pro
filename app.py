@@ -21,11 +21,27 @@ st.set_page_config(
 # --- HIDE STREAMLIT BRANDING ---
 hide_st_style = """
     <style>
+    /* 1. Hide the standard Streamlit footer */
     footer {visibility: hidden;}
+    
+    /* 2. Hide the top header bar */
     header {visibility: hidden;}
+    
+    /* 3. Hide the hamburger menu */
     #MainMenu {visibility: hidden;}
-    button[title="View fullscreen"] {visibility: hidden; display: none;}
-    .stApp > header {display: none;}
+    
+    /* 4. Hide the "View Fullscreen" button (bottom right) */
+    button[title="View fullscreen"] {
+        visibility: hidden;
+        display: none;
+    }
+    
+    /* 5. Hide the "Built with Streamlit" (bottom left) in embed mode */
+    .stApp > header {
+        display: none;
+    }
+    
+    /* 6. Extra safety for any other viewer badges */
     [data-testid="stDecoration"] {display:none;}
     [data-testid="stToolbar"] {display:none;}
     </style>
@@ -357,7 +373,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT (FIXED: No Icons) ---
+# --- 6. GAUGE COMPONENT (CORRECTED COLORS & NO TOOLS) ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
     fig = go.Figure(go.Indicator(
