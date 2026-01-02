@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (SaaS Look) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (SaaS Look + Integrated Header) ---
 st.markdown("""
     <style>
     /* REMOVE DEFAULT PADDING */
@@ -31,24 +31,19 @@ st.markdown("""
     header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
     
-    /* CUSTOM NAV BAR CONTAINER */
-    .nav-container {
-        background-color: #1e3a8a; /* Deep Navy Blue */
-        padding: 1rem 2rem;
-        border-bottom: 4px solid #3b82f6; /* Lighter Blue Accent */
-        margin-bottom: 2rem;
-        border-radius: 0 0 8px 8px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-
-    /* NAV TEXT STYLING */
+    /* CUSTOM NAV BAR TEXT */
     .nav-title {
         font-family: 'Helvetica', sans-serif;
-        font-weight: 800; /* BOLDER */
-        font-size: 28px;  /* LARGER */
+        font-weight: 800;
+        font-size: 28px;
         color: white;
         margin-bottom: 0;
         line-height: 1.2;
+        background-color: #1e3a8a; /* Deep Navy Blue */
+        padding: 1rem 0 1rem 2rem; /* Left padding only, right side blends */
+        border-top-left-radius: 8px;
+        border-bottom-left-radius: 8px;
+        /* No border radius on right to merge with button area */
     }
     
     .nav-subtitle {
@@ -57,6 +52,27 @@ st.markdown("""
         color: #cbd5e1; /* Light Gray */
         font-family: monospace;
         margin-top: 0;
+        background-color: #1e3a8a;
+        padding-left: 2rem;
+        padding-bottom: 10px;
+    }
+
+    /* CUSTOMIZE THE SETTINGS BUTTON TO LOOK INTEGRATED */
+    div[data-testid="stPopover"] > button {
+        background-color: #1e3a8a; /* MATCH HEADER COLOR */
+        color: white;
+        border: none;
+        height: 80px; /* Match approximate header height */
+        width: 100%;
+        border-radius: 0 8px 8px 0; /* Rounded on right only */
+        font-size: 24px;
+        margin-top: 0px;
+    }
+    
+    div[data-testid="stPopover"] > button:hover {
+        background-color: #3b82f6; /* Lighter blue highlight */
+        color: white;
+        border: none;
     }
     
     /* METRIC CARDS */
@@ -219,7 +235,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
         
-        # 3. Appreciation
+        # 3. Appreciation (Uses User Input)
         property_value = price * ((1 + appreciation/100)**year)
         total_equity = property_value - loan_balance
         
@@ -230,7 +246,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             "Total Equity": total_equity
         })
         
-        # Inflate for next year
+        # Inflate for next year (Uses User Input)
         current_rent *= (1 + rent_growth/100)
         current_expenses *= (1 + rent_growth/100)
         
@@ -241,7 +257,7 @@ class ProPDF(FPDF):
     def header(self):
         # 1. SAFE WATERMARK (Centered, Light Gray)
         self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240) 
+        self.set_text_color(240, 240, 240) # Very light gray
         # Center horizontally (approx) and vertically
         self.set_xy(0, 110) 
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
@@ -536,38 +552,33 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (LOGO + SETTINGS) ---
-with st.container():
-    c_head1, c_head2 = st.columns([6, 1])
-    
-    with c_head1:
-        # Determine what to show: Logo Image or Text Title
-        if os.path.exists("logo.png"):
-            # If logo exists, show it with the title
-            st.markdown(f"""
-            <div style="background-color:#1e3a8a; padding:15px; border-radius:8px; display:flex; align-items:center; gap:15px;">
-                <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="50">
-                <div>
-                    <div class="nav-title">YieldMap Pro</div>
-                    <div class="nav-subtitle">Section 8 Market Intelligence</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback to Text Title if no logo
-            st.markdown("""
-            <div style="background-color:#1e3a8a; padding:15px; border-radius:8px;">
-                <div class="nav-title">YieldMap Pro</div>
-                <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-            </div>
-            """, unsafe_allow_html=True)
+c_head1, c_head2 = st.columns([6, 1])
 
-    with c_head2:
-        # SETTINGS POPOVER (The Gear Icon)
-        with st.popover("⚙️", help="Settings & API Configuration"):
-            st.markdown("### 🔧 Configuration")
-            st.caption("Enter API Keys or Configs here.")
-            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
-            st.info("Additional settings will appear here in future updates.")
+with c_head1:
+    # Determine what to show: Logo Image or Text Title
+    if os.path.exists("logo.png"):
+        # If logo exists, show it with the title inside a blue block
+        st.markdown(f"""
+        <div class="nav-title" style="display: flex; align-items: center; gap: 15px;">
+            <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="40">
+            YieldMap Pro
+        </div>
+        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback to Text Title if no logo
+        st.markdown("""
+        <div class="nav-title">YieldMap Pro</div>
+        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+        """, unsafe_allow_html=True)
+
+with c_head2:
+    # SETTINGS POPOVER (The Gear Icon) - Styled via CSS to look integrated
+    with st.popover("⚙️", help="Settings & API Configuration"):
+        st.markdown("### 🔧 Configuration")
+        st.caption("Enter API Keys or Configs here.")
+        api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+        st.info("Additional settings will appear here in future updates.")
 
 st.markdown("<br>", unsafe_allow_html=True) # Spacing
 
@@ -672,12 +683,7 @@ with tab_anal:
         
         # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
-        
-        # SAFETY CHECK FOR PRO VAR
-        if 'pro_unlocked' not in st.session_state:
-            st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
-        
         start_val = api_vacancy if api_vacancy is not None else 5.0
         
         with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
