@@ -1,39 +1,70 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import folium # <--- STANDARD MAP ENGINE
-from streamlit_folium import st_folium # <--- DISPLAY ENGINE
+import folium 
+from streamlit_folium import st_folium 
 from fpdf import FPDF
 import os
 import base64
 from datetime import datetime
 import requests
 import math 
-# We import pgeocode inside the function to prevent app crashes if it's missing
 
 # --- 1. PRO CONFIGURATION ---
 st.set_page_config(
-    page_title="YieldMap Pro | Deal Analyzer",
+    page_title="YieldMap Pro | Section 8 Intelligence",
     page_icon="favicon.ico",
     layout="wide",
     initial_sidebar_state="expanded" 
 )
 
-# --- HIDE STREAMLIT BRANDING ---
-hide_st_style = """
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (SaaS Look) ---
+st.markdown("""
     <style>
-    footer {visibility: hidden;}
+    /* REMOVE DEFAULT PADDING */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 5rem;
+    }
+    
+    /* HIDE DEFAULT STREAMLIT HEADER */
     header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    button[title="View fullscreen"] {visibility: hidden; display: none;}
-    .stApp > header {display: none;}
-    [data-testid="stDecoration"] {display:none;}
-    [data-testid="stToolbar"] {display:none;}
+    
+    /* CUSTOM NAV BAR */
+    .navbar {
+        background-color: #1e3a8a; /* Deep Navy Blue */
+        padding: 1rem 2rem;
+        color: white;
+        font-family: 'Helvetica', sans-serif;
+        font-weight: 700;
+        font-size: 24px;
+        border-bottom: 4px solid #3b82f6; /* Lighter Blue Accent */
+        margin-bottom: 2rem;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+    }
+    
+    /* METRIC CARDS */
+    [data-testid="stMetricValue"] {
+        font-size: 28px !important;
+        color: #1e3a8a !important;
+    }
+    
+    /* INPUT CONTAINERS (Cards) */
+    .stExpander, .element-container {
+        border-radius: 8px;
+    }
     </style>
-    """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+    
+    <div class="navbar">
+        <span>YieldMap Pro</span>
+        <span style="font-size: 14px; font-weight: 400; margin-left: auto; opacity: 0.8; font-family: monospace;">FY 2026 ENGINE</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- 2. REFERENCE DATA (STATE NAMES) ---
+# --- 3. REFERENCE DATA ---
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
     "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
@@ -49,7 +80,7 @@ STATE_MAP = {
     "DC": "District of Columbia"
 }
 
-# --- 3. DATA UTILITIES (FY 2026 ENGINE) ---
+# --- 4. DATA UTILITIES ---
 @st.cache_data
 def load_data():
     try:
@@ -97,13 +128,6 @@ def load_data():
 
 @st.cache_data(ttl=86400)
 def get_vacancy_rate(zip_code):
-    """
-    Advanced 'Deep Search' for Vacancy Data.
-    Strategy 1: Ask Census for pre-calculated rate (DP04_0005PE).
-    Strategy 2: If suppressed, ask for raw counts and calculate manually.
-    Strategy 3: Default to 5.0%.
-    """
-    # 1. Try Standard Rate (DP04)
     try:
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_rate, timeout=3)
@@ -111,13 +135,10 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1 and data[1][0]:
             rate = float(data[1][0])
             if rate >= 0:
-                return rate # Success!
+                return rate 
     except:
-        pass # Move to Strategy 2
+        pass 
 
-    # 2. Try Manual Calculation (Raw Counts)
-    # B25004_002E = Vacant for Rent
-    # B25003_003E = Renter Occupied
     try:
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_raw, timeout=3)
@@ -129,14 +150,13 @@ def get_vacancy_rate(zip_code):
             total_rental_inventory = vacant_for_rent + renter_occupied
             if total_rental_inventory > 0:
                 calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1) # Success!
+                return round(calculated_rate, 1)
     except:
-        pass # Move to Strategy 3
+        pass 
 
-    # 3. Safety Default
     return 5.0
 
-# --- 4. FINANCIAL MATH ENGINE ---
+# --- 5. MATH ENGINES ---
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct/100))
     if loan_amount <= 0: return 0
@@ -145,12 +165,11 @@ def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     if monthly_rate == 0: return loan_amount / num_payments
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
-# NEW: Max Offer Calculator (DealCheck Feature)
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
-    # Iterate to find price that meets CoC target
+    # Reverse calculates price based on target return
     test_price = 50000
     step = 1000
-    for _ in range(1000): # Check up to high values
+    for _ in range(1000): 
         loan = test_price * (1 - down_pct/100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
         cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
@@ -158,13 +177,12 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
         
         if coc < target_coc:
-            return test_price - step # Found limit
+            return test_price - step 
         test_price += step
     return 0
 
-# NEW: Projections Engine (Page 2 Data)
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, growth_rate=0.02):
-    # Generates a 30-year outlook
+    # Generates 30-year wealth chart data
     data = []
     current_rent = rent * 12
     current_expenses = total_expenses_yr
@@ -181,7 +199,6 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         cashflow = noi - mortgage_yr
         
         # 2. Equity (Amortization)
-        # Simple approx for annual principal paydown
         if loan_balance > 0:
             interest_payment = loan_balance * (interest_rate/100)
             principal_payment = mortgage_yr - interest_payment
@@ -189,7 +206,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             loan_balance -= principal_payment
             current_equity += principal_payment
         
-        # 3. Appreciation (Conservative 2%)
+        # 3. Appreciation
         property_value = price * ((1.02)**year)
         total_equity = property_value - loan_balance
         
@@ -210,22 +227,16 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
     return pd.DataFrame(data)
 
-# --- 5. SAAS-GRADE PRO PDF GENERATOR ---
+# --- 6. MULTI-PAGE PDF GENERATOR ---
 class ProPDF(FPDF):
     def header(self):
-        # 1. SAFE WATERMARK (Centered, Light Gray)
         self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240) # Very light gray
-        # Center horizontally (approx) and vertically
+        self.set_text_color(240, 240, 240) 
         self.set_xy(0, 110) 
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
-        
-        # 2. Professional Brand Banner (Draws OVER the watermark)
-        self.set_fill_color(37, 99, 235)  # YieldMap Blue
-        self.set_xy(0,0) # Reset to top
+        self.set_fill_color(37, 99, 235)  
+        self.set_xy(0,0)
         self.rect(0, 0, 210, 22, 'F')
-        
-        # 3. Logo Integration
         if os.path.exists("logo.png"):
             self.image("logo.png", 10, 4, 35) 
         else:
@@ -233,62 +244,52 @@ class ProPDF(FPDF):
             self.set_text_color(255, 255, 255)
             self.set_xy(10, 6)
             self.cell(40, 10, "YieldMap", 0, 0, 'L')
-
-        # 4. Report Title
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(255, 255, 255)
         self.set_xy(0, 6)
         self.cell(210, 10, "SECTION 8 ANALYSIS REPORT", 0, 0, 'C')
-        
-        # 5. Date
         self.set_font('Helvetica', '', 9)
         self.set_xy(160, 6)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
-        
         self.ln(18)
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'YieldMap Pro | Powered by HUD.gov & US Census | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+        self.cell(0, 10, f'YieldMap Pro | Powered by HUD.gov | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
 
     def chapter_title(self, title):
         self.set_font('Helvetica', 'B', 12)
-        self.set_text_color(37, 99, 235) # Blue text
+        self.set_text_color(37, 99, 235)
         self.cell(0, 10, title, 0, 1, 'L')
         self.set_draw_color(200, 200, 200)
-        self.line(10, self.get_y(), 200, self.get_y()) # Underline
+        self.line(10, self.get_y(), 200, self.get_y())
         self.ln(2)
 
     def kpi_card(self, title, value, x, y, w=45, h=25):
-        # Background Card
         self.set_xy(x, y)
-        self.set_fill_color(248, 250, 252) # Very light gray
-        self.set_draw_color(226, 232, 240) # Border color
+        self.set_fill_color(248, 250, 252)
+        self.set_draw_color(226, 232, 240)
         self.rect(x, y, w, h, 'DF')
-        
-        # Label
         self.set_xy(x, y+6)
         self.set_font('Helvetica', 'B', 9)
-        self.set_text_color(100, 116, 139) # Muted text
+        self.set_text_color(100, 116, 139) 
         self.cell(w, 5, title, 0, 1, 'C')
-        
-        # Value
         self.set_xy(x, y+13)
         self.set_font('Helvetica', 'B', 14)
-        self.set_text_color(37, 99, 235) # Brand Blue
+        self.set_text_color(37, 99, 235) 
         self.cell(w, 8, value, 0, 1, 'C')
 
     def add_table_row(self, label, value, fill=False):
         self.set_font('Helvetica', '', 10)
-        self.set_fill_color(240, 253, 244) # Green tint
+        self.set_fill_color(240, 253, 244)
         self.cell(140, 8, label, 1, 0, 'L', fill)
         self.cell(50, 8, value, 1, 1, 'R', fill)
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df):
     pdf = ProPDF()
-    pdf.alias_nb_pages() # Enable total page count
+    pdf.alias_nb_pages() 
     
     # --- PAGE 1: EXECUTIVE SUMMARY ---
     pdf.add_page()
@@ -507,7 +508,7 @@ with st.sidebar:
             st.session_state.portfolio = []
             st.rerun()
     else:
-        st.info("No deals saved yet.")
+        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
 
     st.markdown("---")
     st.markdown("### 🔧 Settings")
@@ -522,19 +523,6 @@ if st.session_state.get('scroll_to_top'):
         """, unsafe_allow_html=True)
     st.session_state.scroll_to_top = False
 
-# STYLING
-st.markdown("""
-    <style>
-    .main { background-color: #ffffff; }
-    .hero { background: linear-gradient(135deg, #2563eb, #10b981); padding: 2.5rem; border-radius: 15px; color: white; text-align: center; margin-bottom: 2rem; }
-    .hero-card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 2rem; }
-    .chart-label { text-align: center; font-weight: bold; color: #1e293b; margin-top: 10px; font-size: 1.1rem; }
-    .rating-title { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-    .rating-text { font-size: 1.8rem; font-weight: bold; color: #1e293b; margin: 0; }
-    .badge { padding: 4px 12px; border-radius: 20px; font-weight: bold; margin-right: 5px; background: #f1f5f9; color: #1e293b; }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_compare, tab_iq = st.tabs(["📊 Pro Analyzer", "⚖️ Compare Deals", "📖 IQ Center"])
 
@@ -542,32 +530,27 @@ tab_anal, tab_compare, tab_iq = st.tabs(["📊 Pro Analyzer", "⚖️ Compare De
 # TAB 1: PRO ANALYZER (EXISTING LOGIC)
 # ==========================================
 with tab_anal:
-    if os.path.exists("logo.png"):
-        st.markdown(f'<div style="text-align:center; margin-bottom:20px;"><img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" width="400"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero"><h1>YieldMap Pro</h1><p>Market Intelligence • FY 2026</p></div>', unsafe_allow_html=True)
-
-    # --- DRILL-DOWN SELECTORS ---
-    st.markdown('<div class="hero-card">', unsafe_allow_html=True)
-    
-    # NEW: Property Address Input (Web UI)
-    c_client, c_addr = st.columns(2)
-    with c_client:
-        client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
-    with c_addr:
-        prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
-    
-    col_input1, col_input2, col_input3 = st.columns(3)
-    
-    with col_input1:
-        state_list = sorted([s for s in df['state'].unique() if s != 'Other'])
-        selected_state = st.selectbox("1. Select State", state_list, help="Filter markets by US State.")
-    
-    with col_input2:
-        zip_list = sorted(df[df['state'] == selected_state]['zip_code'].unique())
-        selected_zip = st.selectbox("2. Select ZIP Code", zip_list, help="Select the exact ZIP code from Zillow/Redfin.")
+    # --- DRILL-DOWN SELECTORS (CARD STYLE) ---
+    with st.container(border=True):
+        st.markdown("#### 1. Property Details")
+        c_client, c_addr = st.columns(2)
+        with c_client:
+            client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
+        with c_addr:
+            prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
         
-    with col_input3:
-        beds = st.selectbox("3. Unit Asset Class", ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"], index=2, help="Select bedroom count.")
+        col_input1, col_input2, col_input3 = st.columns(3)
+        
+        with col_input1:
+            state_list = sorted([s for s in df['state'].unique() if s != 'Other'])
+            selected_state = st.selectbox("1. Select State", state_list, help="Filter markets by US State.")
+        
+        with col_input2:
+            zip_list = sorted(df[df['state'] == selected_state]['zip_code'].unique())
+            selected_zip = st.selectbox("2. Select ZIP Code", zip_list, help="Select the exact ZIP code from Zillow/Redfin.")
+            
+        with col_input3:
+            beds = st.selectbox("3. Unit Asset Class", ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"], index=2, help="Select bedroom count.")
 
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
@@ -610,57 +593,58 @@ with tab_anal:
     except Exception as e:
         st.caption(f"Map unavailable: {e}")
 
-    # UNDERWRITING
+    # UNDERWRITING (CARD STYLE)
     st.markdown("---")
-    st.markdown(f"#### ⚡ Pro Underwriting: {market_area_name} (ZIP {selected_zip})")
     limit = row[beds]
     
-    col_u_inputs, col_u_info = st.columns([2, 1])
-    with col_u_inputs:
-        col_p1, col_p2, col_p3 = st.columns(3)
-        if 'ua_value' not in st.session_state: st.session_state.ua_value = 150
-        if col_p1.button("Low ($120)"): st.session_state.ua_value = 120
-        if col_p2.button("Mid ($180)"): st.session_state.ua_value = 180
-        if col_p3.button("High ($250)"): st.session_state.ua_value = 250
-        
-        ua_input = st.slider("Utility Allowance Deduction", 0, 400, value=st.session_state.ua_value, help="The amount you must deduct from the rent if the tenant pays their own utilities.")
-        st.caption("⚠️ **Verification Required:** Consult local PHA.")
-    
-    target_rent = limit - ua_input
-    with col_u_info:
-        st.info(f"**HUD FY 2026 Limit:** ${limit:,.0f} \n\n**Net Contract Rent:** ${target_rent:,.0f}")
-    
-    col_in1, col_in2 = st.columns(2)
-    with col_in1: price = st.number_input("Acquisition Price ($)", value=250000, help="The total purchase price of the property.")
-    with col_in2: rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
-    
-    # --- ADVANCED CONFIGURATION ---
-    api_vacancy = get_vacancy_rate(selected_zip)
-    is_unlocked = st.session_state.pro_unlocked
-    start_val = api_vacancy if api_vacancy is not None else 5.0
-    
-    with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
-        if not is_unlocked:
-            st.caption("🔒 **These inputs are locked. Upgrade to Pro to customize assumptions.**")
+    with st.container(border=True):
+        st.markdown(f"#### ⚡ Pro Underwriting: {market_area_name} (ZIP {selected_zip})")
+        col_u_inputs, col_u_info = st.columns([2, 1])
+        with col_u_inputs:
+            col_p1, col_p2, col_p3 = st.columns(3)
+            if 'ua_value' not in st.session_state: st.session_state.ua_value = 150
+            if col_p1.button("Low ($120)"): st.session_state.ua_value = 120
+            if col_p2.button("Mid ($180)"): st.session_state.ua_value = 180
+            if col_p3.button("High ($250)"): st.session_state.ua_value = 250
             
-        c1, c2 = st.columns(2)
-        with c1:
-            user_vacancy = st.number_input("Vacancy Rate (%)", value=start_val, step=0.1, disabled=not is_unlocked, help="Adjust estimated vacancy rate (Pro Only).")
-            down_payment = st.number_input("Down Payment (%)", value=20.0, step=5.0, disabled=not is_unlocked, help="Pro Only")
-            interest_rate = st.number_input("Interest Rate (%)", value=7.0, step=0.1, disabled=not is_unlocked, help="Pro Only")
-            loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
-            # NEW: Section 8 Repairs
-            initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
-        with c2:
-            taxes_yr = st.number_input("Property Taxes ($/yr)", value=3000, disabled=not is_unlocked, help="Pro Only")
-            insurance_yr = st.number_input("Insurance ($/yr)", value=1200, disabled=not is_unlocked, help="Pro Only")
-            maint_capex = st.slider("Maint/CapEx (%)", 0, 20, 10, disabled=not is_unlocked, help="Pro Only")
-            prop_mgmt_pct = st.number_input("Property Mgmt (%)", value=8.0, step=1.0, disabled=not is_unlocked, help="Standard fee is 8-10%. Set to 0 if self-managed.")
-            closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
-            # NEW: Target CoC
-            target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
+            ua_input = st.slider("Utility Allowance Deduction", 0, 400, value=st.session_state.ua_value, help="The amount you must deduct from the rent if the tenant pays their own utilities.")
+            st.caption("⚠️ **Verification Required:** Consult local PHA.")
+        
+        target_rent = limit - ua_input
+        with col_u_info:
+            st.info(f"**HUD FY 2026 Limit:** ${limit:,.0f} \n\n**Net Contract Rent:** ${target_rent:,.0f}")
+    
+    with st.container(border=True):
+        st.markdown("#### Acquisition Details")
+        col_in1, col_in2 = st.columns(2)
+        with col_in1: price = st.number_input("Acquisition Price ($)", value=250000, help="The total purchase price of the property.")
+        with col_in2: rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
+        
+        # --- ADVANCED CONFIGURATION ---
+        api_vacancy = get_vacancy_rate(selected_zip)
+        is_unlocked = st.session_state.pro_unlocked
+        start_val = api_vacancy if api_vacancy is not None else 5.0
+        
+        with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
+            if not is_unlocked:
+                st.caption("🔒 **These inputs are locked. Upgrade to Pro to customize assumptions.**")
+                
+            c1, c2 = st.columns(2)
+            with c1:
+                user_vacancy = st.number_input("Vacancy Rate (%)", value=start_val, step=0.1, disabled=not is_unlocked, help="Adjust estimated vacancy rate (Pro Only).")
+                down_payment = st.number_input("Down Payment (%)", value=20.0, step=5.0, disabled=not is_unlocked, help="Pro Only")
+                interest_rate = st.number_input("Interest Rate (%)", value=7.0, step=0.1, disabled=not is_unlocked, help="Pro Only")
+                loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
+                # NEW: Section 8 Repairs
+                initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
+            with c2:
+                taxes_yr = st.number_input("Property Taxes ($/yr)", value=3000, disabled=not is_unlocked, help="Pro Only")
+                insurance_yr = st.number_input("Insurance ($/yr)", value=1200, disabled=not is_unlocked, help="Pro Only")
+                maint_capex = st.slider("Maint/CapEx (%)", 0, 20, 10, disabled=not is_unlocked, help="Pro Only")
+                prop_mgmt_pct = st.number_input("Property Mgmt (%)", value=8.0, step=1.0, disabled=not is_unlocked, help="Standard fee is 8-10%. Set to 0 if self-managed.")
+                closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
+                # NEW: Target CoC
+                target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
 
     # --- CALCULATIONS ---
     gross_annual_rent = rent_in * 12
@@ -707,7 +691,7 @@ with tab_anal:
     r1.metric("Deal Grade", f"Grade {d_grade}" if is_pro else "🔒 Pro", help="Based on Cash-on-Cash Return.")
     r2.metric("Cash-on-Cash", f"{coc_return:.1f}%" if is_pro else "🔒 Pro", help="Net Profit / Cash Invested.")
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
-    r4.metric("Vacancy Rate", f"{user_vacancy:.1f}%" if is_pro else "🔒 Pro", help="Vacancy rate used for calculation.")
+    r4.metric("Total Cash Needed", f"${initial_investment:,.0f}" if is_pro else "🔒 Pro", help="Includes Down Pmt + Closing + HQS Repairs")
 
     # --- NEW: MAX OFFER CALCULATOR ---
     if is_pro:
