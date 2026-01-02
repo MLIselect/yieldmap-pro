@@ -162,6 +162,54 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         test_price += step
     return 0
 
+# NEW: Projections Engine (Page 2 Data)
+def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, growth_rate=0.02):
+    # Generates a 30-year outlook
+    data = []
+    current_rent = rent * 12
+    current_expenses = total_expenses_yr
+    loan_balance = price * (1 - down_pct/100)
+    current_equity = price * (down_pct/100)
+    
+    # Amortization variables
+    monthly_rate = (interest_rate/100)/12
+    total_payments = term_years * 12
+    
+    for year in range(1, 31):
+        # 1. Cash Flow
+        noi = current_rent - current_expenses
+        cashflow = noi - mortgage_yr
+        
+        # 2. Equity (Amortization)
+        # Simple approx for annual principal paydown
+        if loan_balance > 0:
+            interest_payment = loan_balance * (interest_rate/100)
+            principal_payment = mortgage_yr - interest_payment
+            if principal_payment > loan_balance: principal_payment = loan_balance
+            loan_balance -= principal_payment
+            current_equity += principal_payment
+        
+        # 3. Appreciation (Conservative 2%)
+        property_value = price * ((1.02)**year)
+        total_equity = property_value - loan_balance
+        
+        data.append({
+            "Year": year,
+            "Gross Rent": current_rent,
+            "Expenses": current_expenses,
+            "NOI": noi,
+            "Debt Service": mortgage_yr,
+            "Cash Flow": cashflow,
+            "Loan Balance": loan_balance,
+            "Total Equity": total_equity
+        })
+        
+        # Inflate for next year
+        current_rent *= (1 + growth_rate)
+        current_expenses *= (1 + growth_rate)
+        
+    return pd.DataFrame(data)
+
 # --- 5. SAAS-GRADE PRO PDF GENERATOR ---
 class ProPDF(FPDF):
     def header(self):
@@ -190,7 +238,7 @@ class ProPDF(FPDF):
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(255, 255, 255)
         self.set_xy(0, 6)
-        self.cell(210, 10, "INVESTMENT ANALYSIS REPORT", 0, 0, 'C')
+        self.cell(210, 10, "SECTION 8 ANALYSIS REPORT", 0, 0, 'C')
         
         # 5. Date
         self.set_font('Helvetica', '', 9)
@@ -232,42 +280,32 @@ class ProPDF(FPDF):
         self.set_text_color(37, 99, 235) # Brand Blue
         self.cell(w, 8, value, 0, 1, 'C')
 
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs):
+    def add_table_row(self, label, value, fill=False):
+        self.set_font('Helvetica', '', 10)
+        self.set_fill_color(240, 253, 244) # Green tint
+        self.cell(140, 8, label, 1, 0, 'L', fill)
+        self.cell(50, 8, value, 1, 1, 'R', fill)
+
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df):
     pdf = ProPDF()
     pdf.alias_nb_pages() # Enable total page count
-    pdf.add_page()
     
-    # --- EXECUTIVE SUMMARY ---
+    # --- PAGE 1: EXECUTIVE SUMMARY ---
+    pdf.add_page()
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 41, 59)
     area_name = row.get('area_name', 'Unknown')
     pdf.multi_cell(0, 8, f"Property Analysis: {area_name}")
     pdf.ln(2)
     
-    # --- CLIENT & PROPERTY INFO ---
-    pdf.set_x(10) # Force Left Align
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(100, 100, 100)
-    
-    # Line 1: Client & Unit
-    pdf.cell(15, 6, "Client:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
-    
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(15, 6, "Unit:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(40, 6, unit, 0, 1, 'L')
-    pdf.ln(6)
+    # Client Info
+    pdf.set_x(10)
+    pdf.set_font('Helvetica', 'B', 10); pdf.set_text_color(100, 100, 100)
+    pdf.cell(15, 6, "Client:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
+    pdf.set_font('Helvetica', 'B', 10); pdf.cell(15, 6, "Unit:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(40, 6, unit, 0, 1, 'L'); pdf.ln(6)
+    pdf.set_font('Helvetica', 'B', 10); pdf.cell(17, 6, "Address:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L'); pdf.ln(8)
 
-    # Line 2: Address
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(17, 6, "Address:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L')
-    pdf.ln(8)
-
-    # --- KPI GRID ---
+    # KPI Grid
     y_start = pdf.get_y()
     pdf.kpi_card("Deal Grade", f"{d_grade}", 10, y_start)
     pdf.kpi_card("Cash-on-Cash", f"{coc_return:.2f}%", 60, y_start)
@@ -281,97 +319,66 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(0, 5, "*Deal Grade Logic: A+ (>12% CoC), B (8-12%), C (<8%). Based on conservative vacancy reserves.", 0, 1, 'L')
     pdf.ln(4)
 
-    # --- ACQUISITION DETAILS TABLE ---
-    pdf.chapter_title("Acquisition & Assumptions")
-    pdf.set_font('Helvetica', '', 10)
-    pdf.set_text_color(50, 50, 50)
-    col_w = 47; h = 8
+    # Analysis Breakdown
+    pdf.chapter_title("Financial Breakdown (Year 1)")
+    pdf.add_table_row("Purchase Price", f"${price:,.0f}")
+    pdf.add_table_row("HQS / Initial Repairs", f"${repairs:,.0f}")
+    pdf.add_table_row("Total Cash Needed (Inc. Closing)", f"${(price*(down_pct/100)) + (price*0.03) + repairs:,.0f}", True)
+    pdf.add_table_row("Loan Amount", f"${price*(1-down_pct/100):,.0f}")
+    pdf.add_table_row("Monthly P&I Payment", f"${loan_pmt:,.2f}")
+    pdf.ln(5)
     
-    # Row 1
-    pdf.cell(col_w, h, "Purchase Price", 1); pdf.cell(col_w, h, f"${price:,.0f}", 1)
-    pdf.cell(col_w, h, "Down Payment", 1); pdf.cell(col_w, h, f"{down_pct:.1f}% (${price*(down_pct/100):,.0f})", 1)
-    pdf.ln()
-    # Row 2
-    pdf.cell(col_w, h, "Loan Amount", 1); pdf.cell(col_w, h, f"${price*(1-down_pct/100):,.0f}", 1)
-    pdf.cell(col_w, h, "Interest Rate", 1); pdf.cell(col_w, h, f"{int_rate:.2f}% ({term_years}yr)", 1)
-    pdf.ln()
-    # Row 3
-    pdf.cell(col_w, h, "HUD FY26 Limit", 1); pdf.cell(col_w, h, f"${hud_limit:,.0f}", 1)
-    pdf.cell(col_w, h, "Utility Allowance", 1); pdf.cell(col_w, h, f"${ua_val:,.0f}", 1)
-    pdf.ln()
-    # Row 4 (UPDATED FOR REPAIRS)
-    pdf.cell(col_w, h, "Total Cash Needed", 1); pdf.cell(col_w, h, f"${(price*(down_pct/100)) + (price*0.03) + repairs:,.0f}", 1) 
-    pdf.cell(col_w, h, "Initial HQS Repairs", 1); pdf.cell(col_w, h, f"${repairs:,.0f}", 1)
-    pdf.ln(10)
+    pdf.chapter_title("Section 8 Rent & Expenses")
+    pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
+    pdf.add_table_row("Vacancy Loss", f"(${rent * (v_rate/100):,.2f})")
+    pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate/100):,.2f}", True)
+    pdf.add_table_row("Property Taxes", f"(${taxes/12:,.2f})")
+    pdf.add_table_row("Insurance", f"(${ins/12:,.2f})")
+    pdf.add_table_row("Maintenance & CapEx", f"(${maint_cost:,.2f})")
+    pdf.add_table_row("Property Management", f"(${rent * (pm_pct/100):,.2f})")
+    pdf.add_table_row("Net Operating Income (NOI)", f"${(rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100)):,.2f}", True)
 
-    # --- MONTHLY CASH FLOW STATEMENT ---
-    pdf.chapter_title("Pro Forma Monthly Cash Flow")
+    # --- PAGE 2: WEALTH ACCUMULATION ---
+    pdf.add_page()
+    pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
+    pdf.set_font('Helvetica', '', 9)
+    pdf.multi_cell(0, 5, "This projection assumes a conservative 2% annual rent increase and 2% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
+    pdf.ln(5)
     
-    # Header Row
-    pdf.set_fill_color(226, 232, 240)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(140, 8, "Item", 1, 0, 'L', True)
-    pdf.cell(50, 8, "Amount", 1, 1, 'R', True)
+    # Table Header
+    pdf.set_fill_color(37, 99, 235) # Blue
+    pdf.set_text_color(255, 255, 255) # White
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.cell(20, 8, "Year", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Annual Cash Flow", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Total Equity", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Total Profit", 1, 1, 'C', True)
     
-    # Income Section
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(140, 8, "Net Contract Rent (Gross Income)", 1)
-    pdf.cell(50, 8, f"${rent:,.2f}", 1, 1, 'R')
+    # Table Rows
+    pdf.set_text_color(50, 50, 50)
+    pdf.set_font('Helvetica', '', 9)
     
-    pdf.cell(140, 8, f"Less: Vacancy Loss ({v_rate:.1f}%)", 1)
-    pdf.set_text_color(220, 38, 38) # Red for deduction
-    pdf.cell(50, 8, f"(${rent * (v_rate/100):,.2f})", 1, 1, 'R')
-    pdf.set_text_color(50, 50, 50) # Reset
+    snapshot_years = [1, 2, 3, 5, 10, 20, 30]
+    total_cf = 0
     
-    # Effective Gross
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_fill_color(240, 253, 244) # Green tint
-    pdf.cell(140, 8, "Effective Gross Income", 1, 0, 'L', True)
-    pdf.cell(50, 8, f"${rent * (1 - v_rate/100):,.2f}", 1, 1, 'R', True)
-    pdf.set_font('Helvetica', '', 10)
-    
-    # Expenses Breakdown
-    expenses = [
-        ("Property Taxes", taxes/12),
-        ("Insurance", ins/12),
-        (f"Maintenance & CapEx ({maint_pct}%)", maint_cost),
-        (f"Property Management ({pm_pct}%)", rent * (pm_pct/100)),
-        ("Debt Service (Principal & Interest)", loan_pmt)
-    ]
-    
-    total_exp = 0
-    for label, amount in expenses:
-        pdf.cell(140, 8, label, 1)
-        pdf.cell(50, 8, f"(${amount:,.2f})", 1, 1, 'R')
-        total_exp += amount
+    for index, r in projections_df.iterrows():
+        yr = int(r['Year'])
+        total_cf += r['Cash Flow'] # Cumulative CF
         
-    # Net Cash Flow
-    pdf.ln(2)
-    pdf.set_fill_color(37, 99, 235) # Brand Blue
-    pdf.set_text_color(255, 255, 255) # White Text
-    pdf.set_font('Helvetica', 'B', 12)
-    
-    final_cashflow = (rent * (1 - v_rate/100)) - total_exp
-    pdf.cell(140, 12, "NET MONTHLY CASH FLOW", 1, 0, 'L', True)
-    pdf.cell(50, 12, f"${final_cashflow:,.2f}", 1, 1, 'R', True)
-    
-    # Reset formatting
-    pdf.set_text_color(50, 50, 50)
-    pdf.ln(15)
+        if yr in snapshot_years:
+            pdf.cell(20, 8, f"Year {yr}", 1, 0, 'C')
+            pdf.cell(40, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
+            pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
+            pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
+            # Total Profit = Cumulative Cash Flow + Equity (minus initial investment)
+            initial_cash = (price*(down_pct/100)) + (price*0.03) + repairs
+            total_profit = total_cf + r['Total Equity'] - initial_cash
+            pdf.cell(40, 8, f"${total_profit:,.0f}", 1, 1, 'C')
 
-    # --- DISCLAIMER ---
-    if pdf.get_y() > 240: 
-        pdf.add_page()
-    
-    pdf.set_font('Helvetica', 'B', 8)
-    pdf.cell(0, 5, "LEGAL DISCLAIMER & LIMITATION OF LIABILITY", 0, 1, 'L')
-    pdf.set_font('Helvetica', '', 7)
-    pdf.multi_cell(0, 4, 
-        "1. Educational Use Only: YieldMap Pro is an analytics tool, not a financial advisor. Results are theoretical estimates based on user inputs and historical data.\n"
-        "2. Data Verification: All FMRs and Utility Allowances must be verified with the local Public Housing Authority (PHA) prior to purchase.\n"
-        "3. No Liability: Yieldmappro.com is not liable for any investment losses, lost profits, or acquisition errors arising from use of this report.\n"
-        "4. No Warranty: This report is provided 'as is' without warranty of any kind. Past performance does not guarantee future results."
-    )
+    pdf.ln(10)
+    pdf.set_font('Helvetica', 'I', 8)
+    pdf.multi_cell(0, 4, "Disclaimer: These projections are estimates based on your inputs. Past performance does not guarantee future results.")
 
     return pdf.output(dest='S')
 
@@ -500,7 +507,7 @@ with st.sidebar:
             st.session_state.portfolio = []
             st.rerun()
     else:
-        st.info("No deals saved yet.")
+        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
 
     st.markdown("---")
     st.markdown("### 🔧 Settings")
@@ -694,8 +701,6 @@ with tab_anal:
     else:
         st.markdown("## YieldMap Asset Rating")
 
-    is_pro = st.session_state.pro_unlocked
-    
     r1, r2, r3, r4 = st.columns(4)
     r1.metric("Deal Grade", f"Grade {d_grade}" if is_pro else "🔒 Pro", help="Based on Cash-on-Cash Return.")
     r2.metric("Cash-on-Cash", f"{coc_return:.1f}%" if is_pro else "🔒 Pro", help="Net Profit / Cash Invested.")
@@ -778,7 +783,9 @@ with tab_anal:
     with e2:
         if is_pro:
             # PDF BUTTON
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs)
+            # GENERATE PROJECTIONS FOR PDF
+            proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years)
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
 
     with e3: 
