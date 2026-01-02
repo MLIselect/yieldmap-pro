@@ -145,6 +145,23 @@ def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     if monthly_rate == 0: return loan_amount / num_payments
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
+# NEW: Max Offer Calculator (DealCheck Feature)
+def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
+    # Iterate to find price that meets CoC target
+    test_price = 50000
+    step = 1000
+    for _ in range(1000): # Check up to high values
+        loan = test_price * (1 - down_pct/100)
+        monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
+        cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
+        investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
+        coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
+        
+        if coc < target_coc:
+            return test_price - step # Found limit
+        test_price += step
+    return 0
+
 # --- 5. SAAS-GRADE PRO PDF GENERATOR ---
 class ProPDF(FPDF):
     def header(self):
@@ -215,7 +232,7 @@ class ProPDF(FPDF):
         self.set_text_color(37, 99, 235) # Brand Blue
         self.cell(w, 8, value, 0, 1, 'C')
 
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs):
     pdf = ProPDF()
     pdf.alias_nb_pages() # Enable total page count
     pdf.add_page()
@@ -282,9 +299,9 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(col_w, h, "HUD FY26 Limit", 1); pdf.cell(col_w, h, f"${hud_limit:,.0f}", 1)
     pdf.cell(col_w, h, "Utility Allowance", 1); pdf.cell(col_w, h, f"${ua_val:,.0f}", 1)
     pdf.ln()
-    # Row 4
-    pdf.cell(col_w, h, "Total Investment", 1); pdf.cell(col_w, h, f"${(price*(down_pct/100)) + (price*0.03):,.0f}", 1) 
-    pdf.cell(col_w, h, "Est. Closing Costs", 1); pdf.cell(col_w, h, "3.0%", 1)
+    # Row 4 (UPDATED FOR REPAIRS)
+    pdf.cell(col_w, h, "Total Cash Needed", 1); pdf.cell(col_w, h, f"${(price*(down_pct/100)) + (price*0.03) + repairs:,.0f}", 1) 
+    pdf.cell(col_w, h, "Initial HQS Repairs", 1); pdf.cell(col_w, h, f"${repairs:,.0f}", 1)
     pdf.ln(10)
 
     # --- MONTHLY CASH FLOW STATEMENT ---
@@ -464,8 +481,7 @@ if not st.session_state.agreed:
             
     st.stop()
 
-# --- SIDEBAR (PORTFOLIO & SETTINGS) ---
-# FIX: Sidebar logic MOVED HERE to prevent showing on Terms Screen
+# --- SIDEBAR (ONLY SHOWS AFTER AGREEMENT) ---
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png") 
@@ -488,8 +504,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### 🔧 Settings")
-    # Phase 2 placeholder (Ready for later)
-    # api_input = st.text_input("RentCast API Key", type="password") 
 
 # --- SCROLL TO TOP FIX (Runs after the page reloads) ---
 if st.session_state.get('scroll_to_top'):
@@ -628,12 +642,16 @@ with tab_anal:
             down_payment = st.number_input("Down Payment (%)", value=20.0, step=5.0, disabled=not is_unlocked, help="Pro Only")
             interest_rate = st.number_input("Interest Rate (%)", value=7.0, step=0.1, disabled=not is_unlocked, help="Pro Only")
             loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
+            # NEW: Section 8 Repairs
+            initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
         with c2:
             taxes_yr = st.number_input("Property Taxes ($/yr)", value=3000, disabled=not is_unlocked, help="Pro Only")
             insurance_yr = st.number_input("Insurance ($/yr)", value=1200, disabled=not is_unlocked, help="Pro Only")
             maint_capex = st.slider("Maint/CapEx (%)", 0, 20, 10, disabled=not is_unlocked, help="Pro Only")
             prop_mgmt_pct = st.number_input("Property Mgmt (%)", value=8.0, step=1.0, disabled=not is_unlocked, help="Standard fee is 8-10%. Set to 0 if self-managed.")
             closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
+            # NEW: Target CoC
+            target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -652,8 +670,8 @@ with tab_anal:
     
     annual_cash_flow = noi - annual_debt_service
     monthly_cash_flow = annual_cash_flow / 12
-    initial_investment = (price * (down_payment / 100)) + (price * (closing_costs / 100))
-    
+    # UPDATED: Investment includes repairs
+    initial_investment = (price * (down_payment / 100)) + (price * (closing_costs / 100)) + initial_repairs
     coc_return = (annual_cash_flow / initial_investment) * 100 if initial_investment > 0 else 0
     yield_val = (rent_in * 12 / price * 100) if price > 0 else 0
 
@@ -684,6 +702,11 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Vacancy Rate", f"{user_vacancy:.1f}%" if is_pro else "🔒 Pro", help="Vacancy rate used for calculation.")
 
+    # --- NEW: MAX OFFER CALCULATOR ---
+    if is_pro:
+        mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, prop_mgmt_amount/12)
+        st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
+
     st.divider()
     g1, g2 = st.columns(2)
     with g1: 
@@ -695,11 +718,25 @@ with tab_anal:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
-            st.markdown('<p class="chart-label">Vacancy Risk</p>', unsafe_allow_html=True)
-            # FIX APPLIED: Hide Toolbar
-            st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True, config={'displayModeBar': False})
+            # NEW: Equity Chart instead of Vacancy Gauge
+            st.markdown('<p class="chart-label">5-Year Equity Projection</p>', unsafe_allow_html=True)
+            years = list(range(1, 6))
+            equity_vals = []
+            current_bal = price * (1 - down_payment/100)
+            for y in years:
+                # Simple amortization approximation
+                paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
+                if paid_principal < 0: paid_principal = 0 # Interest only guard
+                current_bal -= paid_principal
+                equity = price - current_bal # Assuming 0% appreciation for conservatism
+                equity_vals.append(equity)
+            
+            fig_eq = go.Figure()
+            fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy', mode='none', fillcolor='rgba(37, 99, 235, 0.5)'))
+            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
+            st.plotly_chart(fig_eq, use_container_width=True, config={'displayModeBar': False})
         else:
-            st.info("🔒 Vacancy Gauge Locked")
+            st.info("🔒 Equity Chart Locked")
 
     # --- PRO GATE (SAFE MODE) ---
     st.divider()
@@ -723,6 +760,7 @@ with tab_anal:
                     "CoC": coc_return,
                     "Cashflow": monthly_cash_flow,
                     "Grade": d_grade,
+                    "Repairs": initial_repairs,
                     "Timestamp": datetime.now().strftime("%H:%M:%S")
                 }
                 st.session_state.portfolio.append(deal_data)
@@ -740,7 +778,7 @@ with tab_anal:
     with e2:
         if is_pro:
             # PDF BUTTON
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years)
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
 
     with e3: 
