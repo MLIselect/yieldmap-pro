@@ -18,68 +18,84 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (SaaS Look + Integrated Header) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (Sticky Header & SaaS Look) ---
 st.markdown("""
     <style>
-    /* REMOVE DEFAULT PADDING */
+    /* 1. RESET STREAMLIT PADDING */
     .block-container {
-        padding-top: 1rem;
+        padding-top: 5rem; /* Push content down so it starts below the sticky header */
         padding-bottom: 5rem;
     }
     
-    /* HIDE DEFAULT STREAMLIT ELEMENTS */
+    /* 2. HIDE DEFAULT ELEMENTS */
     header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
     
-    /* CUSTOM NAV BAR TEXT */
-    .nav-title {
-        font-family: 'Helvetica', sans-serif;
-        font-weight: 800;
-        font-size: 28px;
+    /* 3. THE STICKY HEADER (The DealCheck Style) */
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 70px; /* Fixed height */
+        background-color: #1e40af; /* Corporate Blue (DealCheck style) */
+        z-index: 9999; /* Always on top */
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         color: white;
-        margin-bottom: 0;
-        line-height: 1.2;
-        background-color: #1e3a8a; /* Deep Navy Blue */
-        padding: 1rem 0 1rem 2rem; /* Left padding only, right side blends */
-        border-top-left-radius: 8px;
-        border-bottom-left-radius: 8px;
-        /* No border radius on right to merge with button area */
-    }
-    
-    .nav-subtitle {
-        font-size: 14px;
-        font-weight: 400;
-        color: #cbd5e1; /* Light Gray */
-        font-family: monospace;
-        margin-top: 0;
-        background-color: #1e3a8a;
-        padding-left: 2rem;
-        padding-bottom: 10px;
+        font-family: 'Helvetica', sans-serif;
     }
 
-    /* CUSTOMIZE THE SETTINGS BUTTON TO LOOK INTEGRATED */
-    div[data-testid="stPopover"] > button {
-        background-color: #1e3a8a; /* MATCH HEADER COLOR */
-        color: white;
-        border: none;
-        height: 80px; /* Match approximate header height */
-        width: 100%;
-        border-radius: 0 8px 8px 0; /* Rounded on right only */
-        font-size: 24px;
-        margin-top: 0px;
+    /* LOGO & TITLE GROUP */
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .brand-text {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #ffffff;
     }
     
-    div[data-testid="stPopover"] > button:hover {
-        background-color: #3b82f6; /* Lighter blue highlight */
+    .brand-sub {
+        font-size: 12px;
+        font-weight: 300;
+        color: #bfdbfe; /* Light blue text */
+        margin-left: 10px;
+        border-left: 1px solid #60a5fa;
+        padding-left: 10px;
+    }
+
+    /* RIGHT SIDE ICONS (Mockup style) */
+    .header-right {
+        font-size: 14px;
+        font-weight: 500;
         color: white;
-        border: none;
+        display: flex;
+        gap: 20px;
+        align-items: center;
     }
     
-    /* MOBILE RESPONSIVENESS */
-    @media only screen and (max-width: 600px) {
-        .nav-title { font-size: 20px; padding-left: 1rem; }
-        .nav-subtitle { font-size: 10px; padding-left: 1rem; }
-        div[data-testid="stPopover"] > button { height: 70px; }
+    .nav-item {
+        cursor: pointer;
+        opacity: 0.9;
+    }
+    .nav-item:hover {
+        opacity: 1;
+        text-decoration: underline;
+    }
+
+    /* LOGO IMAGE STYLING */
+    .header-img {
+        height: 35px;
+        width: auto;
+        border-radius: 4px; /* Slight rounded corners */
     }
 
     /* METRIC CARDS */
@@ -88,9 +104,15 @@ st.markdown("""
         color: #1e3a8a !important;
     }
     
-    /* INPUT CONTAINERS (Cards) */
+    /* INPUT CONTAINERS */
     .stExpander, .element-container {
         border-radius: 8px;
+    }
+    
+    /* MOBILE TWEAKS */
+    @media only screen and (max-width: 600px) {
+        .brand-sub { display: none; } /* Hide subtitle on phone */
+        .fixed-header { padding: 0 1rem; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -577,33 +599,30 @@ if st.session_state.get('scroll_to_top'):
         """, unsafe_allow_html=True)
     st.session_state.scroll_to_top = False
 
-# --- HEADER SECTION (LOGO + SETTINGS) ---
-with st.container():
-    c_head1, c_head2 = st.columns([6, 1])
-    
-    with c_head1:
-        if os.path.exists("logo.png"):
-            st.markdown(f"""
-            <div class="nav-title" style="display: flex; align-items: center; gap: 15px;">
-                <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="40">
-                YieldMap Pro
+# --- HEADER SECTION (STICKY & BRANDED) ---
+logo_html = ""
+if os.path.exists("logo.png"):
+    logo_b64 = base64.b64encode(open("logo.png", "rb").read()).decode()
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="header-img">'
+
+st.markdown(f"""
+    <div class="fixed-header">
+        <div class="header-left">
+            {logo_html}
+            <div>
+                <div class="brand-text">YieldMap Pro</div>
             </div>
-            <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div class="nav-title">YieldMap Pro</div>
-            <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-            """, unsafe_allow_html=True)
-
-    with c_head2:
-        with st.popover("⚙️", help="Settings & API Configuration"):
-            st.markdown("### 🔧 Configuration")
-            st.caption("Enter API Keys or Configs here.")
-            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
-            st.info("Additional settings will appear here in future updates.")
-
-st.markdown("<br>", unsafe_allow_html=True) 
+            <div class="brand-sub">Section 8 Market Intelligence • FY 2026</div>
+        </div>
+        <div class="header-right">
+            <span class="nav-item">My Properties</span>
+            <span class="nav-item">Search Properties</span>
+            <span class="nav-item">Search Lenders</span>
+            <span>&nbsp;|&nbsp;</span>
+            <span class="nav-item">👤 Account</span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -612,6 +631,12 @@ tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", 
 # TAB 1: PRO ANALYZER (EXISTING LOGIC)
 # ==========================================
 with tab_anal:
+    # --- CONFIG AREA (HIDDEN SETTINGS MOVED HERE) ---
+    with st.expander("🛠️ Dashboard Configuration & API Keys", expanded=False):
+        st.caption("Manage your integrations here (RentCast, OpenAI, etc).")
+        api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps.")
+
+    # --- DRILL-DOWN SELECTORS (CARD STYLE) ---
     with st.container(border=True):
         st.markdown("#### 1. Property Details")
         c_client, c_addr = st.columns(2)
@@ -636,10 +661,11 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
+    # --- COMPETITOR-GRADE 2D MAP (FOLIUM) ---
     st.markdown("---")
     st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
     
-    # --- SMART LINKS & MAP ---
+    # --- SMART LINKS (ADDED PER REQUEST) ---
     c_link1, c_link2, c_link3 = st.columns(3)
     zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds.split('-')[0]}_beds/"
     rentometer_url = "https://www.rentometer.com/"
@@ -648,6 +674,7 @@ with tab_anal:
     with c_link1: st.link_button("🏠 View Zillow Comps", zillow_url, use_container_width=True)
     with c_link2: st.link_button("📊 Check Rentometer", rentometer_url, use_container_width=True)
     with c_link3: st.link_button("🏛️ Find Local PHA", pha_url, use_container_width=True)
+    # -----------------------------------------------
 
     try:
         import pgeocode; import folium; from streamlit_folium import st_folium
@@ -655,25 +682,15 @@ with tab_anal:
         loc = nomi.query_postal_code(selected_zip)
         
         if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            m = folium.Map(
-                location=[loc.latitude, loc.longitude], 
-                zoom_start=13,
-                tiles="OpenStreetMap" 
-            )
-            
-            folium.Marker(
-                [loc.latitude, loc.longitude], 
-                popup=f"Target ZIP: {selected_zip}",
-                tooltip="Analysis Center",
-                icon=folium.Icon(color="blue", icon="home", prefix='fa')
-            ).add_to(m)
-            
+            m = folium.Map(location=[loc.latitude, loc.longitude], zoom_start=13, tiles="OpenStreetMap")
+            folium.Marker([loc.latitude, loc.longitude], popup=f"Target ZIP: {selected_zip}", tooltip="Analysis Center", icon=folium.Icon(color="blue", icon="home", prefix='fa')).add_to(m)
             st_folium(m, width=None, height=400, use_container_width=True)
         else:
             st.warning(f"Could not map coordinates for ZIP {selected_zip}")
     except Exception as e:
         st.caption(f"Map unavailable: {e}")
 
+    # UNDERWRITING (CARD STYLE)
     st.markdown("---")
     limit = row[beds]
     
@@ -702,6 +719,7 @@ with tab_anal:
         with col_in2: 
             rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
         
+        # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
         
         if 'pro_unlocked' not in st.session_state:
@@ -731,6 +749,7 @@ with tab_anal:
                 closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
                 target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
 
+    # --- CALCULATIONS ---
     gross_annual_rent = rent_in * 12
     vacancy_loss_annual = gross_annual_rent * (user_vacancy / 100)
     effective_gross_income = gross_annual_rent - vacancy_loss_annual
@@ -756,6 +775,7 @@ with tab_anal:
     elif coc_return >= 8: d_grade = "B"
     else: d_grade = "C"
 
+    # --- TEASER DASHBOARD ---
     st.divider()
     logo_base64 = ""
     if os.path.exists("logo.png"):
@@ -890,6 +910,7 @@ with tab_port:
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
         
+        # Highlight logic (Pandas Styler)
         def highlight_max(s):
             is_max = s == s.max()
             return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
