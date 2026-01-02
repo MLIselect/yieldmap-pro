@@ -185,11 +185,6 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     current_rent = rent * 12
     current_expenses = total_expenses_yr
     loan_balance = price * (1 - down_pct/100)
-    current_equity = price * (down_pct/100)
-    
-    # Amortization variables
-    monthly_rate = (interest_rate/100)/12
-    total_payments = term_years * 12
     
     for year in range(1, 31):
         # 1. Cash Flow
@@ -202,7 +197,6 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             principal_payment = mortgage_yr - interest_payment
             if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
-            current_equity += principal_payment
         
         # 3. Appreciation
         property_value = price * ((1 + appreciation/100)**year)
@@ -315,21 +309,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     # Client Info
     pdf.set_x(10)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(15, 6, "Client:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(15, 6, "Unit:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(40, 6, unit, 0, 1, 'L')
-    pdf.ln(6)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(17, 6, "Address:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L')
-    pdf.ln(8)
+    pdf.set_font('Helvetica', 'B', 10); pdf.set_text_color(100, 100, 100)
+    pdf.cell(15, 6, "Client:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
+    pdf.set_font('Helvetica', 'B', 10); pdf.cell(15, 6, "Unit:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(40, 6, unit, 0, 1, 'L'); pdf.ln(6)
+    pdf.set_font('Helvetica', 'B', 10); pdf.cell(17, 6, "Address:", 0, 0, 'L'); pdf.set_font('Helvetica', '', 10); pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L'); pdf.ln(8)
 
     # KPI Grid
     y_start = pdf.get_y()
@@ -754,9 +737,9 @@ with tab_anal:
                 equity_vals.append(equity)
             
             fig_eq = go.Figure()
+            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False, fixedrange=True), yaxis=dict(showgrid=False, fixedrange=True))
             fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy', mode='none', fillcolor='rgba(37, 99, 235, 0.5)'))
-            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
-            st.plotly_chart(fig_eq, use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(fig_eq, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
         else:
             st.info("🔒 Equity Chart Locked")
 
