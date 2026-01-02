@@ -394,7 +394,11 @@ if 'portfolio' not in st.session_state: st.session_state.portfolio = [] # <--- N
 
 # --- SIDEBAR (PORTFOLIO & SETTINGS) ---
 with st.sidebar:
-    st.image("logo.png") if os.path.exists("logo.png") else st.title("YieldMap Pro")
+    # --- FIXED SIDEBAR LOGO LOGIC (NO WEIRD CODE PRINTING) ---
+    if os.path.exists("logo.png"):
+        st.image("logo.png")
+    else:
+        st.title("YieldMap Pro")
     
     # Portfolio Widget (Phase 3)
     st.markdown("### 📁 My Portfolio")
