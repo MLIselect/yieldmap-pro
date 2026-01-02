@@ -392,7 +392,7 @@ if 'agreed' not in st.session_state: st.session_state.agreed = False
 if 'pro_unlocked' not in st.session_state: st.session_state.pro_unlocked = False
 if 'portfolio' not in st.session_state: st.session_state.portfolio = [] # <--- NEW: Memory for deals
 
-# --- TERMS OF SERVICE SCREEN (LOGIC UPDATE: SIDEBAR HIDDEN HERE) ---
+# --- TERMS OF SERVICE SCREEN ---
 if not st.session_state.agreed:
     st.title("🔒 YieldMap Pro")
     
@@ -464,15 +464,14 @@ if not st.session_state.agreed:
             
     st.stop()
 
-# --- SIDEBAR (ONLY SHOWS AFTER AGREEMENT) ---
+# --- SIDEBAR (PORTFOLIO & SETTINGS) ---
+# FIX: Sidebar logic MOVED HERE to prevent showing on Terms Screen
 with st.sidebar:
-    # --- FIXED SIDEBAR LOGO LOGIC (NO WEIRD CODE PRINTING) ---
     if os.path.exists("logo.png"):
-        st.image("logo.png")
+        st.image("logo.png") 
     else:
         st.title("YieldMap Pro")
     
-    # Portfolio Widget (Phase 3)
     st.markdown("### 📁 My Portfolio")
     if len(st.session_state.portfolio) > 0:
         for i, deal in enumerate(st.session_state.portfolio):
@@ -485,7 +484,12 @@ with st.sidebar:
             st.session_state.portfolio = []
             st.rerun()
     else:
-        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
+        st.info("No deals saved yet.")
+
+    st.markdown("---")
+    st.markdown("### 🔧 Settings")
+    # Phase 2 placeholder (Ready for later)
+    # api_input = st.text_input("RentCast API Key", type="password") 
 
 # --- SCROLL TO TOP FIX (Runs after the page reloads) ---
 if st.session_state.get('scroll_to_top'):
@@ -710,7 +714,7 @@ with tab_anal:
     
     with e1:
         if is_pro:
-            # SAVE BUTTON
+            # SAVE BUTTON (Phase 3 Fix)
             if st.button("💾 Save Deal", type="primary", use_container_width=True):
                 deal_data = {
                     "Address": prop_address or f"ZIP {selected_zip}",
