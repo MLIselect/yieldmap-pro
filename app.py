@@ -50,7 +50,7 @@ st.markdown("""
         align-items: center;
         padding: 0 2rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        /* REMOVED THE WHITE BORDER LINE HERE */
     }
 
     /* LOGO TEXT STYLING */
@@ -78,49 +78,17 @@ st.markdown("""
         margin-top: 3px;
     }
 
-    /* NAV LINKS (Visual Decoration) */
-    .header-nav {
-        margin-left: 50px;
-        display: flex;
-        gap: 25px;
-        font-size: 14px;
-        font-weight: 500;
-        color: rgba(255,255,255,0.8);
-    }
-    
-    /* RESPONSIVE: Hide extra nav items on small screens */
-    @media (max-width: 768px) {
-        .header-nav { display: none; }
-        .fixed-header { justify-content: center; }
-        .brand-container { align-items: center; }
+    .brand-logo {
+        height: 40px;
+        width: auto;
+        border-radius: 6px;
+        margin-right: 15px;
     }
 
-    /* 6. SETTINGS BUTTON HACK (Floating Top Right) */
-    div[data-testid="stPopover"] {
-        position: fixed;
-        top: 15px;
-        right: 30px;
-        z-index: 100001; /* Highest priority */
-    }
-    
-    div[data-testid="stPopover"] > button {
-        background-color: rgba(255,255,255,0.1); /* Glassmorphism */
-        color: white;
-        border: 1px solid rgba(255,255,255,0.2);
-        height: 40px;
-        width: 40px;
-        border-radius: 8px;
-        font-size: 18px;
+    /* HEADER LEFT GROUP */
+    .header-left {
         display: flex;
         align-items: center;
-        justify-content: center;
-        padding: 0;
-    }
-    
-    div[data-testid="stPopover"] > button:hover {
-        background-color: white;
-        color: #1e3a8a;
-        border: 1px solid white;
     }
 
     /* METRIC CARDS */
@@ -161,17 +129,11 @@ STATE_MAP = {
 @st.cache_data
 def load_data():
     try:
-        # Load HUD FY 2026 Data (Excel)
         df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
-
-        # CLEAN HEADERS
         df.columns = df.columns.astype(str).str.replace('\n', '_').str.replace(' ', '_').str.upper().str.strip()
-
-        # REMOVE JUNK ROWS
         if 'ZIP_CODE' in df.columns:
             df = df.dropna(subset=['ZIP_CODE'])
         
-        # RENAME COLUMNS
         rename_map = {
             'ZIP_CODE': 'zip_code',
             'ZIP': 'zip_code',
@@ -186,14 +148,10 @@ def load_data():
         available_cols = [c for c in rename_map.keys() if c in df.columns]
         df = df[available_cols].rename(columns=rename_map)
         
-        # EXTRACT STATE
         df['state_abbr'] = df['area_name'].str.extract(r',\s([A-Z]{2})')
-        df['state'] = df['state_abbr'].map(STATE_MAP)
-        df['state'] = df['state'].fillna('Other')
+        df['state'] = df['state_abbr'].map(STATE_MAP).fillna('Other')
 
-        # Convert Rent to Numeric
-        cols_to_numeric = ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']
-        for c in cols_to_numeric:
+        for c in ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c].str.replace('$', '').str.replace(',', ''), errors='coerce').fillna(0)
 
@@ -210,9 +168,7 @@ def get_vacancy_rate(zip_code):
         r = requests.get(url_rate, timeout=3)
         data = r.json()
         if len(data) > 1 and data[1][0]:
-            rate = float(data[1][0])
-            if rate >= 0:
-                return rate 
+            return float(data[1][0])
     except:
         pass 
 
@@ -223,11 +179,9 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            
-            total_rental_inventory = vacant_for_rent + renter_occupied
-            if total_rental_inventory > 0:
-                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1)
+            total = vacant_for_rent + renter_occupied
+            if total > 0:
+                return round((vacant_for_rent / total) * 100, 1)
     except:
         pass 
 
@@ -236,39 +190,26 @@ def get_vacancy_rate(zip_code):
 # --- 5. MATH ENGINES ---
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct/100))
-    if loan_amount <= 0:
-        return 0
-    
+    if loan_amount <= 0: return 0
     monthly_rate = (interest_rate / 100) / 12
     num_payments = term_years * 12
-    
-    if monthly_rate == 0:
-        return loan_amount / num_payments
-        
+    if monthly_rate == 0: return loan_amount / num_payments
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
     # Reverse calculates price based on target return
     test_price = 50000
     step = 1000
-    
     for _ in range(1000): 
         loan = test_price * (1 - down_pct/100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
-        
         cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
         investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
+        coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
         
-        if investment > 0:
-            coc = (cashflow_yr / investment) * 100 
-        else:
-            coc = 0
-            
         if coc < target_coc:
             return test_price - step 
-        
         test_price += step
-        
     return 0
 
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
@@ -381,7 +322,6 @@ class ProPDF(FPDF):
     def add_table_row(self, label, value, fill=False, text_color=None):
         self.set_font('Helvetica', '', 10)
         self.set_fill_color(240, 253, 244) # Green tint
-        
         if text_color:
             self.set_text_color(*text_color)
         else:
@@ -635,26 +575,19 @@ if os.path.exists("logo.png"):
 
 st.markdown(f"""
     <div class="fixed-header">
-        <div class="brand-container">
-            <div class="brand-title">YieldMap Pro</div>
-            <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
-        </div>
-        <div class="header-nav">
-            <span>Pro Analyzer</span>
-            <span>My Portfolio</span>
-            <span>IQ Center</span>
-        </div>
-        <div class="header-right">
+        <div class="header-left">
+            {logo_html}
+            <div class="brand-container">
+                <div class="brand-title">YieldMap Pro</div>
+                <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
             </div>
-    </div>
+        </div>
+        </div>
 """, unsafe_allow_html=True)
 
-# SETTINGS BUTTON (FLOATING VIA CSS)
-with st.popover("⚙️"):
-    st.markdown("### 🔧 Settings")
-    st.caption("Enter API Keys or Configs here.")
-    api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
-    st.info("Additional settings will appear here in future updates.")
+# SETTINGS BUTTON REMOVED (As requested)
+
+st.markdown("<br>", unsafe_allow_html=True) # Spacing
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -777,6 +710,10 @@ with tab_anal:
         with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
             if not is_unlocked:
                 st.caption("🔒 **These inputs are locked. Upgrade to Pro to customize assumptions.**")
+            
+            # API KEY MOVED HERE (Replaces Gear Icon)
+            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+            st.divider()
                 
             c1, c2 = st.columns(2)
             with c1:
@@ -984,17 +921,19 @@ with tab_port:
             use_container_width=True
         )
         
-        # 4. CHARTS
+        # 4. CHARTS (ERROR FIXED HERE)
         st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
-            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %") # FIXED: removed staticPlot=True
-            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True}) # FIXED: moved config here
+            # REMOVED staticPlot=True from update_layout
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %") 
+            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True}) # MOVED config here
         with c2:
             fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
-            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $") # FIXED: removed staticPlot=True
-            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True}) # FIXED: moved config here
+            # REMOVED staticPlot=True from update_layout
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True}) # MOVED config here
 
 # ==========================================
 # TAB 3: IQ CENTER (EXISTING CONTENT)
