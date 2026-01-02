@@ -323,11 +323,20 @@ class ProPDF(FPDF):
         self.set_text_color(37, 99, 235) # Brand Blue
         self.cell(w, 8, value, 0, 1, 'C')
 
-    def add_table_row(self, label, value, fill=False):
+    def add_table_row(self, label, value, fill=False, text_color=None):
         self.set_font('Helvetica', '', 10)
         self.set_fill_color(240, 253, 244) # Green tint
+        
+        if text_color:
+            self.set_text_color(*text_color)
+        else:
+            self.set_text_color(50, 50, 50)
+            
         self.cell(140, 8, label, 1, 0, 'L', fill)
         self.cell(50, 8, value, 1, 1, 'R', fill)
+        
+        # Reset color
+        self.set_text_color(50, 50, 50)
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs):
     pdf = ProPDF()
@@ -387,6 +396,13 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     # Expenses - UPDATED WITH PERCENTAGES
     pdf.chapter_title("Section 8 Rent & Expenses")
     pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
+    
+    # Rent Check Logic (Green/Red)
+    if hud_limit > 0:
+        pct_limit = (rent / hud_limit) * 100
+        risk_color = (0, 128, 0) if pct_limit <= 100 else (220, 20, 60)
+        pdf.add_table_row(f"Rent vs. FMR ({pct_limit:.1f}% of Limit)", f"{'Safe' if pct_limit <= 100 else 'Risk'}", False, risk_color)
+
     pdf.add_table_row(f"Vacancy Loss ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate/100):,.2f}", True)
     pdf.add_table_row("Property Taxes", f"(${taxes/12:,.2f})")
@@ -760,6 +776,7 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Total Cash Needed", f"${initial_investment:,.0f}" if is_pro else "🔒 Pro", help="Includes Down Pmt + Closing + HQS Repairs")
 
+    # --- NEW: MAX OFFER CALCULATOR ---
     if is_pro:
         mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, prop_mgmt_amount/12)
         st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
@@ -771,18 +788,21 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
+            # FIX APPLIED: Hide Toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
+            # NEW: Equity Chart instead of Vacancy Gauge
             st.markdown('<p class="chart-label">5-Year Equity Projection</p>', unsafe_allow_html=True)
             years = list(range(1, 6))
             equity_vals = []
             current_bal = price * (1 - down_payment/100)
             for y in years:
+                # Simple amortization approximation
                 paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
-                if paid_principal < 0: paid_principal = 0 
+                if paid_principal < 0: paid_principal = 0 # Interest only guard
                 current_bal -= paid_principal
                 equity = price * ((1 + appreciation/100)**y) - current_bal
                 equity_vals.append(equity)
@@ -794,17 +814,20 @@ with tab_anal:
         else:
             st.info("🔒 Equity Chart Locked")
 
+    # --- PRO GATE (SAFE MODE) ---
     st.divider()
     
+    # SAFE SECRET RETRIEVAL
     try:
         PRO_CODE = st.secrets["PRO_CODE"]
     except:
-        PRO_CODE = "1234" 
+        PRO_CODE = "1234" # Fallback if secrets.toml is missing locally
         
-    e1, e2, e3 = st.columns(3) 
+    e1, e2, e3 = st.columns(3) # <--- UPDATED: 3 COLUMNS FOR SAVE / PDF / CSV
     
     with e1:
         if is_pro:
+            # SAVE BUTTON (Phase 3 Fix)
             if st.button("💾 Save Deal", type="primary", use_container_width=True):
                 deal_data = {
                     "Address": prop_address or f"ZIP {selected_zip}",
@@ -830,11 +853,14 @@ with tab_anal:
 
     with e2:
         if is_pro:
+            # PDF BUTTON
+            # GENERATE PROJECTIONS FOR PDF
             proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years, rent_growth, appreciation)
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df, rent_growth, appreciation, closing_costs)
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_cost=maint_amount/12, loan_pmt=monthly_mortgage, hud_limit=limit, ua_val=ua_input, maint_pct=maint_capex, pm_pct=prop_mgmt_pct, term_years=loan_term_years, repairs=initial_repairs, projections_df=proj_df, rent_growth=rent_growth, appreciation=appreciation, closing_costs=closing_costs)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
 
     with e3: 
+        # CSV BUTTON
         st.download_button("📊 Export CSV", data=row.to_frame().T.to_csv().encode('utf-8'), file_name=f"Data_{selected_zip}.csv", use_container_width=True)
     
     render_footer()
@@ -848,6 +874,7 @@ with tab_port:
     if len(st.session_state.portfolio) == 0:
         st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
+        # 1. MANAGE DEALS SECTION
         st.markdown("### 📋 Manage Deals")
         for i, deal in enumerate(st.session_state.portfolio):
             with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
@@ -860,9 +887,11 @@ with tab_port:
         
         st.divider()
         
+        # 2. COMPARISON MATRIX
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
         
+        # Highlight logic (Pandas Styler)
         def highlight_max(s):
             is_max = s == s.max()
             return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
@@ -877,6 +906,7 @@ with tab_port:
             use_container_width=True
         )
         
+        # 3. CHARTS
         st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
