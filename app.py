@@ -152,13 +152,6 @@ def load_data():
 
 @st.cache_data(ttl=86400)
 def get_vacancy_rate(zip_code):
-    """
-    Advanced 'Deep Search' for Vacancy Data.
-    Strategy 1: Ask Census for pre-calculated rate (DP04_0005PE).
-    Strategy 2: If suppressed, ask for raw counts and calculate manually.
-    Strategy 3: Default to 5.0%.
-    """
-    # 1. Try Standard Rate (DP04)
     try:
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_rate, timeout=3)
@@ -166,13 +159,10 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1 and data[1][0]:
             rate = float(data[1][0])
             if rate >= 0:
-                return rate # Success!
+                return rate 
     except:
-        pass # Move to Strategy 2
+        pass 
 
-    # 2. Try Manual Calculation (Raw Counts)
-    # B25004_002E = Vacant for Rent
-    # B25003_003E = Renter Occupied
     try:
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_raw, timeout=3)
@@ -180,40 +170,50 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            
-            total_rental_inventory = vacant_for_rent + renter_occupied
-            if total_rental_inventory > 0:
-                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1) # Success!
+            total = vacant_for_rent + renter_occupied
+            if total > 0:
+                return round((vacant_for_rent / total) * 100, 1)
     except:
-        pass # Move to Strategy 3
+        pass 
 
-    # 3. Safety Default
     return 5.0
 
 # --- 5. MATH ENGINES ---
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct/100))
-    if loan_amount <= 0: return 0
+    if loan_amount <= 0:
+        return 0
+    
     monthly_rate = (interest_rate / 100) / 12
     num_payments = term_years * 12
-    if monthly_rate == 0: return loan_amount / num_payments
+    
+    if monthly_rate == 0:
+        return loan_amount / num_payments
+        
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
     # Reverse calculates price based on target return
     test_price = 50000
     step = 1000
+    
     for _ in range(1000): 
         loan = test_price * (1 - down_pct/100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
+        
         cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
         investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
-        coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
         
+        if investment > 0:
+            coc = (cashflow_yr / investment) * 100 
+        else:
+            coc = 0
+            
         if coc < target_coc:
             return test_price - step 
+        
         test_price += step
+        
     return 0
 
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
@@ -232,10 +232,11 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         if loan_balance > 0:
             interest_payment = loan_balance * (interest_rate/100)
             principal_payment = mortgage_yr - interest_payment
-            if principal_payment > loan_balance: principal_payment = loan_balance
+            if principal_payment > loan_balance:
+                principal_payment = loan_balance
             loan_balance -= principal_payment
         
-        # 3. Appreciation (Uses User Input)
+        # 3. Appreciation
         property_value = price * ((1 + appreciation/100)**year)
         total_equity = property_value - loan_balance
         
@@ -246,7 +247,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             "Total Equity": total_equity
         })
         
-        # Inflate for next year (Uses User Input)
+        # Inflate for next year
         current_rent *= (1 + rent_growth/100)
         current_expenses *= (1 + rent_growth/100)
         
@@ -257,7 +258,7 @@ class ProPDF(FPDF):
     def header(self):
         # 1. SAFE WATERMARK (Centered, Light Gray)
         self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240) # Very light gray
+        self.set_text_color(240, 240, 240) 
         # Center horizontally (approx) and vertically
         self.set_xy(0, 110) 
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
@@ -328,7 +329,7 @@ class ProPDF(FPDF):
         self.cell(140, 8, label, 1, 0, 'L', fill)
         self.cell(50, 8, value, 1, 1, 'R', fill)
 
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs):
     pdf = ProPDF()
     pdf.alias_nb_pages() # Enable total page count
     
@@ -371,31 +372,31 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 5, "*Deal Grade Logic: A+ (>12% CoC), B (8-12%), C (<8%). Based on conservative vacancy reserves.", 0, 1, 'L')
     pdf.ln(4)
-
-    # Analysis Breakdown
+    
+    # Financial Breakdown - FIXED TO INCLUDE CLOSING COSTS VARIABLE
     pdf.chapter_title("Financial Breakdown (Year 1)")
     pdf.add_table_row("Purchase Price", f"${price:,.0f}")
     pdf.add_table_row("HQS / Initial Repairs", f"${repairs:,.0f}")
-    pdf.add_table_row("Total Cash Needed (Inc. Closing)", f"${(price*(down_pct/100)) + (price*0.03) + repairs:,.0f}", True)
+    # Calculated using the closing_costs variable now
+    total_cash = (price*(down_pct/100)) + (price*(closing_costs/100)) + repairs
+    pdf.add_table_row("Total Cash Needed (Inc. Closing)", f"${total_cash:,.0f}", True)
     pdf.add_table_row("Loan Amount", f"${price*(1-down_pct/100):,.0f}")
     pdf.add_table_row("Monthly P&I Payment", f"${loan_pmt:,.2f}")
     pdf.ln(5)
     
+    # Expenses - UPDATED WITH PERCENTAGES
     pdf.chapter_title("Section 8 Rent & Expenses")
     pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
-    pdf.add_table_row("Vacancy Loss", f"(${rent * (v_rate/100):,.2f})")
+    pdf.add_table_row(f"Vacancy Loss ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate/100):,.2f}", True)
     pdf.add_table_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_table_row("Insurance", f"(${ins/12:,.2f})")
-    pdf.add_table_row("Maintenance & CapEx", f"(${maint_cost:,.2f})")
-    pdf.add_table_row("Property Management", f"(${rent * (pm_pct/100):,.2f})")
+    pdf.add_table_row(f"Maintenance & CapEx ({maint_pct}%)", f"(${maint_cost:,.2f})")
+    pdf.add_table_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
     pdf.add_table_row("Net Operating Income (NOI)", f"${(rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100)):,.2f}", True)
-
-    # --- PAGE 2: WEALTH ACCUMULATION ---
-    pdf.add_page()
-    pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
-    pdf.set_font('Helvetica', '', 9)
-    # DYNAMIC TEXT
+    
+    pdf.add_page(); pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)"); 
+    pdf.set_font('Helvetica', '', 9); 
     pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
     pdf.ln(5)
     
@@ -404,7 +405,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_text_color(255, 255, 255) # White
     pdf.set_font('Helvetica', 'B', 9)
     pdf.cell(20, 8, "Year", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Annual Cash Flow", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Cash Flow", 1, 0, 'C', True)
     pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
     pdf.cell(40, 8, "Total Equity", 1, 0, 'C', True)
     pdf.cell(40, 8, "Total Profit", 1, 1, 'C', True)
@@ -415,7 +416,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     snapshot_years = [1, 2, 3, 5, 10, 20, 30]
     total_cf = 0
-    initial_cash = (price*(down_pct/100)) + (price*0.03) + repairs
+    initial_cash = (price*(down_pct/100)) + (price*(closing_costs/100)) + repairs
     
     for index, r in projections_df.iterrows():
         yr = int(r['Year'])
@@ -683,7 +684,12 @@ with tab_anal:
         
         # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
+        
+        # SAFETY CHECK FOR PRO VAR
+        if 'pro_unlocked' not in st.session_state:
+            st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
+        
         start_val = api_vacancy if api_vacancy is not None else 5.0
         
         with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
@@ -729,13 +735,10 @@ with tab_anal:
     initial_investment = (price * (down_payment / 100)) + (price * (closing_costs / 100)) + initial_repairs
     coc_return = (annual_cash_flow / initial_investment) * 100 if initial_investment > 0 else 0
     yield_val = (rent_in * 12 / price * 100) if price > 0 else 0
-
-    # GRADING
+    
     if limit >= 2500: n_grade = "A"
     elif limit >= 1800: n_grade = "B"
-    elif limit >= 1200: n_grade = "C"
-    else: n_grade = "D"
-
+    else: n_grade = "C"
     if coc_return >= 12: d_grade = "A+"
     elif coc_return >= 8: d_grade = "B"
     else: d_grade = "C"
@@ -748,10 +751,6 @@ with tab_anal:
         st.markdown(f'<div class="rating-title"><img src="data:image/png;base64,{logo_base64}" width="60"><h2 class="rating-text">YieldMap Asset Rating</h2></div>', unsafe_allow_html=True)
     else:
         st.markdown("## YieldMap Asset Rating")
-
-    # SAFETY CHECK FOR PRO VAR
-    if 'pro_unlocked' not in st.session_state:
-        st.session_state.pro_unlocked = False
     
     is_pro = st.session_state.pro_unlocked
     
@@ -761,7 +760,6 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Total Cash Needed", f"${initial_investment:,.0f}" if is_pro else "🔒 Pro", help="Includes Down Pmt + Closing + HQS Repairs")
 
-    # --- NEW: MAX OFFER CALCULATOR ---
     if is_pro:
         mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, prop_mgmt_amount/12)
         st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
@@ -773,21 +771,18 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            # FIX APPLIED: Hide Toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
-            # NEW: Equity Chart instead of Vacancy Gauge
             st.markdown('<p class="chart-label">5-Year Equity Projection</p>', unsafe_allow_html=True)
             years = list(range(1, 6))
             equity_vals = []
             current_bal = price * (1 - down_payment/100)
             for y in years:
-                # Simple amortization approximation
                 paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
-                if paid_principal < 0: paid_principal = 0 # Interest only guard
+                if paid_principal < 0: paid_principal = 0 
                 current_bal -= paid_principal
                 equity = price * ((1 + appreciation/100)**y) - current_bal
                 equity_vals.append(equity)
@@ -799,20 +794,17 @@ with tab_anal:
         else:
             st.info("🔒 Equity Chart Locked")
 
-    # --- PRO GATE (SAFE MODE) ---
     st.divider()
     
-    # SAFE SECRET RETRIEVAL
     try:
         PRO_CODE = st.secrets["PRO_CODE"]
     except:
-        PRO_CODE = "1234" # Fallback if secrets.toml is missing locally
+        PRO_CODE = "1234" 
         
-    e1, e2, e3 = st.columns(3) # <--- UPDATED: 3 COLUMNS FOR SAVE / PDF / CSV
+    e1, e2, e3 = st.columns(3) 
     
     with e1:
         if is_pro:
-            # SAVE BUTTON (Phase 3 Fix)
             if st.button("💾 Save Deal", type="primary", use_container_width=True):
                 deal_data = {
                     "Address": prop_address or f"ZIP {selected_zip}",
@@ -838,14 +830,11 @@ with tab_anal:
 
     with e2:
         if is_pro:
-            # PDF BUTTON
-            # GENERATE PROJECTIONS FOR PDF
             proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years, rent_growth, appreciation)
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df, rent_growth, appreciation)
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df, rent_growth, appreciation, closing_costs)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
 
     with e3: 
-        # CSV BUTTON
         st.download_button("📊 Export CSV", data=row.to_frame().T.to_csv().encode('utf-8'), file_name=f"Data_{selected_zip}.csv", use_container_width=True)
     
     render_footer()
@@ -859,7 +848,6 @@ with tab_port:
     if len(st.session_state.portfolio) == 0:
         st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
-        # 1. MANAGE DEALS SECTION
         st.markdown("### 📋 Manage Deals")
         for i, deal in enumerate(st.session_state.portfolio):
             with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
@@ -872,11 +860,9 @@ with tab_port:
         
         st.divider()
         
-        # 2. COMPARISON MATRIX
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
         
-        # Highlight logic (Pandas Styler)
         def highlight_max(s):
             is_max = s == s.max()
             return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
@@ -891,7 +877,6 @@ with tab_port:
             use_container_width=True
         )
         
-        # 3. CHARTS
         st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
@@ -999,6 +984,7 @@ with tab_iq:
         * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
         * **HAP Contract:** The contract between you and the PHA (Housing Authority).
         * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
+        * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
         """)
 
     render_footer()
