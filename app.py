@@ -18,120 +18,95 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (Sticky Header + Floating Settings) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (Sticky Header, No Gear, Modern Fonts) ---
 st.markdown("""
     <style>
-    /* 1. CONTENT PADDING (To prevent hiding behind header) */
+    /* 1. GLOBAL FONT RESET */
+    html, body, [class*="css"] {
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    /* 2. PUSH CONTENT DOWN (So it doesn't hide behind the fixed header) */
     .block-container {
-        padding-top: 6rem; /* Push content down */
+        padding-top: 6rem; 
         padding-bottom: 5rem;
     }
     
-    /* 2. HIDE DEFAULTS */
+    /* 3. HIDE DEFAULT STREAMLIT ELEMENTS */
     header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
+    footer {visibility: hidden;}
     
-    /* 3. STICKY HEADER BAR */
+    /* 4. THE STICKY HEADER (SaaS Style - DealCheck Clone) */
     .fixed-header {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
-        height: 75px;
-        background-color: #1e3a8a; /* Deep Navy */
-        z-index: 9998; /* High z-index but below the settings button */
+        height: 70px;
+        background-color: #1e3a8a; /* Deep Corporate Blue */
+        z-index: 100000;
         display: flex;
         align-items: center;
-        justify-content: space-between;
         padding: 0 2rem;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        border-bottom: 4px solid #3b82f6; /* Accent Blue Line */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
     }
 
-    /* 4. BRANDING */
-    .header-left {
+    /* LOGO TEXT STYLING */
+    .brand-container {
         display: flex;
-        align-items: center;
-        gap: 15px;
+        flex-direction: column;
+        justify-content: center;
     }
-    .brand-text {
-        font-family: 'Helvetica', sans-serif;
-        font-weight: 800;
-        font-size: 26px;
-        color: white;
+    
+    .brand-title {
+        font-size: 24px;
+        font-weight: 800; /* Bold */
+        color: #ffffff;
         letter-spacing: -0.5px;
+        margin: 0;
+        line-height: 1;
     }
-    .brand-logo {
-        height: 40px;
-        width: auto;
-        border-radius: 6px;
-    }
-    .brand-sub {
-        font-size: 12px;
+    
+    .brand-subtitle {
+        font-size: 11px;
         font-weight: 400;
-        color: #bfdbfe; /* Light Blue */
-        font-family: monospace;
-        margin-top: 4px;
+        color: #93c5fd; /* Soft Blue */
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-top: 3px;
     }
 
-    /* 5. NAVIGATION LINKS (Visual Only) */
-    .header-center {
+    /* NAV LINKS (Visual Only - Decoration) */
+    .header-nav {
+        margin-left: 50px;
         display: flex;
-        gap: 30px;
-        margin-left: 40px;
-    }
-    .nav-link {
-        color: #bfdbfe; /* Soft Blue */
-        font-size: 15px;
+        gap: 25px;
+        font-size: 14px;
         font-weight: 500;
-        text-decoration: none;
-        cursor: pointer;
-        font-family: 'Helvetica', sans-serif;
-        transition: color 0.2s;
+        color: rgba(255,255,255,0.8);
     }
-    .nav-link:hover {
-        color: white;
-        text-decoration: underline;
+    
+    /* RESPONSIVE: Hide extra nav items on small screens */
+    @media (max-width: 768px) {
+        .header-nav { display: none; }
+        .fixed-header { justify-content: center; }
+        .brand-container { align-items: center; }
     }
 
-    /* 6. SETTINGS BUTTON HACK (Floating Top Right) */
-    div[data-testid="stPopover"] {
-        position: fixed;
-        top: 15px;
-        right: 30px;
-        z-index: 9999; /* Highest priority */
-    }
-    
-    div[data-testid="stPopover"] > button {
-        background-color: rgba(255,255,255,0.1); /* Glassmorphism */
-        color: white;
-        border: 1px solid rgba(255,255,255,0.2);
-        height: 45px;
-        width: 45px;
-        border-radius: 8px;
-        font-size: 20px;
-    }
-    
-    div[data-testid="stPopover"] > button:hover {
-        background-color: white;
-        color: #1e3a8a;
-        border: 1px solid white;
-    }
-
-    /* MOBILE RESPONSIVENESS */
-    @media only screen and (max-width: 800px) {
-        .header-center { display: none; } /* Hide nav links on small screens */
-        .brand-text { font-size: 20px; }
-        .brand-sub { display: none; }
-    }
-    
-    /* KPI METRICS */
+    /* METRIC CARDS */
     [data-testid="stMetricValue"] {
-        font-size: 28px !important;
+        font-size: 26px !important;
+        font-weight: 700 !important;
         color: #1e3a8a !important;
     }
+    [data-testid="stMetricLabel"] {
+        font-size: 14px !important;
+        color: #64748b !important;
+    }
     
-    /* INPUT CONTAINERS */
+    /* INPUT FIELDS (Cards) */
     .stExpander, .element-container {
         border-radius: 8px;
     }
@@ -158,17 +133,11 @@ STATE_MAP = {
 @st.cache_data
 def load_data():
     try:
-        # Load HUD FY 2026 Data (Excel)
         df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
-
-        # CLEAN HEADERS
         df.columns = df.columns.astype(str).str.replace('\n', '_').str.replace(' ', '_').str.upper().str.strip()
-
-        # REMOVE JUNK ROWS
         if 'ZIP_CODE' in df.columns:
             df = df.dropna(subset=['ZIP_CODE'])
         
-        # RENAME COLUMNS
         rename_map = {
             'ZIP_CODE': 'zip_code',
             'ZIP': 'zip_code',
@@ -183,14 +152,10 @@ def load_data():
         available_cols = [c for c in rename_map.keys() if c in df.columns]
         df = df[available_cols].rename(columns=rename_map)
         
-        # EXTRACT STATE
         df['state_abbr'] = df['area_name'].str.extract(r',\s([A-Z]{2})')
-        df['state'] = df['state_abbr'].map(STATE_MAP)
-        df['state'] = df['state'].fillna('Other')
+        df['state'] = df['state_abbr'].map(STATE_MAP).fillna('Other')
 
-        # Convert Rent to Numeric
-        cols_to_numeric = ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']
-        for c in cols_to_numeric:
+        for c in ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c].str.replace('$', '').str.replace(',', ''), errors='coerce').fillna(0)
 
@@ -207,9 +172,7 @@ def get_vacancy_rate(zip_code):
         r = requests.get(url_rate, timeout=3)
         data = r.json()
         if len(data) > 1 and data[1][0]:
-            rate = float(data[1][0])
-            if rate >= 0:
-                return rate 
+            return float(data[1][0])
     except:
         pass 
 
@@ -220,11 +183,9 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            
-            total_rental_inventory = vacant_for_rent + renter_occupied
-            if total_rental_inventory > 0:
-                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1)
+            total = vacant_for_rent + renter_occupied
+            if total > 0:
+                return round((vacant_for_rent / total) * 100, 1)
     except:
         pass 
 
@@ -233,39 +194,24 @@ def get_vacancy_rate(zip_code):
 # --- 5. MATH ENGINES ---
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct/100))
-    if loan_amount <= 0:
-        return 0
-    
+    if loan_amount <= 0: return 0
     monthly_rate = (interest_rate / 100) / 12
     num_payments = term_years * 12
-    
-    if monthly_rate == 0:
-        return loan_amount / num_payments
-        
+    if monthly_rate == 0: return loan_amount / num_payments
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
     # Reverse calculates price based on target return
     test_price = 50000
     step = 1000
-    
     for _ in range(1000): 
         loan = test_price * (1 - down_pct/100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
-        
         cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
         investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
-        
-        if investment > 0:
-            coc = (cashflow_yr / investment) * 100 
-        else:
-            coc = 0
-            
-        if coc < target_coc:
-            return test_price - step 
-        
+        coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
+        if coc < target_coc: return test_price - step 
         test_price += step
-        
     return 0
 
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
@@ -274,35 +220,18 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     current_rent = rent * 12
     current_expenses = total_expenses_yr
     loan_balance = price * (1 - down_pct/100)
-    
     for year in range(1, 31):
-        # 1. Cash Flow
         noi = current_rent - current_expenses
         cashflow = noi - mortgage_yr
-        
-        # 2. Equity (Amortization)
         if loan_balance > 0:
             interest_payment = loan_balance * (interest_rate/100)
             principal_payment = mortgage_yr - interest_payment
-            if principal_payment > loan_balance:
-                principal_payment = loan_balance
+            if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
-        
-        # 3. Appreciation
         property_value = price * ((1 + appreciation/100)**year)
-        total_equity = property_value - loan_balance
-        
-        data.append({
-            "Year": year,
-            "Cash Flow": cashflow,
-            "Loan Balance": loan_balance,
-            "Total Equity": total_equity
-        })
-        
-        # Inflate for next year
+        data.append({"Year": year, "Cash Flow": cashflow, "Loan Balance": loan_balance, "Total Equity": property_value - loan_balance})
         current_rent *= (1 + rent_growth/100)
         current_expenses *= (1 + rent_growth/100)
-        
     return pd.DataFrame(data)
 
 # --- 6. MULTI-PAGE PDF GENERATOR ---
@@ -339,7 +268,6 @@ class ProPDF(FPDF):
         self.set_font('Helvetica', '', 9)
         self.set_xy(160, 6)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
-        
         self.ln(18)
 
     def footer(self):
@@ -447,10 +375,11 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     # Expenses - UPDATED WITH PERCENTAGES
     pdf.chapter_title("Section 8 Rent & Expenses")
     pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
-
+    
     # Rent Check Logic (Green/Red)
     if hud_limit > 0:
         pct_limit = (rent / hud_limit) * 100
+        # Color Logic: Green if <= 100%, Red if > 100%
         risk_color = (0, 128, 0) if pct_limit <= 100 else (220, 20, 60)
         pdf.add_table_row(f"Rent vs. FMR ({pct_limit:.1f}% of Limit)", f"{'Safe' if pct_limit <= 100 else 'Risk'}", False, risk_color)
 
@@ -462,8 +391,11 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_table_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
     pdf.add_table_row("Net Operating Income (NOI)", f"${(rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100)):,.2f}", True)
     
-    pdf.add_page(); pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)"); 
-    pdf.set_font('Helvetica', '', 9); 
+    # --- PAGE 2: WEALTH ACCUMULATION ---
+    pdf.add_page()
+    pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
+    pdf.set_font('Helvetica', '', 9)
+    # DYNAMIC TEXT
     pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
     pdf.ln(5)
     
@@ -620,36 +552,20 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (STICKY & BRANDED) ---
-logo_html = ""
-if os.path.exists("logo.png"):
-    logo_b64 = base64.b64encode(open("logo.png", "rb").read()).decode()
-    logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="brand-logo">'
-
-st.markdown(f"""
+# Removed settings gear and image logo. Now just pure text branding.
+st.markdown("""
     <div class="fixed-header">
-        <div class="header-left">
-            {logo_html}
-            <div>
-                <div class="brand-text">YieldMap Pro</div>
-                <div class="brand-sub">Section 8 Market Intelligence</div>
-            </div>
+        <div class="brand-container">
+            <div class="brand-title">YieldMap Pro</div>
+            <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
         </div>
-        <div class="header-center">
-            <span class="nav-link">Pro Analyzer</span>
-            <span class="nav-link">My Portfolio</span>
-            <span class="nav-link">IQ Center</span>
+        <div class="header-nav">
+            <span>Market Analysis</span>
+            <span>Portfolio</span>
+            <span>Strategy</span>
         </div>
-        <div class="header-right">
-            </div>
     </div>
 """, unsafe_allow_html=True)
-
-# SETTINGS BUTTON (FLOATING VIA CSS)
-with st.popover("⚙️"):
-    st.markdown("### 🔧 Settings")
-    st.caption("Enter API Keys or Configs here.")
-    api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
-    st.info("Additional settings will appear here in future updates.")
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -699,10 +615,7 @@ with tab_anal:
     # -----------------------------------------------
 
     try:
-        import pgeocode
-        import folium
-        from streamlit_folium import st_folium
-        
+        import pgeocode; import folium; from streamlit_folium import st_folium
         nomi = pgeocode.Nominatim('us')
         loc = nomi.query_postal_code(selected_zip)
         
@@ -775,6 +688,10 @@ with tab_anal:
         with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
             if not is_unlocked:
                 st.caption("🔒 **These inputs are locked. Upgrade to Pro to customize assumptions.**")
+            
+            # API KEY MOVED HERE
+            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+            st.divider()
                 
             c1, c2 = st.columns(2)
             with c1:
