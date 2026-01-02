@@ -143,11 +143,9 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            
-            total_rental_inventory = vacant_for_rent + renter_occupied
-            if total_rental_inventory > 0:
-                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
-                return round(calculated_rate, 1)
+            total = vacant_for_rent + renter_occupied
+            if total > 0:
+                return round((vacant_for_rent / total) * 100, 1)
     except:
         pass 
 
@@ -178,7 +176,7 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         test_price += step
     return 0
 
-def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, growth_rate=0.02):
+def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
     # Generates 30-year wealth chart data
     data = []
     current_rent = rent * 12
@@ -197,8 +195,8 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
         
-        # 3. Appreciation
-        property_value = price * ((1.02)**year)
+        # 3. Appreciation (Uses User Input)
+        property_value = price * ((1 + appreciation/100)**year)
         total_equity = property_value - loan_balance
         
         data.append({
@@ -208,9 +206,9 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             "Total Equity": total_equity
         })
         
-        # Inflate for next year
-        current_rent *= (1 + growth_rate)
-        current_expenses *= (1 + growth_rate)
+        # Inflate for next year (Uses User Input)
+        current_rent *= (1 + rent_growth/100)
+        current_expenses *= (1 + rent_growth/100)
         
     return pd.DataFrame(data)
 
@@ -630,6 +628,9 @@ with tab_anal:
         
         # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
+        # SAFETY CHECK FOR PRO VAR
+        if 'pro_unlocked' not in st.session_state:
+            st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
         start_val = api_vacancy if api_vacancy is not None else 5.0
         
@@ -696,10 +697,6 @@ with tab_anal:
     else:
         st.markdown("## YieldMap Asset Rating")
 
-    # SAFETY CHECK FOR PRO VAR
-    if 'pro_unlocked' not in st.session_state:
-        st.session_state.pro_unlocked = False
-    
     is_pro = st.session_state.pro_unlocked
     
     r1, r2, r3, r4 = st.columns(4)
