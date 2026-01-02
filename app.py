@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import pydeck as pdk # <--- NEW: For 3D Maps
 from fpdf import FPDF
 import os
 import base64
 from datetime import datetime
 import requests
 import math 
-import pgeocode # <--- NEW IMPORT FOR MAPS
+# We import pgeocode inside the function to prevent app crashes if it's missing
 
 # --- 1. PRO CONFIGURATION ---
 st.set_page_config(
@@ -20,27 +21,11 @@ st.set_page_config(
 # --- HIDE STREAMLIT BRANDING ---
 hide_st_style = """
     <style>
-    /* 1. Hide the standard Streamlit footer */
     footer {visibility: hidden;}
-    
-    /* 2. Hide the top header bar */
     header {visibility: hidden;}
-    
-    /* 3. Hide the hamburger menu */
     #MainMenu {visibility: hidden;}
-    
-    /* 4. Hide the "View Fullscreen" button (bottom right) */
-    button[title="View fullscreen"] {
-        visibility: hidden;
-        display: none;
-    }
-    
-    /* 5. Hide the "Built with Streamlit" (bottom left) in embed mode */
-    .stApp > header {
-        display: none;
-    }
-    
-    /* 6. Extra safety for any other viewer badges */
+    button[title="View fullscreen"] {visibility: hidden; display: none;}
+    .stApp > header {display: none;}
     [data-testid="stDecoration"] {display:none;}
     [data-testid="stToolbar"] {display:none;}
     </style>
@@ -372,7 +357,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT (CORRECTED COLORS) ---
+# --- 6. GAUGE COMPONENT (CORRECTED COLORS & NO TOOLS) ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
     fig = go.Figure(go.Indicator(
@@ -532,24 +517,55 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
-    # --- MAP SECTION (PHASE 1) ---
-    # This inserts the map right below the dropdowns
+    # --- 3D MAP SECTION (UPGRADED) ---
     st.markdown("---")
+    st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
     try:
+        import pgeocode
         nomi = pgeocode.Nominatim('us')
         loc = nomi.query_postal_code(selected_zip)
         
-        # Check if we got valid coordinates
         if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            map_data = pd.DataFrame({'lat': [loc.latitude], 'lon': [loc.longitude]})
-            st.markdown(f"#### 📍 Location: {selected_zip} ({loc.place_name})")
+            # 3D MAP LOGIC
+            map_data = pd.DataFrame({
+                'lat': [loc.latitude], 
+                'lon': [loc.longitude]
+            })
             
-            # Display the map with a zoom level of 12 (street/neighborhood view)
-            st.map(map_data, zoom=12)
+            # Setup 3D View
+            view_state = pdk.ViewState(
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                zoom=11,
+                pitch=50, # The "Tilt" effect
+            )
+            
+            # The "Layer" (The red column)
+            layer = pdk.Layer(
+                "ColumnLayer",
+                data=map_data,
+                get_position='[lon, lat]',
+                get_elevation=200,
+                elevation_scale=4,
+                radius=200,
+                get_fill_color=[255, 46, 46, 255], # Red color
+                pickable=True,
+                auto_highlight=True,
+            )
+            
+            # Render the Map
+            st.pydeck_chart(pdk.Deck(
+                map_style='mapbox://styles/mapbox/light-v9', # Clean aesthetic
+                initial_view_state=view_state,
+                layers=[layer],
+                tooltip={"html": f"<b>ZIP: {selected_zip}</b><br>{loc.place_name}"}
+            ))
         else:
-            st.warning(f"Could not map ZIP {selected_zip}")
+            st.warning(f"Could not map coordinates for ZIP {selected_zip}")
+            
+    except ImportError:
+        st.error("🚨 Map Tool Missing. Run 'pip install pgeocode' and 'pip install pydeck'")
     except Exception as e:
-        # Fails gracefully if mapping service is down
         st.caption(f"Map unavailable: {e}")
 
     # UNDERWRITING
@@ -652,21 +668,27 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            # Added config={'displayModeBar': False} to hide the toolbar
+            # FIX APPLIED: Hide Toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
             st.markdown('<p class="chart-label">Vacancy Risk</p>', unsafe_allow_html=True)
-            # Added config={'displayModeBar': False} to hide the toolbar
+            # FIX APPLIED: Hide Toolbar
             st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Vacancy Gauge Locked")
 
-    # --- PRO GATE ---
+    # --- PRO GATE (SAFE MODE) ---
     st.divider()
-    PRO_CODE = st.secrets["PRO_CODE"]
+    
+    # SAFE SECRET RETRIEVAL
+    try:
+        PRO_CODE = st.secrets["PRO_CODE"]
+    except:
+        PRO_CODE = "1234" # Fallback if secrets.toml is missing locally
+        
     e1, e2 = st.columns(2)
     
     with e1:
