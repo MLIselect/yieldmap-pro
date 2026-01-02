@@ -143,9 +143,11 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            total = vacant_for_rent + renter_occupied
-            if total > 0:
-                return round((vacant_for_rent / total) * 100, 1)
+            
+            total_rental_inventory = vacant_for_rent + renter_occupied
+            if total_rental_inventory > 0:
+                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
+                return round(calculated_rate, 1)
     except:
         pass 
 
@@ -176,7 +178,7 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         test_price += step
     return 0
 
-def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
+def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, growth_rate=0.02):
     # Generates 30-year wealth chart data
     data = []
     current_rent = rent * 12
@@ -196,7 +198,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             loan_balance -= principal_payment
         
         # 3. Appreciation
-        property_value = price * ((1 + appreciation/100)**year)
+        property_value = price * ((1.02)**year)
         total_equity = property_value - loan_balance
         
         data.append({
@@ -207,8 +209,8 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         })
         
         # Inflate for next year
-        current_rent *= (1 + rent_growth/100)
-        current_expenses *= (1 + rent_growth/100)
+        current_rent *= (1 + growth_rate)
+        current_expenses *= (1 + growth_rate)
         
     return pd.DataFrame(data)
 
@@ -841,12 +843,12 @@ with tab_port:
         c1, c2 = st.columns(2)
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
-            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
-            st.plotly_chart(fig_coc, use_container_width=True)
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %", staticPlot=True)
+            st.plotly_chart(fig_coc, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
         with c2:
             fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
-            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
-            st.plotly_chart(fig_cf, use_container_width=True)
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $", staticPlot=True)
+            st.plotly_chart(fig_cf, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
 
 # ==========================================
 # TAB 3: IQ CENTER (EXISTING CONTENT)
