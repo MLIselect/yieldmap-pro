@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import pydeck as pdk # <--- 3D Map Engine
+import folium # <--- STANDARD MAP ENGINE
+from streamlit_folium import st_folium # <--- DISPLAY ENGINE
 from fpdf import FPDF
 import os
 import base64
@@ -357,7 +358,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT (FIXED: No Icons) ---
+# --- 6. GAUGE COMPONENT (CORRECTED COLORS & NO TOOLS) ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
     fig = go.Figure(go.Indicator(
@@ -517,54 +518,41 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
-    # --- 3D MAP SECTION (DARK MODE + NEON BLUE) ---
+    # --- COMPETITOR-GRADE 2D MAP (FOLIUM) ---
     st.markdown("---")
     st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
     try:
         import pgeocode
+        import folium
+        from streamlit_folium import st_folium
+        
         nomi = pgeocode.Nominatim('us')
         loc = nomi.query_postal_code(selected_zip)
         
         if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            # 3D MAP LOGIC
-            map_data = pd.DataFrame({
-                'lat': [loc.latitude], 
-                'lon': [loc.longitude]
-            })
-            
-            # Setup 3D View
-            view_state = pdk.ViewState(
-                latitude=loc.latitude,
-                longitude=loc.longitude,
-                zoom=11,
-                pitch=50, # The "Tilt" effect
+            # Create the Map (Centered on ZIP)
+            m = folium.Map(
+                location=[loc.latitude, loc.longitude], 
+                zoom_start=13,
+                tiles="OpenStreetMap" 
             )
             
-            # The "Layer" (Neon Blue Column)
-            layer = pdk.Layer(
-                "ColumnLayer",
-                data=map_data,
-                get_position='[lon, lat]',
-                get_elevation=200,
-                elevation_scale=4,
-                radius=200,
-                get_fill_color=[56, 189, 248, 200], # Neon Blue with slight opacity
-                pickable=True,
-                auto_highlight=True,
-            )
+            # Add a Professional Marker
+            folium.Marker(
+                [loc.latitude, loc.longitude], 
+                popup=f"Target ZIP: {selected_zip}",
+                tooltip="Analysis Center",
+                icon=folium.Icon(color="blue", icon="home", prefix='fa')
+            ).add_to(m)
             
-            # Render the Map with DARK STYLE (Public URL, No Token)
-            st.pydeck_chart(pdk.Deck(
-                map_style='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', 
-                initial_view_state=view_state,
-                layers=[layer],
-                tooltip={"html": f"<b>ZIP: {selected_zip}</b><br>{loc.place_name}"}
-            ))
+            # Render map
+            st_folium(m, width=None, height=400, use_container_width=True)
+            
         else:
             st.warning(f"Could not map coordinates for ZIP {selected_zip}")
             
     except ImportError:
-        st.error("🚨 Map Tool Missing. Run 'pip install pgeocode' and 'pip install pydeck'")
+        st.error("🚨 Map Libraries Missing. Run 'pip install streamlit-folium folium pgeocode'")
     except Exception as e:
         st.caption(f"Map unavailable: {e}")
 
