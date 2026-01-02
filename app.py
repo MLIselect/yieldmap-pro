@@ -7,6 +7,7 @@ import base64
 from datetime import datetime
 import requests
 import math 
+import pgeocode # <--- NEW IMPORT FOR MAPS
 
 # --- 1. PRO CONFIGURATION ---
 st.set_page_config(
@@ -531,6 +532,26 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
+    # --- MAP SECTION (PHASE 1) ---
+    # This inserts the map right below the dropdowns
+    st.markdown("---")
+    try:
+        nomi = pgeocode.Nominatim('us')
+        loc = nomi.query_postal_code(selected_zip)
+        
+        # Check if we got valid coordinates
+        if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
+            map_data = pd.DataFrame({'lat': [loc.latitude], 'lon': [loc.longitude]})
+            st.markdown(f"#### 📍 Location: {selected_zip} ({loc.place_name})")
+            
+            # Display the map with a zoom level of 12 (street/neighborhood view)
+            st.map(map_data, zoom=12)
+        else:
+            st.warning(f"Could not map ZIP {selected_zip}")
+    except Exception as e:
+        # Fails gracefully if mapping service is down
+        st.caption(f"Map unavailable: {e}")
+
     # UNDERWRITING
     st.markdown("---")
     st.markdown(f"#### ⚡ Pro Underwriting: {market_area_name} (ZIP {selected_zip})")
@@ -631,12 +652,14 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
+            # Added config={'displayModeBar': False} to hide the toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
             st.markdown('<p class="chart-label">Vacancy Risk</p>', unsafe_allow_html=True)
+            # Added config={'displayModeBar': False} to hide the toolbar
             st.plotly_chart(create_gauge(user_vacancy, "Vacancy", 0, 15, flip=True), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Vacancy Gauge Locked")
