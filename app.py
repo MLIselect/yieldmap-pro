@@ -31,21 +31,27 @@ st.markdown("""
     header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
     
-    /* CUSTOM NAV BAR */
-    .navbar {
-        background-color: #1e3a8a; /* Deep Navy Blue */
-        padding: 1rem 2rem;
-        color: white;
+    /* CUSTOM NAV BAR (Simulated via Columns) */
+    .nav-title {
         font-family: 'Helvetica', sans-serif;
         font-weight: 700;
         font-size: 24px;
-        border-bottom: 4px solid #3b82f6; /* Lighter Blue Accent */
-        margin-bottom: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        color: #1e3a8a; /* Deep Navy Blue */
+    }
+    
+    .nav-subtitle {
+        font-size: 14px;
+        font-weight: 400;
+        color: #64748b;
+        font-family: monospace;
+    }
+
+    /* CUSTOM BLUE LINE DIVIDER */
+    .nav-divider {
+        height: 4px;
+        background-color: #3b82f6; /* Accent Blue */
+        border-radius: 2px;
+        margin-bottom: 20px;
     }
     
     /* METRIC CARDS */
@@ -195,7 +201,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
         
-        # 3. Appreciation (Uses User Input)
+        # 3. Appreciation
         property_value = price * ((1 + appreciation/100)**year)
         total_equity = property_value - loan_balance
         
@@ -206,7 +212,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
             "Total Equity": total_equity
         })
         
-        # Inflate for next year (Uses User Input)
+        # Inflate for next year
         current_rent *= (1 + rent_growth/100)
         current_expenses *= (1 + rent_growth/100)
         
@@ -512,20 +518,22 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (LOGO + SETTINGS) ---
-c_head1, c_head2 = st.columns([5, 1])
+# Used columns here to align Title and Settings Button nicely
+c_head1, c_head2 = st.columns([6, 1])
+
 with c_head1:
     st.markdown("""
-        <div class="navbar">
-            <span>YieldMap Pro</span>
-            <span style="font-size: 14px; font-weight: 400; margin-left: auto; opacity: 0.8; font-family: monospace;">FY 2026 ENGINE</span>
-        </div>
+        <div class="nav-title">YieldMap Pro</div>
+        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+        <div class="nav-divider"></div>
     """, unsafe_allow_html=True)
 
 with c_head2:
-    with st.popover("⚙️ Settings"):
-        st.write("**Configuration**")
-        st.caption("Enter API Keys or Configs here.")
-        api_input = st.text_input("RentCast Key (Optional)", type="password")
+    # SETTINGS POPOVER (Simulates a header button)
+    with st.popover("⚙️", help="Settings"):
+        st.markdown("### Settings")
+        st.caption("Customize your YieldMap experience.")
+        api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -628,10 +636,12 @@ with tab_anal:
         
         # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
+        
         # SAFETY CHECK FOR PRO VAR
         if 'pro_unlocked' not in st.session_state:
             st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
+        
         start_val = api_vacancy if api_vacancy is not None else 5.0
         
         with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
@@ -696,7 +706,7 @@ with tab_anal:
         st.markdown(f'<div class="rating-title"><img src="data:image/png;base64,{logo_base64}" width="60"><h2 class="rating-text">YieldMap Asset Rating</h2></div>', unsafe_allow_html=True)
     else:
         st.markdown("## YieldMap Asset Rating")
-
+    
     is_pro = st.session_state.pro_unlocked
     
     r1, r2, r3, r4 = st.columns(4)
