@@ -31,27 +31,32 @@ st.markdown("""
     header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
     
-    /* CUSTOM NAV BAR (Simulated via Columns) */
+    /* CUSTOM NAV BAR CONTAINER */
+    .nav-container {
+        background-color: #1e3a8a; /* Deep Navy Blue */
+        padding: 1rem 2rem;
+        border-bottom: 4px solid #3b82f6; /* Lighter Blue Accent */
+        margin-bottom: 2rem;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* NAV TEXT STYLING */
     .nav-title {
         font-family: 'Helvetica', sans-serif;
-        font-weight: 700;
-        font-size: 24px;
-        color: #1e3a8a; /* Deep Navy Blue */
+        font-weight: 800; /* BOLDER */
+        font-size: 28px;  /* LARGER */
+        color: white;
+        margin-bottom: 0;
+        line-height: 1.2;
     }
     
     .nav-subtitle {
         font-size: 14px;
         font-weight: 400;
-        color: #64748b;
+        color: #cbd5e1; /* Light Gray */
         font-family: monospace;
-    }
-
-    /* CUSTOM BLUE LINE DIVIDER */
-    .nav-divider {
-        height: 4px;
-        background-color: #3b82f6; /* Accent Blue */
-        border-radius: 2px;
-        margin-bottom: 20px;
+        margin-top: 0;
     }
     
     /* METRIC CARDS */
@@ -131,6 +136,13 @@ def load_data():
 
 @st.cache_data(ttl=86400)
 def get_vacancy_rate(zip_code):
+    """
+    Advanced 'Deep Search' for Vacancy Data.
+    Strategy 1: Ask Census for pre-calculated rate (DP04_0005PE).
+    Strategy 2: If suppressed, ask for raw counts and calculate manually.
+    Strategy 3: Default to 5.0%.
+    """
+    # 1. Try Standard Rate (DP04)
     try:
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_rate, timeout=3)
@@ -138,10 +150,13 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1 and data[1][0]:
             rate = float(data[1][0])
             if rate >= 0:
-                return rate 
+                return rate # Success!
     except:
-        pass 
+        pass # Move to Strategy 2
 
+    # 2. Try Manual Calculation (Raw Counts)
+    # B25004_002E = Vacant for Rent
+    # B25003_003E = Renter Occupied
     try:
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_raw, timeout=3)
@@ -149,12 +164,15 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            total = vacant_for_rent + renter_occupied
-            if total > 0:
-                return round((vacant_for_rent / total) * 100, 1)
+            
+            total_rental_inventory = vacant_for_rent + renter_occupied
+            if total_rental_inventory > 0:
+                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
+                return round(calculated_rate, 1) # Success!
     except:
-        pass 
+        pass # Move to Strategy 3
 
+    # 3. Safety Default
     return 5.0
 
 # --- 5. MATH ENGINES ---
@@ -518,22 +536,40 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (LOGO + SETTINGS) ---
-# Used columns here to align Title and Settings Button nicely
-c_head1, c_head2 = st.columns([6, 1])
+with st.container():
+    c_head1, c_head2 = st.columns([6, 1])
+    
+    with c_head1:
+        # Determine what to show: Logo Image or Text Title
+        if os.path.exists("logo.png"):
+            # If logo exists, show it with the title
+            st.markdown(f"""
+            <div style="background-color:#1e3a8a; padding:15px; border-radius:8px; display:flex; align-items:center; gap:15px;">
+                <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="50">
+                <div>
+                    <div class="nav-title">YieldMap Pro</div>
+                    <div class="nav-subtitle">Section 8 Market Intelligence</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback to Text Title if no logo
+            st.markdown("""
+            <div style="background-color:#1e3a8a; padding:15px; border-radius:8px;">
+                <div class="nav-title">YieldMap Pro</div>
+                <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-with c_head1:
-    st.markdown("""
-        <div class="nav-title">YieldMap Pro</div>
-        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-        <div class="nav-divider"></div>
-    """, unsafe_allow_html=True)
+    with c_head2:
+        # SETTINGS POPOVER (The Gear Icon)
+        with st.popover("⚙️", help="Settings & API Configuration"):
+            st.markdown("### 🔧 Configuration")
+            st.caption("Enter API Keys or Configs here.")
+            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+            st.info("Additional settings will appear here in future updates.")
 
-with c_head2:
-    # SETTINGS POPOVER (Simulates a header button)
-    with st.popover("⚙️", help="Settings"):
-        st.markdown("### Settings")
-        st.caption("Customize your YieldMap experience.")
-        api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+st.markdown("<br>", unsafe_allow_html=True) # Spacing
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -706,6 +742,10 @@ with tab_anal:
         st.markdown(f'<div class="rating-title"><img src="data:image/png;base64,{logo_base64}" width="60"><h2 class="rating-text">YieldMap Asset Rating</h2></div>', unsafe_allow_html=True)
     else:
         st.markdown("## YieldMap Asset Rating")
+
+    # SAFETY CHECK FOR PRO VAR
+    if 'pro_unlocked' not in st.session_state:
+        st.session_state.pro_unlocked = False
     
     is_pro = st.session_state.pro_unlocked
     
