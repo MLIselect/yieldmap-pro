@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="YieldMap Pro | Deal Analyzer",
     page_icon="favicon.ico",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded" 
 )
 
 # --- HIDE STREAMLIT BRANDING ---
@@ -387,8 +387,29 @@ if df.empty:
     st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
     st.stop()
 
+# SESSION STATE INIT (Updated for Portfolio)
 if 'agreed' not in st.session_state: st.session_state.agreed = False
 if 'pro_unlocked' not in st.session_state: st.session_state.pro_unlocked = False
+if 'portfolio' not in st.session_state: st.session_state.portfolio = [] # <--- NEW: Memory for deals
+
+# --- SIDEBAR (PORTFOLIO & SETTINGS) ---
+with st.sidebar:
+    st.image("logo.png") if os.path.exists("logo.png") else st.title("YieldMap Pro")
+    
+    # Portfolio Widget (Phase 3)
+    st.markdown("### 📁 My Portfolio")
+    if len(st.session_state.portfolio) > 0:
+        for i, deal in enumerate(st.session_state.portfolio):
+            with st.expander(f"🏠 {deal['Address'] or 'Untitled'}", expanded=False):
+                st.write(f"**CoC:** {deal['CoC']:.1f}% | **Flow:** ${deal['Cashflow']:,.0f}")
+                if st.button(f"Remove", key=f"del_{i}"):
+                    st.session_state.portfolio.pop(i)
+                    st.rerun()
+        if st.button("🗑️ Clear All Deals"):
+            st.session_state.portfolio = []
+            st.rerun()
+    else:
+        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
 
 # --- TERMS OF SERVICE SCREEN ---
 if not st.session_state.agreed:
@@ -485,8 +506,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-tab_anal, tab_iq = st.tabs(["📊 Pro Analyzer", "📖 IQ Center"])
+# --- MAIN TABS (UPDATED FOR PHASE 3) ---
+tab_anal, tab_compare, tab_iq = st.tabs(["📊 Pro Analyzer", "⚖️ Compare Deals", "📖 IQ Center"])
 
+# ==========================================
+# TAB 1: PRO ANALYZER (EXISTING LOGIC)
+# ==========================================
 with tab_anal:
     if os.path.exists("logo.png"):
         st.markdown(f'<div style="text-align:center; margin-bottom:20px;"><img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" width="400"></div>', unsafe_allow_html=True)
@@ -651,6 +676,22 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Vacancy Rate", f"{user_vacancy:.1f}%" if is_pro else "🔒 Pro", help="Vacancy rate used for calculation.")
 
+    # --- SAVE BUTTON (NEW PHASE 3 ADDITION) ---
+    if is_pro:
+        st.markdown("---")
+        if st.button("💾 Save Deal to Portfolio", type="primary", use_container_width=True):
+            deal_data = {
+                "Address": prop_address or f"ZIP {selected_zip}",
+                "Price": price,
+                "Rent": rent_in,
+                "CoC": coc_return,
+                "Cashflow": monthly_cash_flow,
+                "Grade": d_grade,
+                "Timestamp": datetime.now().strftime("%H:%M:%S")
+            }
+            st.session_state.portfolio.append(deal_data)
+            st.success(f"Deal saved! View in 'Compare Deals' tab or Sidebar.")
+
     st.divider()
     g1, g2 = st.columns(2)
     with g1: 
@@ -699,7 +740,51 @@ with tab_anal:
     
     render_footer()
 
-# --- IQ CENTER ---
+# ==========================================
+# TAB 2: COMPARE DEALS (NEW PHASE 3)
+# ==========================================
+with tab_compare:
+    st.header("⚖️ Portfolio Comparison")
+    
+    if len(st.session_state.portfolio) == 0:
+        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal to Portfolio'**.")
+    else:
+        # Create Comparison Dataframe
+        comp_df = pd.DataFrame(st.session_state.portfolio)
+        
+        # Display as a styled table
+        st.markdown("### Deal Comparison Matrix")
+        
+        # Highlight logic (Pandas Styler)
+        def highlight_max(s):
+            is_max = s == s.max()
+            return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
+
+        st.dataframe(
+            comp_df.style.format({
+                "Price": "${:,.0f}",
+                "Rent": "${:,.0f}",
+                "CoC": "{:.1f}%",
+                "Cashflow": "${:,.0f}"
+            }).apply(highlight_max, subset=['CoC', 'Cashflow']),
+            use_container_width=True
+        )
+        
+        # Visual Comparison Chart
+        st.markdown("### 📈 Visual Performance")
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
+            st.plotly_chart(fig_coc, use_container_width=True)
+        with c2:
+            fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+            st.plotly_chart(fig_cf, use_container_width=True)
+
+# ==========================================
+# TAB 3: IQ CENTER (EXISTING CONTENT)
+# ==========================================
 with tab_iq:
     st.header("YieldMap IQ Center: Expert Knowledge Base")
     st.markdown("---")
