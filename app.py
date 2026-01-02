@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import pydeck as pdk
+import pydeck as pdk # <--- 3D Map Engine
 from fpdf import FPDF
 import os
 import base64
@@ -21,27 +21,11 @@ st.set_page_config(
 # --- HIDE STREAMLIT BRANDING ---
 hide_st_style = """
     <style>
-    /* 1. Hide the standard Streamlit footer */
     footer {visibility: hidden;}
-    
-    /* 2. Hide the top header bar */
     header {visibility: hidden;}
-    
-    /* 3. Hide the hamburger menu */
     #MainMenu {visibility: hidden;}
-    
-    /* 4. Hide the "View Fullscreen" button (bottom right) */
-    button[title="View fullscreen"] {
-        visibility: hidden;
-        display: none;
-    }
-    
-    /* 5. Hide the "Built with Streamlit" (bottom left) in embed mode */
-    .stApp > header {
-        display: none;
-    }
-    
-    /* 6. Extra safety for any other viewer badges */
+    button[title="View fullscreen"] {visibility: hidden; display: none;}
+    .stApp > header {display: none;}
     [data-testid="stDecoration"] {display:none;}
     [data-testid="stToolbar"] {display:none;}
     </style>
@@ -373,7 +357,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT (CORRECTED COLORS & NO TOOLS) ---
+# --- 6. GAUGE COMPONENT (FIXED: No Icons) ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
     fig = go.Figure(go.Indicator(
@@ -533,7 +517,7 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
-    # --- 3D MAP SECTION (FIXED STYLE) ---
+    # --- 3D MAP SECTION (DARK MODE + NEON BLUE) ---
     st.markdown("---")
     st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
     try:
@@ -542,15 +526,21 @@ with tab_anal:
         loc = nomi.query_postal_code(selected_zip)
         
         if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            map_data = pd.DataFrame({'lat': [loc.latitude], 'lon': [loc.longitude]})
+            # 3D MAP LOGIC
+            map_data = pd.DataFrame({
+                'lat': [loc.latitude], 
+                'lon': [loc.longitude]
+            })
             
+            # Setup 3D View
             view_state = pdk.ViewState(
                 latitude=loc.latitude,
                 longitude=loc.longitude,
                 zoom=11,
-                pitch=50,
+                pitch=50, # The "Tilt" effect
             )
             
+            # The "Layer" (Neon Blue Column)
             layer = pdk.Layer(
                 "ColumnLayer",
                 data=map_data,
@@ -558,20 +548,23 @@ with tab_anal:
                 get_elevation=200,
                 elevation_scale=4,
                 radius=200,
-                get_fill_color=[255, 46, 46, 255],
+                get_fill_color=[56, 189, 248, 200], # Neon Blue with slight opacity
                 pickable=True,
                 auto_highlight=True,
             )
             
-            # FIX: Use a public Carto style that doesn't need a token
+            # Render the Map with DARK STYLE (Public URL, No Token)
             st.pydeck_chart(pdk.Deck(
-                map_style='https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+                map_style='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', 
                 initial_view_state=view_state,
                 layers=[layer],
                 tooltip={"html": f"<b>ZIP: {selected_zip}</b><br>{loc.place_name}"}
             ))
         else:
             st.warning(f"Could not map coordinates for ZIP {selected_zip}")
+            
+    except ImportError:
+        st.error("🚨 Map Tool Missing. Run 'pip install pgeocode' and 'pip install pydeck'")
     except Exception as e:
         st.caption(f"Map unavailable: {e}")
 
