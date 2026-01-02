@@ -392,30 +392,7 @@ if 'agreed' not in st.session_state: st.session_state.agreed = False
 if 'pro_unlocked' not in st.session_state: st.session_state.pro_unlocked = False
 if 'portfolio' not in st.session_state: st.session_state.portfolio = [] # <--- NEW: Memory for deals
 
-# --- SIDEBAR (PORTFOLIO & SETTINGS) ---
-with st.sidebar:
-    # --- FIXED SIDEBAR LOGO LOGIC (NO WEIRD CODE PRINTING) ---
-    if os.path.exists("logo.png"):
-        st.image("logo.png")
-    else:
-        st.title("YieldMap Pro")
-    
-    # Portfolio Widget (Phase 3)
-    st.markdown("### 📁 My Portfolio")
-    if len(st.session_state.portfolio) > 0:
-        for i, deal in enumerate(st.session_state.portfolio):
-            with st.expander(f"🏠 {deal['Address'] or 'Untitled'}", expanded=False):
-                st.write(f"**CoC:** {deal['CoC']:.1f}% | **Flow:** ${deal['Cashflow']:,.0f}")
-                if st.button(f"Remove", key=f"del_{i}"):
-                    st.session_state.portfolio.pop(i)
-                    st.rerun()
-        if st.button("🗑️ Clear All Deals"):
-            st.session_state.portfolio = []
-            st.rerun()
-    else:
-        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
-
-# --- TERMS OF SERVICE SCREEN ---
+# --- TERMS OF SERVICE SCREEN (LOGIC UPDATE: SIDEBAR HIDDEN HERE) ---
 if not st.session_state.agreed:
     st.title("🔒 YieldMap Pro")
     
@@ -486,6 +463,29 @@ if not st.session_state.agreed:
             """, unsafe_allow_html=True)
             
     st.stop()
+
+# --- SIDEBAR (ONLY SHOWS AFTER AGREEMENT) ---
+with st.sidebar:
+    # --- FIXED SIDEBAR LOGO LOGIC (NO WEIRD CODE PRINTING) ---
+    if os.path.exists("logo.png"):
+        st.image("logo.png")
+    else:
+        st.title("YieldMap Pro")
+    
+    # Portfolio Widget (Phase 3)
+    st.markdown("### 📁 My Portfolio")
+    if len(st.session_state.portfolio) > 0:
+        for i, deal in enumerate(st.session_state.portfolio):
+            with st.expander(f"🏠 {deal['Address'] or 'Untitled'}", expanded=False):
+                st.write(f"**CoC:** {deal['CoC']:.1f}% | **Flow:** ${deal['Cashflow']:,.0f}")
+                if st.button(f"Remove", key=f"del_{i}"):
+                    st.session_state.portfolio.pop(i)
+                    st.rerun()
+        if st.button("🗑️ Clear All Deals"):
+            st.session_state.portfolio = []
+            st.rerun()
+    else:
+        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
 
 # --- SCROLL TO TOP FIX (Runs after the page reloads) ---
 if st.session_state.get('scroll_to_top'):
@@ -680,22 +680,6 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Vacancy Rate", f"{user_vacancy:.1f}%" if is_pro else "🔒 Pro", help="Vacancy rate used for calculation.")
 
-    # --- SAVE BUTTON (NEW PHASE 3 ADDITION) ---
-    if is_pro:
-        st.markdown("---")
-        if st.button("💾 Save Deal to Portfolio", type="primary", use_container_width=True):
-            deal_data = {
-                "Address": prop_address or f"ZIP {selected_zip}",
-                "Price": price,
-                "Rent": rent_in,
-                "CoC": coc_return,
-                "Cashflow": monthly_cash_flow,
-                "Grade": d_grade,
-                "Timestamp": datetime.now().strftime("%H:%M:%S")
-            }
-            st.session_state.portfolio.append(deal_data)
-            st.success(f"Deal saved! View in 'Compare Deals' tab or Sidebar.")
-
     st.divider()
     g1, g2 = st.columns(2)
     with g1: 
@@ -722,15 +706,25 @@ with tab_anal:
     except:
         PRO_CODE = "1234" # Fallback if secrets.toml is missing locally
         
-    e1, e2 = st.columns(2)
+    e1, e2, e3 = st.columns(3) # <--- UPDATED: 3 COLUMNS FOR SAVE / PDF / CSV
     
     with e1:
         if is_pro:
-            # Pass all variables including address, pm%, term
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years)
-            st.download_button("📂 Download Professional PDF Analysis", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf")
+            # SAVE BUTTON
+            if st.button("💾 Save Deal", type="primary", use_container_width=True):
+                deal_data = {
+                    "Address": prop_address or f"ZIP {selected_zip}",
+                    "Price": price,
+                    "Rent": rent_in,
+                    "CoC": coc_return,
+                    "Cashflow": monthly_cash_flow,
+                    "Grade": d_grade,
+                    "Timestamp": datetime.now().strftime("%H:%M:%S")
+                }
+                st.session_state.portfolio.append(deal_data)
+                st.success("Saved!")
         else:
-            st.warning("🔓 **Unlock Pro Metrics & PDF Reports**")
+            st.warning("🔓 **Unlock Pro Features**")
             c_input = st.text_input("Enter Access Code", type="password", placeholder="Enter code to unlock")
             if c_input == PRO_CODE:
                 st.session_state.pro_unlocked = True
@@ -739,8 +733,15 @@ with tab_anal:
             elif c_input:
                 st.error("Invalid Code")
 
-    with e2: 
-        st.download_button("📊 Export Raw Data (CSV)", data=row.to_frame().T.to_csv().encode('utf-8'), file_name=f"Data_{selected_zip}.csv")
+    with e2:
+        if is_pro:
+            # PDF BUTTON
+            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years)
+            st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
+
+    with e3: 
+        # CSV BUTTON
+        st.download_button("📊 Export CSV", data=row.to_frame().T.to_csv().encode('utf-8'), file_name=f"Data_{selected_zip}.csv", use_container_width=True)
     
     render_footer()
 
@@ -751,7 +752,7 @@ with tab_compare:
     st.header("⚖️ Portfolio Comparison")
     
     if len(st.session_state.portfolio) == 0:
-        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal to Portfolio'**.")
+        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
         # Create Comparison Dataframe
         comp_df = pd.DataFrame(st.session_state.portfolio)
