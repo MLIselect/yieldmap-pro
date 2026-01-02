@@ -177,9 +177,11 @@ def get_vacancy_rate(zip_code):
         if len(data) > 1:
             vacant_for_rent = float(data[1][0])
             renter_occupied = float(data[1][1])
-            total = vacant_for_rent + renter_occupied
-            if total > 0:
-                return round((vacant_for_rent / total) * 100, 1)
+            
+            total_rental_inventory = vacant_for_rent + renter_occupied
+            if total_rental_inventory > 0:
+                calculated_rate = (vacant_for_rent / total_rental_inventory) * 100
+                return round(calculated_rate, 1)
     except:
         pass 
 
@@ -580,9 +582,7 @@ with st.container():
     c_head1, c_head2 = st.columns([6, 1])
     
     with c_head1:
-        # Determine what to show: Logo Image or Text Title
         if os.path.exists("logo.png"):
-            # If logo exists, show it with the title inside a blue block
             st.markdown(f"""
             <div class="nav-title" style="display: flex; align-items: center; gap: 15px;">
                 <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="40">
@@ -591,21 +591,19 @@ with st.container():
             <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
             """, unsafe_allow_html=True)
         else:
-            # Fallback to Text Title if no logo
             st.markdown("""
             <div class="nav-title">YieldMap Pro</div>
             <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
             """, unsafe_allow_html=True)
 
     with c_head2:
-        # SETTINGS POPOVER (The Gear Icon) - Styled via CSS to look integrated
         with st.popover("⚙️", help="Settings & API Configuration"):
             st.markdown("### 🔧 Configuration")
             st.caption("Enter API Keys or Configs here.")
             api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
             st.info("Additional settings will appear here in future updates.")
 
-st.markdown("<br>", unsafe_allow_html=True) # Spacing
+st.markdown("<br>", unsafe_allow_html=True) 
 
 # --- MAIN TABS (UPDATED FOR PHASE 3) ---
 tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", "📖 IQ Center"])
@@ -614,7 +612,6 @@ tab_anal, tab_port, tab_iq = st.tabs(["📊 Pro Analyzer", "📁 My Portfolio", 
 # TAB 1: PRO ANALYZER (EXISTING LOGIC)
 # ==========================================
 with tab_anal:
-    # --- DRILL-DOWN SELECTORS (CARD STYLE) ---
     with st.container(border=True):
         st.markdown("#### 1. Property Details")
         c_client, c_addr = st.columns(2)
@@ -639,20 +636,18 @@ with tab_anal:
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
-    # --- COMPETITOR-GRADE 2D MAP (FOLIUM) ---
     st.markdown("---")
     st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
     
-    # --- SMART COMP LINKS (ADDED PER REQUEST) ---
+    # --- SMART LINKS & MAP ---
     c_link1, c_link2, c_link3 = st.columns(3)
     zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds.split('-')[0]}_beds/"
-    rentometer_url = f"https://www.rentometer.com/analysis/free?address={selected_zip}&bedrooms={beds.split('-')[0]}"
-    pha_url = f"https://www.hud.gov/states/{selected_state.lower().replace(' ','_')}/renting/hawebsites"
+    rentometer_url = "https://www.rentometer.com/"
+    pha_url = "https://www.hud.gov/program_offices/public_indian_housing/pha/contacts"
     
     with c_link1: st.link_button("🏠 View Zillow Comps", zillow_url, use_container_width=True)
     with c_link2: st.link_button("📊 Check Rentometer", rentometer_url, use_container_width=True)
     with c_link3: st.link_button("🏛️ Find Local PHA", pha_url, use_container_width=True)
-    # -----------------------------------------------
 
     try:
         import pgeocode; import folium; from streamlit_folium import st_folium
@@ -660,14 +655,12 @@ with tab_anal:
         loc = nomi.query_postal_code(selected_zip)
         
         if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            # Create the Map (Centered on ZIP)
             m = folium.Map(
                 location=[loc.latitude, loc.longitude], 
                 zoom_start=13,
                 tiles="OpenStreetMap" 
             )
             
-            # Add a Professional Marker
             folium.Marker(
                 [loc.latitude, loc.longitude], 
                 popup=f"Target ZIP: {selected_zip}",
@@ -675,18 +668,12 @@ with tab_anal:
                 icon=folium.Icon(color="blue", icon="home", prefix='fa')
             ).add_to(m)
             
-            # Render map
             st_folium(m, width=None, height=400, use_container_width=True)
-            
         else:
             st.warning(f"Could not map coordinates for ZIP {selected_zip}")
-            
-    except ImportError:
-        st.error("🚨 Map Libraries Missing. Run 'pip install streamlit-folium folium pgeocode'")
     except Exception as e:
         st.caption(f"Map unavailable: {e}")
 
-    # UNDERWRITING (CARD STYLE)
     st.markdown("---")
     limit = row[beds]
     
@@ -715,10 +702,8 @@ with tab_anal:
         with col_in2: 
             rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
         
-        # --- ADVANCED CONFIGURATION ---
         api_vacancy = get_vacancy_rate(selected_zip)
         
-        # SAFETY CHECK FOR PRO VAR
         if 'pro_unlocked' not in st.session_state:
             st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
@@ -735,9 +720,7 @@ with tab_anal:
                 down_payment = st.number_input("Down Payment (%)", value=20.0, step=5.0, disabled=not is_unlocked, help="Pro Only")
                 interest_rate = st.number_input("Interest Rate (%)", value=7.0, step=0.1, disabled=not is_unlocked, help="Pro Only")
                 loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
-                # NEW: Section 8 Repairs
                 initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
-                # NEW: APPRECIATION & RENT GROWTH INPUTS
                 appreciation = st.number_input("Appreciation %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual property value increase.")
                 rent_growth = st.number_input("Rent Growth %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual rent increase.")
             with c2:
@@ -746,10 +729,8 @@ with tab_anal:
                 maint_capex = st.slider("Maint/CapEx (%)", 0, 20, 10, disabled=not is_unlocked, help="Pro Only")
                 prop_mgmt_pct = st.number_input("Property Mgmt (%)", value=8.0, step=1.0, disabled=not is_unlocked, help="Standard fee is 8-10%. Set to 0 if self-managed.")
                 closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
-                # NEW: Target CoC
                 target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
 
-    # --- CALCULATIONS ---
     gross_annual_rent = rent_in * 12
     vacancy_loss_annual = gross_annual_rent * (user_vacancy / 100)
     effective_gross_income = gross_annual_rent - vacancy_loss_annual
@@ -764,7 +745,6 @@ with tab_anal:
     
     annual_cash_flow = noi - annual_debt_service
     monthly_cash_flow = annual_cash_flow / 12
-    # UPDATED: Investment includes repairs
     initial_investment = (price * (down_payment / 100)) + (price * (closing_costs / 100)) + initial_repairs
     coc_return = (annual_cash_flow / initial_investment) * 100 if initial_investment > 0 else 0
     yield_val = (rent_in * 12 / price * 100) if price > 0 else 0
@@ -776,7 +756,6 @@ with tab_anal:
     elif coc_return >= 8: d_grade = "B"
     else: d_grade = "C"
 
-    # --- TEASER DASHBOARD ---
     st.divider()
     logo_base64 = ""
     if os.path.exists("logo.png"):
@@ -793,7 +772,6 @@ with tab_anal:
     r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
     r4.metric("Total Cash Needed", f"${initial_investment:,.0f}" if is_pro else "🔒 Pro", help="Includes Down Pmt + Closing + HQS Repairs")
 
-    # --- NEW: MAX OFFER CALCULATOR ---
     if is_pro:
         mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, prop_mgmt_amount/12)
         st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
@@ -805,21 +783,18 @@ with tab_anal:
     with g1: 
         if is_pro:
             st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            # FIX APPLIED: Hide Toolbar
             st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("🔒 Cash-on-Cash Gauge Locked")
     with g2: 
         if is_pro:
-            # NEW: Equity Chart instead of Vacancy Gauge
             st.markdown('<p class="chart-label">5-Year Equity Projection</p>', unsafe_allow_html=True)
             years = list(range(1, 6))
             equity_vals = []
             current_bal = price * (1 - down_payment/100)
             for y in years:
-                # Simple amortization approximation
                 paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
-                if paid_principal < 0: paid_principal = 0 # Interest only guard
+                if paid_principal < 0: paid_principal = 0 
                 current_bal -= paid_principal
                 equity = price * ((1 + appreciation/100)**y) - current_bal
                 equity_vals.append(equity)
@@ -831,20 +806,17 @@ with tab_anal:
         else:
             st.info("🔒 Equity Chart Locked")
 
-    # --- PRO GATE (SAFE MODE) ---
     st.divider()
     
-    # SAFE SECRET RETRIEVAL
     try:
         PRO_CODE = st.secrets["PRO_CODE"]
     except:
-        PRO_CODE = "1234" # Fallback if secrets.toml is missing locally
+        PRO_CODE = "1234" 
         
-    e1, e2, e3 = st.columns(3) # <--- UPDATED: 3 COLUMNS FOR SAVE / PDF / CSV
+    e1, e2, e3 = st.columns(3) 
     
     with e1:
         if is_pro:
-            # SAVE BUTTON (Phase 3 Fix)
             if st.button("💾 Save Deal", type="primary", use_container_width=True):
                 deal_data = {
                     "Address": prop_address or f"ZIP {selected_zip}",
@@ -870,8 +842,6 @@ with tab_anal:
 
     with e2:
         if is_pro:
-            # PDF BUTTON
-            # GENERATE PROJECTIONS FOR PDF
             proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years, rent_growth, appreciation)
             pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_cost=maint_amount/12, loan_pmt=monthly_mortgage, hud_limit=limit, ua_val=ua_input, maint_pct=maint_capex, pm_pct=prop_mgmt_pct, term_years=loan_term_years, repairs=initial_repairs, projections_df=proj_df, rent_growth=rent_growth, appreciation=appreciation, closing_costs=closing_costs)
             st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
@@ -920,7 +890,6 @@ with tab_port:
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
         
-        # Highlight logic (Pandas Styler)
         def highlight_max(s):
             is_max = s == s.max()
             return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
