@@ -507,7 +507,7 @@ with st.sidebar:
             st.session_state.portfolio = []
             st.rerun()
     else:
-        st.info("No deals saved yet. Use the 'Save Deal' button in the Analyzer.")
+        st.info("No deals saved yet.")
 
     st.markdown("---")
     st.markdown("### 🔧 Settings")
@@ -701,6 +701,8 @@ with tab_anal:
     else:
         st.markdown("## YieldMap Asset Rating")
 
+    is_pro = st.session_state.pro_unlocked
+    
     r1, r2, r3, r4 = st.columns(4)
     r1.metric("Deal Grade", f"Grade {d_grade}" if is_pro else "🔒 Pro", help="Based on Cash-on-Cash Return.")
     r2.metric("Cash-on-Cash", f"{coc_return:.1f}%" if is_pro else "🔒 Pro", help="Net Profit / Cash Invested.")
