@@ -75,6 +75,13 @@ st.markdown("""
         border: none;
     }
     
+    /* MOBILE RESPONSIVENESS */
+    @media only screen and (max-width: 600px) {
+        .nav-title { font-size: 20px; padding-left: 1rem; }
+        .nav-subtitle { font-size: 10px; padding-left: 1rem; }
+        div[data-testid="stPopover"] > button { height: 70px; }
+    }
+
     /* METRIC CARDS */
     [data-testid="stMetricValue"] {
         font-size: 28px !important;
@@ -569,33 +576,34 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (LOGO + SETTINGS) ---
-c_head1, c_head2 = st.columns([6, 1])
+with st.container():
+    c_head1, c_head2 = st.columns([6, 1])
+    
+    with c_head1:
+        # Determine what to show: Logo Image or Text Title
+        if os.path.exists("logo.png"):
+            # If logo exists, show it with the title inside a blue block
+            st.markdown(f"""
+            <div class="nav-title" style="display: flex; align-items: center; gap: 15px;">
+                <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="40">
+                YieldMap Pro
+            </div>
+            <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback to Text Title if no logo
+            st.markdown("""
+            <div class="nav-title">YieldMap Pro</div>
+            <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
+            """, unsafe_allow_html=True)
 
-with c_head1:
-    # Determine what to show: Logo Image or Text Title
-    if os.path.exists("logo.png"):
-        # If logo exists, show it with the title inside a blue block
-        st.markdown(f"""
-        <div class="nav-title" style="display: flex; align-items: center; gap: 15px;">
-            <img src="data:image/png;base64,{base64.b64encode(open("logo.png", "rb").read()).decode()}" height="40">
-            YieldMap Pro
-        </div>
-        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-        """, unsafe_allow_html=True)
-    else:
-        # Fallback to Text Title if no logo
-        st.markdown("""
-        <div class="nav-title">YieldMap Pro</div>
-        <div class="nav-subtitle">Section 8 Market Intelligence • FY 2026</div>
-        """, unsafe_allow_html=True)
-
-with c_head2:
-    # SETTINGS POPOVER (The Gear Icon) - Styled via CSS to look integrated
-    with st.popover("⚙️", help="Settings & API Configuration"):
-        st.markdown("### 🔧 Configuration")
-        st.caption("Enter API Keys or Configs here.")
-        api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
-        st.info("Additional settings will appear here in future updates.")
+    with c_head2:
+        # SETTINGS POPOVER (The Gear Icon) - Styled via CSS to look integrated
+        with st.popover("⚙️", help="Settings & API Configuration"):
+            st.markdown("### 🔧 Configuration")
+            st.caption("Enter API Keys or Configs here.")
+            api_input = st.text_input("RentCast API Key", type="password", help="Optional: For automated rent comps (future feature).")
+            st.info("Additional settings will appear here in future updates.")
 
 st.markdown("<br>", unsafe_allow_html=True) # Spacing
 
@@ -634,11 +642,20 @@ with tab_anal:
     # --- COMPETITOR-GRADE 2D MAP (FOLIUM) ---
     st.markdown("---")
     st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
+    
+    # --- SMART COMP LINKS (ADDED PER REQUEST) ---
+    c_link1, c_link2, c_link3 = st.columns(3)
+    zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds.split('-')[0]}_beds/"
+    rentometer_url = f"https://www.rentometer.com/analysis/free?address={selected_zip}&bedrooms={beds.split('-')[0]}"
+    pha_url = f"https://www.hud.gov/states/{selected_state.lower().replace(' ','_')}/renting/hawebsites"
+    
+    with c_link1: st.link_button("🏠 View Zillow Comps", zillow_url, use_container_width=True)
+    with c_link2: st.link_button("📊 Check Rentometer", rentometer_url, use_container_width=True)
+    with c_link3: st.link_button("🏛️ Find Local PHA", pha_url, use_container_width=True)
+    # -----------------------------------------------
+
     try:
-        import pgeocode
-        import folium
-        from streamlit_folium import st_folium
-        
+        import pgeocode; import folium; from streamlit_folium import st_folium
         nomi = pgeocode.Nominatim('us')
         loc = nomi.query_postal_code(selected_zip)
         
@@ -874,7 +891,19 @@ with tab_port:
     if len(st.session_state.portfolio) == 0:
         st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
-        # 1. MANAGE DEALS SECTION
+        # 1. PORTFOLIO SUMMARY (ADDED)
+        total_cf = sum(d['Cashflow'] for d in st.session_state.portfolio)
+        avg_coc = sum(d['CoC'] for d in st.session_state.portfolio) / len(st.session_state.portfolio)
+        total_value = sum(d['Price'] for d in st.session_state.portfolio)
+        
+        col_sum1, col_sum2, col_sum3 = st.columns(3)
+        col_sum1.metric("Total Monthly Cashflow", f"${total_cf:,.0f}")
+        col_sum2.metric("Portfolio Value", f"${total_value:,.0f}")
+        col_sum3.metric("Avg Portfolio CoC", f"{avg_coc:.1f}%")
+        
+        st.divider()
+        
+        # 2. MANAGE DEALS SECTION
         st.markdown("### 📋 Manage Deals")
         for i, deal in enumerate(st.session_state.portfolio):
             with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
@@ -887,7 +916,7 @@ with tab_port:
         
         st.divider()
         
-        # 2. COMPARISON MATRIX
+        # 3. COMPARISON MATRIX
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
         
@@ -906,7 +935,7 @@ with tab_port:
             use_container_width=True
         )
         
-        # 3. CHARTS
+        # 4. CHARTS
         st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
