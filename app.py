@@ -22,7 +22,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* 1. GLOBAL FONT RESET - Professional Sans Serif */
+    /* 1. GLOBAL FONT RESET */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
@@ -94,38 +94,109 @@ st.markdown(
     /* 6. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        background-color: #f1f5f9; /* Light Gray Background */
-        padding: 10px;
-        display: flex;
-        justify-content: center;
+        top: 20px;
+        left: 300px; /* Adjusted position since logo is gone */
+        z-index: 100002;
+        background-color: transparent;
+        width: auto;
+        height: 40px;
     }
 
-    /* Change text color for mobile white background */
+    /* Hide the actual radio circles */
+    div[role="radiogroup"] > label > div:first-child {
+        display: none !important;
+    }
+
+    /* Style the labels to look like Nav Links */
+    div[role="radiogroup"] label {
+        background-color: transparent !important;
+        border: none !important;
+        margin-right: 20px !important;
+        padding: 8px 16px !important;
+        border-radius: 20px !important;
+        transition: all 0.2s ease;
+    }
+
+    /* Text Styling for Nav Links */
     div[role="radiogroup"] p {
-        color: #64748b !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        color: rgba(255, 255, 255, 0.7) !important; /* Dimmed white */
     }
 
+    /* Hover Effect */
+    div[role="radiogroup"] label:hover p {
+        color: #ffffff !important;
+    }
+
+    /* Selected / Active State */
     div[role="radiogroup"] label[data-checked="true"] {
-        background-color: #1e3a8a !important;
+        background-color: rgba(255, 255, 255, 0.15) !important;
     }
 
     div[role="radiogroup"] label[data-checked="true"] p {
-        color: white !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
     }
 
-    /* Push content down further on mobile */
-    .block-container {
-        padding-top: 10rem;
+    /* MOBILE RESPONSIVENESS */
+    @media (max-width: 900px) {
+        .brand-subtitle {
+            display: none;
+        }
+
+        /* On mobile, move nav below the blue bar */
+        div[data-testid="stRadio"] {
+            top: 80px;
+            left: 0;
+            width: 100%;
+            background-color: #f1f5f9; /* Light Gray Background */
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Change text color for mobile white background */
+        div[role="radiogroup"] p {
+            color: #64748b !important;
+        }
+
+        div[role="radiogroup"] label[data-checked="true"] {
+            background-color: #1e3a8a !important;
+        }
+
+        div[role="radiogroup"] label[data-checked="true"] p {
+            color: white !important;
+        }
+
+        /* Push content down further on mobile */
+        .block-container {
+            padding-top: 10rem;
+        }
+    }
+
+    /* METRIC CARDS */
+    [data-testid="stMetricValue"] {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+        color: #1e3a8a !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        font-size: 14px !important;
+        color: #64748b !important;
+    }
+
+    /* INPUT FIELDS (Cards) */
+    .stExpander, .element-container {
+        border-radius: 8px;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- REFERENCE DATA ---
+# --- 3. REFERENCE DATA ---
 STATE_MAP = {
     "AL": "Alabama",
     "AK": "Alaska",
@@ -180,7 +251,7 @@ STATE_MAP = {
     "DC": "District of Columbia"
 }
 
-# --- DATA UTILITIES ---
+# --- 4. DATA UTILITIES ---
 @st.cache_data
 def load_data():
     try:
@@ -206,7 +277,11 @@ def load_data():
             'HUD_FAIR_MARKET_RENT_AREA_NAME': 'area_name'
         }
 
-        available_cols = [c for c in rename_map.keys() if c in df.columns]
+        available_cols = []
+        for c in rename_map.keys():
+            if c in df.columns:
+                available_cols.append(c)
+        
         df = df[available_cols].rename(columns=rename_map)
 
         # EXTRACT STATE
@@ -215,10 +290,19 @@ def load_data():
         df['state'] = df['state'].fillna('Other')
 
         # Convert Rent to Numeric
-        cols_to_numeric = ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']
+        cols_to_numeric = [
+            'Studio',
+            '1-Bedroom',
+            '2-Bedroom',
+            '3-Bedroom',
+            '4-Bedroom'
+        ]
         for c in cols_to_numeric:
             if c in df.columns:
-                df[c] = pd.to_numeric(df[c].str.replace('$', '').str.replace(',', ''), errors='coerce').fillna(0)
+                df[c] = pd.to_numeric(
+                    df[c].str.replace('$', '').str.replace(',', ''),
+                    errors='coerce'
+                ).fillna(0)
 
         return df
 
@@ -232,12 +316,11 @@ def get_vacancy_rate(zip_code):
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_rate, timeout=3)
         data = r.json()
-        if len(data) > 1 and data[1][0]:
-            rate = float(data[1][0])
-            if rate >= 0:
-                return rate 
+        if len(data) > 1:
+            if data[1][0]:
+                return float(data[1][0])
     except:
-        pass 
+        pass
 
     try:
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
@@ -250,46 +333,44 @@ def get_vacancy_rate(zip_code):
             if total > 0:
                 return round((vacant_for_rent / total) * 100, 1)
     except:
-        pass 
-
+        pass
     return 5.0
 
 # --- 5. MATH ENGINES ---
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
-    loan_amount = price * (1 - (down_payment_pct/100))
+    loan_amount = price * (1 - (down_payment_pct / 100))
     if loan_amount <= 0:
         return 0
-    
+
     monthly_rate = (interest_rate / 100) / 12
     num_payments = term_years * 12
-    
+
     if monthly_rate == 0:
         return loan_amount / num_payments
-        
+
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
     # Reverse calculates price based on target return
     test_price = 50000
     step = 1000
-    
-    for _ in range(1000): 
-        loan = test_price * (1 - down_pct/100)
+
+    for _ in range(1000):
+        loan = test_price * (1 - down_pct / 100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
-        
-        cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
-        investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
-        
+
+        cashflow_yr = (net_rent - (taxes / 12) - (insurance / 12) - maint_monthly - pm_monthly - monthly_pmt) * 12
+        investment = (test_price * down_pct / 100) + (test_price * closing_costs_pct / 100) + repairs
+
         if investment > 0:
-            coc = (cashflow_yr / investment) * 100 
+            coc = (cashflow_yr / investment) * 100
         else:
             coc = 0
-            
+
         if coc < target_coc:
-            return test_price - step 
-        
+            return test_price - step
+
         test_price += step
-        
     return 0
 
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
@@ -297,73 +378,62 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     data = []
     current_rent = rent * 12
     current_expenses = total_expenses_yr
-    loan_balance = price * (1 - down_pct/100)
-    
+    loan_balance = price * (1 - down_pct / 100)
+
     for year in range(1, 31):
         # 1. Cash Flow
         noi = current_rent - current_expenses
         cashflow = noi - mortgage_yr
-        
+
         # 2. Equity (Amortization)
         if loan_balance > 0:
-            interest_payment = loan_balance * (interest_rate/100)
+            interest_payment = loan_balance * (interest_rate / 100)
             principal_payment = mortgage_yr - interest_payment
             if principal_payment > loan_balance:
                 principal_payment = loan_balance
             loan_balance -= principal_payment
-        
+
         # 3. Appreciation
-        property_value = price * ((1 + appreciation/100)**year)
+        property_value = price * ((1 + appreciation / 100)**year)
         total_equity = property_value - loan_balance
-        
+
         data.append({
             "Year": year,
             "Cash Flow": cashflow,
             "Loan Balance": loan_balance,
             "Total Equity": total_equity
         })
-        
+
         # Inflate for next year
-        current_rent *= (1 + rent_growth/100)
-        current_expenses *= (1 + rent_growth/100)
-        
+        current_rent *= (1 + rent_growth / 100)
+        current_expenses *= (1 + rent_growth / 100)
+
     return pd.DataFrame(data)
 
 # --- 6. MULTI-PAGE PDF GENERATOR ---
 class ProPDF(FPDF):
     def header(self):
-        # 1. SAFE WATERMARK (Centered, Light Gray)
         self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240) 
-        # Center horizontally (approx) and vertically
-        self.set_xy(0, 110) 
+        self.set_text_color(240, 240, 240)
+        self.set_xy(0, 110)
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
-        
-        # 2. Professional Brand Banner (Draws OVER the watermark)
-        self.set_fill_color(37, 99, 235)  # YieldMap Blue
-        self.set_xy(0, 0) # Reset to top
+        self.set_fill_color(37, 99, 235)
+        self.set_xy(0, 0)
         self.rect(0, 0, 210, 22, 'F')
-        
-        # 3. Logo Integration
-        if os.path.exists("logo.png"):
-            self.image("logo.png", 10, 4, 35) 
-        else:
-            self.set_font('Helvetica', 'B', 20)
-            self.set_text_color(255, 255, 255)
-            self.set_xy(10, 6)
-            self.cell(40, 10, "YieldMap", 0, 0, 'L')
 
-        # 4. Report Title
+        self.set_font('Helvetica', 'B', 20)
+        self.set_text_color(255, 255, 255)
+        self.set_xy(10, 6)
+        self.cell(40, 10, "YieldMap", 0, 0, 'L')
+
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(255, 255, 255)
         self.set_xy(0, 6)
         self.cell(210, 10, "SECTION 8 ANALYSIS REPORT", 0, 0, 'C')
-        
-        # 5. Date
+
         self.set_font('Helvetica', '', 9)
         self.set_xy(160, 6)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
-        
         self.ln(18)
 
     def footer(self):
@@ -374,65 +444,83 @@ class ProPDF(FPDF):
 
     def chapter_title(self, title):
         self.set_font('Helvetica', 'B', 12)
-        self.set_text_color(37, 99, 235) # Blue text
+        self.set_text_color(37, 99, 235)
         self.cell(0, 10, title, 0, 1, 'L')
         self.set_draw_color(200, 200, 200)
-        self.line(10, self.get_y(), 200, self.get_y()) # Underline
+        self.line(10, self.get_y(), 200, self.get_y())
         self.ln(2)
 
     def kpi_card(self, title, value, x, y, w=45, h=25):
-        # Background Card
         self.set_xy(x, y)
-        self.set_fill_color(248, 250, 252) # Very light gray
-        self.set_draw_color(226, 232, 240) # Border color
+        self.set_fill_color(248, 250, 252)
+        self.set_draw_color(226, 232, 240)
         self.rect(x, y, w, h, 'DF')
-        
-        # Label
-        self.set_xy(x, y+6)
+
+        self.set_xy(x, y + 6)
         self.set_font('Helvetica', 'B', 9)
-        self.set_text_color(100, 116, 139) # Muted text
+        self.set_text_color(100, 116, 139)
         self.cell(w, 5, title, 0, 1, 'C')
-        
-        # Value
-        self.set_xy(x, y+13)
+
+        self.set_xy(x, y + 13)
         self.set_font('Helvetica', 'B', 14)
-        self.set_text_color(37, 99, 235) # Brand Blue
+        self.set_text_color(37, 99, 235)
         self.cell(w, 8, value, 0, 1, 'C')
 
-    def add_table_row(self, label, value, fill=False):
+    def add_table_row(self, label, value, fill=False, text_color=None):
         self.set_font('Helvetica', '', 10)
-        self.set_fill_color(240, 253, 244) # Green tint
+        self.set_fill_color(240, 253, 244)
+
+        # Label Color
+        self.set_text_color(50, 50, 50)
         self.cell(140, 8, label, 1, 0, 'L', fill)
+
+        # Value Color Logic
+        if text_color:
+            self.set_text_color(*text_color)
+        else:
+            self.set_text_color(50, 50, 50)
+
         self.cell(50, 8, value, 1, 1, 'R', fill)
+        self.set_text_color(50, 50, 50)
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs):
     pdf = ProPDF()
-    pdf.alias_nb_pages() # Enable total page count
-    
-    # --- PAGE 1: EXECUTIVE SUMMARY ---
+    pdf.alias_nb_pages()
     pdf.add_page()
+
+    # EXECUTIVE SUMMARY
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 41, 59)
     area_name = row.get('area_name', 'Unknown')
     pdf.multi_cell(0, 8, f"Property Analysis: {area_name}")
     pdf.ln(2)
-    
-    # Client Info
+
+    # Client Info Block
     pdf.set_x(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(15, 6, "Client:", 0, 0, 'L')
     pdf.set_font('Helvetica', '', 10)
-    pdf.cell(80, 6, client or "Valued Investor", 0, 0, 'L') 
+    
+    client_text = client
+    if not client_text:
+        client_text = "Valued Investor"
+    pdf.cell(80, 6, client_text, 0, 0, 'L')
+    
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(15, 6, "Unit:", 0, 0, 'L')
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(40, 6, unit, 0, 1, 'L')
     pdf.ln(6)
+    
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(17, 6, "Address:", 0, 0, 'L')
     pdf.set_font('Helvetica', '', 10)
-    pdf.cell(0, 6, address or "Not Specified", 0, 1, 'L')
+    
+    address_text = address
+    if not address_text:
+        address_text = "Not Specified"
+    pdf.cell(0, 6, address_text, 0, 1, 'L')
     pdf.ln(8)
 
     # KPI Grid
@@ -442,40 +530,58 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.kpi_card("Monthly Flow", f"${net_cashflow:,.0f}", 110, y_start)
     pdf.kpi_card("Cap Rate", f"{yield_val:.2f}%", 160, y_start)
     pdf.ln(32)
-    
-    # Deal Grade Logic
+
+    # Disclaimer
     pdf.set_font('Helvetica', 'I', 8)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 5, "*Deal Grade Logic: A+ (>12% CoC), B (8-12%), C (<8%). Based on conservative vacancy reserves.", 0, 1, 'L')
     pdf.ln(4)
-    
-    # Financial Breakdown - FIXED TO INCLUDE CLOSING COSTS VARIABLE
+
+    # FINANCIAL BREAKDOWN
     pdf.chapter_title("Financial Breakdown (Year 1)")
     pdf.add_table_row("Purchase Price", f"${price:,.0f}")
     pdf.add_table_row("HQS / Initial Repairs", f"${repairs:,.0f}")
-    # Calculated using the closing_costs variable now
-    total_cash = (price*(down_pct/100)) + (price*(closing_costs/100)) + repairs
+
+    total_cash = (price * (down_pct / 100)) + (price * (closing_costs / 100)) + repairs
     pdf.add_table_row("Total Cash Needed (Inc. Closing)", f"${total_cash:,.0f}", True)
-    pdf.add_table_row("Loan Amount", f"${price*(1-down_pct/100):,.0f}")
+    pdf.add_table_row("Loan Amount", f"${price * (1 - down_pct / 100):,.0f}")
     pdf.add_table_row("Monthly P&I Payment", f"${loan_pmt:,.2f}")
     pdf.ln(5)
-    
-    # Expenses - UPDATED WITH PERCENTAGES
+
+    # RENT & EXPENSES
     pdf.chapter_title("Section 8 Rent & Expenses")
     pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
-    pdf.add_table_row(f"Vacancy Loss ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
-    pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate/100):,.2f}", True)
-    pdf.add_table_row("Property Taxes", f"(${taxes/12:,.2f})")
-    pdf.add_table_row("Insurance", f"(${ins/12:,.2f})")
+
+    # Color Coded Risk
+    if hud_limit > 0:
+        pct_limit = (rent / hud_limit) * 100
+        risk_color = (220, 20, 60) # Default Red
+        if pct_limit <= 100:
+            risk_color = (0, 128, 0) # Green
+
+        risk_label = "Risk"
+        if pct_limit <= 100:
+            risk_label = "Safe"
+            
+        pdf.add_table_row(f"Rent vs. FMR ({pct_limit:.1f}% of Limit)", risk_label, False, risk_color)
+
+    pdf.add_table_row(f"Vacancy Loss ({v_rate}%)", f"(${rent * (v_rate / 100):,.2f})")
+    pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate / 100):,.2f}", True)
+    pdf.add_table_row("Property Taxes", f"(${taxes / 12:,.2f})")
+    pdf.add_table_row("Insurance", f"(${ins / 12:,.2f})")
     pdf.add_table_row(f"Maintenance & CapEx ({maint_pct}%)", f"(${maint_cost:,.2f})")
-    pdf.add_table_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
-    pdf.add_table_row("Net Operating Income (NOI)", f"${(rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100)):,.2f}", True)
+    pdf.add_table_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct / 100):,.2f})")
     
-    pdf.add_page(); pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)"); 
-    pdf.set_font('Helvetica', '', 9); 
+    noi_val = (rent * (1 - v_rate / 100)) - (taxes / 12 + ins / 12 + maint_cost + rent * (pm_pct / 100))
+    pdf.add_table_row("Net Operating Income (NOI)", f"${noi_val:,.2f}", True)
+
+    # PAGE 2: PROJECTIONS
+    pdf.add_page()
+    pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
+    pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
     pdf.ln(5)
-    
+
     # Table Header
     pdf.set_fill_color(37, 99, 235) # Blue
     pdf.set_text_color(255, 255, 255) # White
@@ -485,24 +591,25 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
     pdf.cell(40, 8, "Total Equity", 1, 0, 'C', True)
     pdf.cell(40, 8, "Total Profit", 1, 1, 'C', True)
-    
+
     # Table Rows
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
-    
+
     snapshot_years = [1, 2, 3, 5, 10, 20, 30]
     total_cf = 0
-    initial_cash = (price * (down_pct/100)) + (price*(closing_costs/100)) + repairs
-    
+    initial_cash = (price * (down_pct / 100)) + (price * (closing_costs / 100)) + repairs
+
     for index, r in projections_df.iterrows():
         yr = int(r['Year'])
         total_cf += r['Cash Flow'] # Cumulative CF
-        
+
         if yr in snapshot_years:
             pdf.cell(20, 8, f"Year {yr}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
+
             # Total Profit = Cumulative Cash Flow + Equity (minus initial investment)
             total_profit = total_cf + r['Total Equity'] - initial_cash
             pdf.cell(40, 8, f"${total_profit:,.0f}", 1, 1, 'C')
@@ -513,19 +620,32 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     return pdf.output(dest='S')
 
-# --- 6. GAUGE COMPONENT ---
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
-    colors = ["#fee2e2", "#fef3c7", "#d1fae5"] if not flip else ["#d1fae5", "#fef3c7", "#fee2e2"]
+    colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
+    if flip:
+        colors = ["#d1fae5", "#fef3c7", "#fee2e2"]
+
     fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=value, number={'suffix': suffix, 'font': {'size': 35}},
-        gauge={'axis': {'range': [min_v, max_v]}, 'bar': {'color': "#2563eb"},
-               'steps': [{'range': [min_v, max_v*0.33], 'color': colors[0]},
-                         {'range': [max_v*0.33, max_v*0.66], 'color': colors[1]},
-                         {'range': [max_v*0.66, max_v], 'color': colors[2]}]}))
-    fig.update_layout(height=180, margin=dict(l=40, r=40, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
+        mode="gauge+number",
+        value=value,
+        number={'suffix': suffix, 'font': {'size': 35}},
+        gauge={
+            'axis': {'range': [min_v, max_v]},
+            'bar': {'color': "#2563eb"},
+            'steps': [
+                {'range': [min_v, max_v * 0.33], 'color': colors[0]},
+                {'range': [max_v * 0.33, max_v * 0.66], 'color': colors[1]},
+                {'range': [max_v * 0.66, max_v], 'color': colors[2]}
+            ]
+        }
+    ))
+    fig.update_layout(
+        height=180,
+        margin=dict(l=40, r=40, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)"
+    )
     return fig
 
-# --- WEB FOOTER ---
 def render_footer():
     st.divider()
     st.markdown(
@@ -539,81 +659,85 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- MAIN APP ---
+# --- 8. MAIN APP ---
 df = load_data()
-if df.empty: 
+if df.empty:
     st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
     st.stop()
 
-# SESSION STATE INIT (Updated for Portfolio)
-if 'agreed' not in st.session_state: st.session_state.agreed = False
-if 'pro_unlocked' not in st.session_state: st.session_state.pro_unlocked = False
-if 'portfolio' not in st.session_state: st.session_state.portfolio = [] # <--- NEW: Memory for deals
+# SESSION STATE INIT
+if 'agreed' not in st.session_state:
+    st.session_state.agreed = False
+if 'pro_unlocked' not in st.session_state:
+    st.session_state.pro_unlocked = False
+if 'portfolio' not in st.session_state:
+    st.session_state.portfolio = []
+if 'scroll_to_top' not in st.session_state:
+    st.session_state.scroll_to_top = False
 
 # --- TERMS OF SERVICE SCREEN ---
 if not st.session_state.agreed:
     st.title("🔒 YieldMap Pro")
-    
+
     with st.expander("📝 READ FULL TERMS OF USE & PRIVACY POLICY", expanded=True):
-        st.markdown("""
-        ### **TERMS OF USE AND USER AGREEMENT**
-        **Effective Date:** December 30, 2025 (FY 2026)
+        st.markdown(
+            """
+            ### **TERMS OF USE AND USER AGREEMENT**
+            **Effective Date:** December 30, 2025 (FY 2026)
 
-        **By clicking "Agree" or accessing the YieldMap Pro Application ("App"), you confirm you are at least 18 years old, eligible to use the service, and agree to these terms, our [full Terms of Use](/terms.html), and [Privacy Policy](/privacy.html). If you disagree, do not use the App.**
+            **By clicking "Agree" or accessing the YieldMap Pro Application ("App"), you confirm you are at least 18 years old, eligible to use the service, and agree to these terms. If you disagree, do not use the App.**
 
-        #### **1. NO FINANCIAL ADVICE**
-        The YieldMap Pro Application ("App") is strictly an educational and analytical tool. Yieldmappro.com is not a registered investment advisor, broker-dealer, or financial institution. The data, scores, and grades provided are theoretical estimates and do not constitute financial advice. **The App is provided "as-is" and "as-available," without any warranties, express or implied, including accuracy, completeness, or fitness for a particular purpose.**
+            #### **1. NO FINANCIAL ADVICE**
+            The YieldMap Pro Application ("App") is strictly an educational and analytical tool. Yieldmappro.com is **not** a registered investment advisor, broker-dealer, or financial institution. The data, scores, and grades provided are theoretical estimates and do not constitute financial advice. **The App is provided "as-is" and "as-available," without any warranties, express or implied.**
 
-        #### **2. DATA ACCURACY & VERIFICATION**
-        While we utilize official data from the U.S. Department of Housing and Urban Development (HUD) and the U.S. Census Bureau, you acknowledge that:
-        - HUD FMRs are subject to annual revision.
-        - Utility Allowances vary by specific local Public Housing Authority (PHA) schedules.
-        - **You are solely responsible** for verifying all rent limits and utility deductions with the local PHA before executing any contract.
-        - We are not liable for third-party data errors, API downtime, or changes in government policies.
+            #### **2. DATA ACCURACY & VERIFICATION**
+            While we utilize official data from HUD and the U.S. Census Bureau, you acknowledge that:
+            * HUD FMRs are subject to annual revision.
+            * Utility Allowances vary by specific local Public Housing Authority (PHA) schedules.
+            * **You are solely responsible** for verifying all rent limits and utility deductions with the local PHA before executing any contract.
+            * We are not liable for third-party data errors, API downtime, or changes in government policies.
 
-        #### **3. LIMITATION OF LIABILITY**
-        In no event shall Yieldmappro.com, its owners, affiliates, or employees be liable for any direct, indirect, incidental, special, consequential, or punitive damages (including lost profits, data loss, or bad investment decisions) arising from your use of the App, even if advised of the possibility. **Our total liability is limited to the amount you paid us in the 12 months preceding the claim.**
+            #### **3. LIMITATION OF LIABILITY**
+            In no event shall Yieldmappro.com, its owners, affiliates, or employees be liable for any direct, indirect, incidental, special, consequential, or punitive damages (including lost profits, data loss, or bad investment decisions) arising from your use of the App. **Our total liability is limited to the fees you paid us in the prior 12 months.**
 
-        #### **4. PRIVACY POLICY & DATA USAGE**
-        - We DO NOT sell your data. Any property data or underwriting assumptions you enter into this App are processed locally for the purpose of generating your session report.
-        - We respect your privacy and will never monetize your personal usage habits or client lists.
-        **See our [Privacy Policy](/privacy.html) for details on data handling.**
+            #### **4. PRIVACY POLICY & DATA USAGE**
+            * **We DO NOT sell your data.** Any property data or underwriting assumptions you enter into this App are processed locally for the purpose of generating your session report.
+            * We respect your privacy and will never monetize your personal usage habits or client lists.
 
-        #### **5. INDEMNIFICATION**
-        By accessing this App, you agree to indemnify, defend, and hold harmless Yieldmappro.com, its affiliates, officers, directors, and employees from any claims, damages, losses, liabilities, or expenses (including attorneys' fees) arising from your use of the analytics provided, violation of these terms, or infringement of third-party rights.
+            #### **5. INDEMNIFICATION**
+            By accessing this App, you agree to indemnify, defend, and hold harmless Yieldmappro.com from any claims, losses, damages, liabilities, or expenses (including attorneys' fees) resulting from your use of the analytics, violation of these terms, or infringement of third-party rights.
 
-        #### **6. INTELLECTUAL PROPERTY & USAGE RESTRICTIONS**
-        All App content, features, and functionality (including software, algorithms, and data integrations) are owned by Yieldmappro.com or its licensors and protected by intellectual property laws. You are granted a limited, non-exclusive, revocable license for personal/professional use only. You agree not to:
-        - Copy, modify, distribute, or create derivative works.
-        - Reverse-engineer, scrape, or misuse the App (e.g., excessive API calls or competitive purposes).
-        - Upload harmful content or violate laws.
-        **We may monitor usage and suspend/terminate access for violations without notice or refund.**
+            #### **6. INTELLECTUAL PROPERTY & USAGE RESTRICTIONS**
+            All App content and algorithms are owned by Yieldmappro.com. You agree not to:
+            * Copy, modify, or create derivative works.
+            * Reverse-engineer or scrape the App.
+            * **We may suspend access for violations without notice.**
 
-        #### **7. GOVERNING LAW & DISPUTE RESOLUTION**
-        These terms are governed by the laws of [Your State, e.g., California, USA], without regard to conflict of laws. Any disputes will be resolved through binding arbitration in [Your Location, e.g., California] under [e.g., AAA] rules, with no class actions or jury trials. Arbitration costs will be shared, except as otherwise provided by law.
+            #### **7. GOVERNING LAW**
+            These terms are governed by the laws of the United States. Any disputes will be resolved through binding arbitration.
 
-        #### **8. CHANGES TO TERMS**
-        We may update these terms at any time. We will notify you via email or in-App notice for material changes. Continued use after updates constitutes acceptance. If any provision is invalid, the rest remains enforceable. This is the entire agreement, superseding prior understandings.
+            ---
+            **Contact Us:** For questions, email support@yieldmappro.com.
+            """
+        )
 
-        **Contact Us:** For questions, email support@yieldmappro.com.
+    st.warning("⚠️ By checking the box below, you legally agree to these Terms.")
 
-        [I Agree] [Decline]
-        """
-    )
-
-    st.warning("⚠️ By checking the box below, you agree to these Terms.")
-
+    # 1. THE CHECKBOX
     if st.checkbox("I have read and agree to the Terms of Use, Privacy Policy, and Limitation of Liability."):
+
+        # 2. THE BUTTON
         if st.button("Accept & Enter Pro Analyzer"):
             st.session_state.agreed = True
             st.session_state.scroll_to_top = True
             st.rerun()
 
+        # 3. AUTO-SCROLL DOWN
         st.markdown(
             """
             <script>
                 setTimeout(function() {
-                    var container = window.parent.document.query_selector('[data-testid="stAppViewContainer"]');
+                    var container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
                     if (container) {
                         container.scrollTo({
                             top: container.scrollHeight, 
@@ -632,7 +756,7 @@ if st.session_state.get('scroll_to_top'):
     st.markdown(
         """
         <script>
-            var body = window.parent.document.query_selector(".main");
+            var body = window.parent.document.querySelector(".main");
             if (body) { body.scrollTop = 0; }
         </script>
         """,
@@ -641,6 +765,7 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (STICKY & BRANDED) ---
+# Logo and Gear Icon removed as requested.
 st.markdown(
     """
     <div class="fixed-header">
@@ -654,6 +779,7 @@ st.markdown(
 )
 
 # --- NAVIGATION (HORIZONTAL RADIO BUTTONS) ---
+# This widget is visually hoisted into the header by the CSS "div[data-testid='stRadio']" above.
 page = st.radio(
     "Navigation",
     ["Pro Analyzer", "My Portfolio", "IQ Center"],
@@ -665,7 +791,7 @@ page = st.radio(
 
 if page == "Pro Analyzer":
     # ==========================================
-    # TAB 1: PRO ANALYZER (EXISTING LOGIC)
+    # TAB 1: PRO ANALYZER
     # ==========================================
     with st.container(border=True):
         st.markdown("#### 1. Property Details")
@@ -674,229 +800,333 @@ if page == "Pro Analyzer":
             client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
         with c_addr:
             prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
-        
+
         col_input1, col_input2, col_input3 = st.columns(3)
-        
+
         with col_input1:
             state_list = sorted([s for s in df['state'].unique() if s != 'Other'])
             selected_state = st.selectbox("1. Select State", state_list, help="Filter markets by US State.")
-        
+
         with col_input2:
             zip_list = sorted(df[df['state'] == selected_state]['zip_code'].unique())
             selected_zip = st.selectbox("2. Select ZIP Code", zip_list, help="Select the exact ZIP code from Zillow/Redfin.")
-            
+
         with col_input3:
-            beds = st.selectbox("3. Unit Asset Class", ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"], index=2, help="Select bedroom count.")
+            beds = st.selectbox(
+                "3. Unit Asset Class",
+                ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"],
+                index=2,
+                help="Select bedroom count."
+            )
 
     row = df[df['zip_code'] == selected_zip].iloc[0]
     market_area_name = row.get('area_name', 'Unknown Area')
 
-    # --- COMPETITOR-GRADE 2D MAP (FOLIUM) ---
     st.markdown("---")
-    st.markdown(f"#### {market_area_name} ({selected_zip})")
+    st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
+
+    # SMART LINKS
+    c_link1, c_link2, c_link3 = st.columns(3)
+    beds_for_url = beds.split('-')[0]
+    zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds_for_url}_beds/"
+    rentometer_url = "https://www.rentometer.com/"
+    pha_url = "https://www.hud.gov/program_offices/public_indian_housing/pha/contacts"
+
+    with c_link1:
+        st.link_button("🏠 View Zillow Comps", zillow_url, use_container_width=True)
+    with c_link2:
+        st.link_button("📊 Check Rentometer", rentometer_url, use_container_width=True)
+    with c_link3:
+        st.link_button("🏛️ Find Local PHA", pha_url, use_container_width=True)
+
     try:
         import pgeocode
+        import folium
+        from streamlit_folium import st_folium
         nomi = pgeocode.Nominatim('us')
         loc = nomi.query_postal_code(selected_zip)
-        
-        if not math.isnan(loc.latitude) and not math.isnan(loc.longitude):
-            # Create the Map (Centered on ZIP)
-            m = folium.Map(
-                location=[loc.latitude, loc.longitude], 
-                zoom_start=13,
-                tiles="OpenStreetMap" 
-            )
-            
-            # Add a Professional Marker
-            folium.Marker(
-                [loc.latitude, loc.longitude], 
-                popup=f"Target ZIP: {selected_zip}",
-                tooltip="Analysis Center",
-                icon=folium.Icon(color="blue", icon="home", prefix='fa')
-            ).add_to(m)
-            
-            # Render map
-            st_folium(m, width=None, height=400, use_container_width=True)
-            
-        else:
-            st.warning(f"Could not map coordinates for ZIP {selected_zip}")
-            
-    except ImportError:
-        st.error("🚨 Map Libraries Missing. Run 'pip install streamlit-folium folium pgeocode'")
-    except Exception as e:
-        st.caption(f"Map unavailable: {e}")
 
-    # UNDERWRITING (CARD STYLE)
+        if not math.isnan(loc.latitude):
+            if not math.isnan(loc.longitude):
+                m = folium.Map(location=[loc.latitude, loc.longitude], zoom_start=13)
+                folium.Marker(
+                    [loc.latitude, loc.longitude],
+                    icon=folium.Icon(color="blue", icon="home", prefix='fa')
+                ).add_to(m)
+                st_folium(m, height=350, use_container_width=True)
+    except:
+        pass
+
     st.markdown("---")
     limit = row[beds]
-    
+
     with st.container(border=True):
-        st.markdown(f"#### ⚡ Pro Underwriting: {market_area_name} ({selected_zip})")
-        col_u_inputs, col_u_info = st.columns([2, 1])
-        with col_u_inputs:
-            col_p1, col_p2, col_p3 = st.columns(3)
-            if 'ua_value' not in st.session_state: st.session_state.ua_value = 150
-            if col_p1.button("Low ($120)"): st.session_state.ua_value = 120
-            if col_p2.button("Mid ($180)"): st.session_state.ua_value = 180
-            if col_p3.button("High ($250)"): st.session_state.ua_value = 250
-            
-            ua_input = st.slider("Utility Allowance Deduction", 0, 400, value=st.session_state.ua_value, help="The amount you must deduct from the rent if the tenant pays their own utilities.")
-            st.caption("⚠️ **Verification Required:** Consult local PHA.")
-        
+        st.markdown(f"#### ⚡ Pro Underwriting")
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            ua_input = st.slider("Utility Allowance", 0, 400, 150)
+
         target_rent = limit - ua_input
-        with col_u_info:
-            st.info(f"**HUD FY 2026 Limit:** ${limit:,.0f} \n\n**Net Contract Rent:** ${target_rent:,.0f}")
-    
+        with c2:
+            st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Rent:** ${target_rent:,.0f}")
+
     with st.container(border=True):
-        st.markdown("#### Acquisition Details")
-        col_in1, col_in2 = st.columns(2)
-        with col_in1: 
-            price = st.number_input("Acquisition Price ($)", value=250000, help="The total purchase price of the property.")
-        with col_in2: 
-            rent_in = st.number_input("Target Contract Rent ($)", value=int(target_rent), help="The actual rent you expect to collect.")
-        
-        # --- ADVANCED CONFIGURATION ---
+        st.markdown("#### Acquisition")
+        c1, c2 = st.columns(2)
+        with c1:
+            price = st.number_input("Price", value=250000)
+        with c2:
+            rent_in = st.number_input("Rent", value=int(target_rent))
+
         api_vacancy = get_vacancy_rate(selected_zip)
-        
-        # SAFETY CHECK FOR PRO VAR
-        if 'pro_unlocked' not in st.session_state:
-            st.session_state.pro_unlocked = False
         is_unlocked = st.session_state.pro_unlocked
-        
-        start_val = api_vacancy if api_vacancy is not None else 5.0
-        
-        with st.expander("⚙️ Advanced Configuration (Pro Features)", expanded=True):
-            if not is_unlocked:
-                st.caption("🔒 These inputs are locked. Upgrade to Pro to customize assumptions.")
-                
+
+        with st.expander("⚙️ Advanced Config (Pro)", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
-                user_vacancy = st.number_input("Vacancy Rate (%)", value=start_val, step=0.1, disabled=not is_unlocked, help="Adjust estimated vacancy rate (Pro Only).")
-                down_payment = st.number_input("Down Payment (%)", value=20.0, step=5.0, disabled=not is_unlocked, help="Pro Only")
-                interest_rate = st.number_input("Interest Rate (%)", value=7.0, step=0.1, disabled=not is_unlocked, help="Pro Only")
-                loan_term_years = st.number_input("Loan Term (Years)", value=30, step=5, disabled=not is_unlocked, help="Standard is 30 years.")
-                # NEW: Section 8 Repairs
-                initial_repairs = st.number_input("HQS Repair Budget ($)", value=2000, step=500, disabled=not is_unlocked, help="Upfront fixes to pass Section 8 inspection.")
-                # NEW: APPRECIATION & RENT GROWTH INPUTS INPUTS
-                appreciation = st.number_input("Appreciation %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual property value increase.")
-                rent_growth = st.number_input("Rent Growth %", value=2.0, step=0.5, disabled=not is_unlocked, help="Annual rent increase.")
+                user_vacancy = st.number_input("Vacancy %", value=5.0, disabled=not is_unlocked)
+                down_payment = st.number_input("Down %", value=20.0, disabled=not is_unlocked)
+                interest_rate = st.number_input("Rate %", value=7.0, disabled=not is_unlocked)
+                loan_term_years = st.number_input("Term", value=30, disabled=not is_unlocked)
+                initial_repairs = st.number_input("Repairs", value=2000, disabled=not is_unlocked)
+                appreciation = st.number_input("Appreciation %", value=2.0, disabled=not is_unlocked)
+                rent_growth = st.number_input("Rent Growth %", value=2.0, disabled=not is_unlocked)
             with c2:
-                taxes_yr = st.number_input("Property Taxes ($/yr)", value=3000, disabled=not is_unlocked, help="Pro Only")
-                insurance_yr = st.number_input("Insurance ($/yr)", value=1200, disabled=not is_unlocked, help="Pro Only")
-                maint_capex = st.slider("Maint/CapEx (%)", 0, 20, 10, disabled=not is_unlocked, help="Pro Only")
-                prop_mgmt_pct = st.number_input("Property Mgmt (%)", value=8.0, step=1.0, disabled=not is_unlocked, help="Standard fee is 8-10%. Set to 0 if self-managed.")
-                closing_costs = st.number_input("Closing Costs (%)", value=3.0, step=0.5, disabled=not is_unlocked, help="Est. 3-5% of purchase price. Set to 0 if seller pays.")
-                # NEW: Target CoC
-                target_coc_input = st.number_input("Target CoC Return (%)", value=12.0, step=1.0, disabled=not is_unlocked, help="Used to calculate Max Allowable Offer.")
+                taxes_yr = st.number_input("Taxes", value=3000, disabled=not is_unlocked)
+                insurance_yr = st.number_input("Insurance", value=1200, disabled=not is_unlocked)
+                maint_capex = st.slider("Maint %", 0, 20, 10, disabled=not is_unlocked)
+                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, disabled=not is_unlocked)
+                closing_costs = st.number_input("Closing %", value=3.0, disabled=not is_unlocked)
+                target_coc_input = st.number_input("Target CoC", value=12.0, disabled=not is_unlocked)
 
-    # --- TEASER DASHBOARD ---
+    # CALCS
+    gross = rent_in * 12
+    vac_loss = gross * (user_vacancy / 100)
+    egi = gross - vac_loss
+    maint = egi * (maint_capex / 100)
+    pm = gross * (prop_mgmt_pct / 100)
+    exp = taxes_yr + insurance_yr + maint + pm
+    noi = egi - exp
+    mort = calculate_mortgage(price, down_payment, interest_rate, loan_term_years)
+    debt = mort * 12
+    cf = noi - debt
+    invest = (price * down_payment / 100) + (price * closing_costs / 100) + initial_repairs
+
+    coc = 0
+    if invest > 0:
+        coc = (cf / invest * 100)
+
+    n_grade = "C"
+    if limit >= 2500:
+        n_grade = "A"
+    elif limit >= 1800:
+        n_grade = "B"
+
+    d_grade = "C"
+    if coc >= 12:
+        d_grade = "A+"
+    elif coc >= 8:
+        d_grade = "B"
+
     st.divider()
-    st.markdown('<p class="chart-label">YieldMap Asset Rating</p>', unsafe_allow_html=True)
+    st.markdown("## YieldMap Asset Rating")
 
-    is_pro = st.session_state.pro_unlocked
-    
     r1, r2, r3, r4 = st.columns(4)
-    r1.metric("Deal Grade", f"Grade {d_grade}" if is_pro else "🔒 Pro", help="Based on Cash-on-Cash Return.")
-    r2.metric("Cash-on-Cash", f"{coc_return:.1f}%" if is_pro else "🔒 Pro", help="Net Profit / Cash Invested.")
-    r3.metric("Net Monthly Flow", f"${monthly_cash_flow:,.0f}" if is_pro else "🔒 Pro", help="Profit after mortgage & expenses.")
-    r4.metric("Total Cash Needed", f"${initial_investment:,.0f}" if is_pro else "🔒 Pro", help="Includes Down Pmt + Closing + HQS Repairs")
 
-    if is_pro:
-        mao_price = calculate_max_offer(rent_in * (1-user_vacancy/100), target_coc_input, initial_repairs, closing_costs, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, pm_monthly)
-        st.info(f"🎯 **Max Allowable Offer (MAO):** To hit a **{target_coc_input}% CoC**, you should pay no more than **${mao_price:,.0f}** for this property.")
+    metric_grade = "🔒"
+    if is_unlocked:
+        metric_grade = d_grade
+    r1.metric("Deal Grade", metric_grade)
+
+    metric_coc = "🔒"
+    if is_unlocked:
+        metric_coc = f"{coc:.1f}%"
+    r2.metric("CoC Return", metric_coc)
+
+    metric_cf = "🔒"
+    if is_unlocked:
+        metric_cf = f"${cf / 12:,.0f}"
+    r3.metric("Monthly CF", metric_cf)
+
+    metric_invest = "🔒"
+    if is_unlocked:
+        metric_invest = f"${invest:,.0f}"
+    r4.metric("Cash Needed", metric_invest)
+
+    if is_unlocked:
+        mao = calculate_max_offer(
+            rent_in * (1 - user_vacancy / 100),
+            target_coc_input,
+            initial_repairs,
+            closing_costs,
+            down_payment,
+            interest_rate,
+            taxes_yr,
+            insurance_yr,
+            maint / 12,
+            pm / 12
+        )
+        st.info(f"🎯 **MAO:** ${mao:,.0f} for {target_coc_input}% CoC")
     else:
-        st.info("🎯 **Max Allowable Offer (MAO):** 🔒 Unlock Pro to see the exact price you should pay to hit your target return.")
+        st.info("🔒 Unlock Pro for Max Offer")
 
     st.divider()
     g1, g2 = st.columns(2)
-    with g1: 
-        if is_pro:
-            st.markdown('<p class="chart-label">Cash on Cash Return</p>', unsafe_allow_html=True)
-            st.plotly_chart(create_gauge(coc_return, "CoC %", 0, 20), use_container_width=True, config={'displayModeBar': False})
+    with g1:
+        if is_unlocked:
+            st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True)
         else:
-            st.info("🔒 Cash-on-Cash Gauge Locked")
-    with g2: 
-        if is_pro:
-            st.markdown('<p class="chart-label">5-Year Equity Projection</p>', unsafe_allow_html=True)
+            st.info("🔒 Gauge Locked")
+
+    with g2:
+        if is_unlocked:
             years = list(range(1, 6))
             equity_vals = []
-            current_bal = price * (1 - down_payment/100)
+            current_bal = price * (1 - down_payment / 100)
             for y in years:
-                paid_principal = (monthly_mortgage * 12) - (current_bal * interest_rate/100)
-                if paid_principal < 0: paid_principal = 0 
+                paid_principal = (mort * 12) - (current_bal * interest_rate / 100)
+                if paid_principal < 0:
+                    paid_principal = 0
                 current_bal -= paid_principal
-                equity = price * ((1 + appreciation/100)**y) - current_bal
+                equity = price * ((1 + appreciation / 100)**y) - current_bal
                 equity_vals.append(equity)
-            
             fig_eq = go.Figure()
-            fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy', mode='none', fillcolor='rgba(37, 99, 235, 0.5)'))
-            fig_eq.update_layout(height=180, margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", xaxis=dict(showgrid=False, fixedrange=True), yaxis=dict(showgrid=False, fixedrange=True))
-            st.plotly_chart(fig_eq, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+            fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy'))
+            fig_eq.update_layout(
+                height=180,
+                margin=dict(l=20, r=20, t=10, b=10),
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
+            st.plotly_chart(fig_eq, use_container_width=True)
         else:
-            st.caption("🔒 Equity Chart Locked")
+            st.info("🔒 Equity Locked")
 
     st.divider()
-    
+
+    # SECRET CODE CHECK
+    try:
+        PRO_CODE = st.secrets["PRO_CODE"]
+    except:
+        PRO_CODE = "1234"
+
     e1, e2, e3 = st.columns(3)
-    with e1: 
-        if is_pro:
-            if st.button("💾 Save Deal", type="primary", use_container_width=True):
-                deal_data = {
-                    "Address": prop_address or f"ZIP {selected_zip}",
+
+    with e1:
+        if is_unlocked:
+            if st.button("💾 Save", type="primary", use_container_width=True):
+                save_address = prop_address
+                if not save_address:
+                    save_address = f"ZIP {selected_zip}"
+                    
+                st.session_state.portfolio.append({
+                    "Address": save_address,
                     "Price": price,
-                    "CoC": coc_return,
-                    "Cashflow": monthly_cash_flow,
-                    "Grade": d_grade,
-                    "Repairs": initial_repairs,
-                    "Timestamp": datetime.now().strftime("%H:%M:S")
-                }
-                st.session_state.portfolio.append(deal_data)
+                    "CoC": coc,
+                    "Cashflow": cf / 12,
+                    "Grade": d_grade
+                })
                 st.success("Saved!")
         else:
-            st.warning("🔓 **Unlock Pro Features**")
-            c_input = st.text_input("Enter Access Code", type="password", placeholder="Enter code to unlock")
+            c_input = st.text_input("Access Code", type="password")
             if c_input == PRO_CODE:
                 st.session_state.pro_unlocked = True
-                st.success("Access Granted!")
                 st.rerun()
-            elif c_input:
-                st.error("Invalid Code")
 
     with e2:
-        if is_pro:
-            proj_df = calculate_projections(price, rent_in, total_expenses, annual_debt_service, down_payment, interest_rate, loan_term_years, rent_growth, appreciation)
-            pdf_bytes = generate_pro_report(client_name, prop_address, row, beds, price, rent_in, user_vacancy, yield_val, coc_return, monthly_cash_flow, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, maint_amount/12, monthly_mortgage, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, initial_repairs, proj_df, rent_growth, appreciation, closing_costs)
-            st.download_button("📂 Download PDF", data=pdf_bytes.encode('latin-1'), file_name=f"Report_{selected_zip}.pdf", use_container_width=True)
+        if is_unlocked:
+            proj = calculate_projections(
+                price,
+                rent_in,
+                exp,
+                debt,
+                down_payment,
+                interest_rate,
+                loan_term_years,
+                rent_growth,
+                appreciation
+            )
+            pdf = generate_pro_report(
+                client_name,
+                prop_address,
+                row,
+                beds,
+                price,
+                rent_in,
+                user_vacancy,
+                0,
+                coc,
+                cf / 12,
+                d_grade,
+                n_grade,
+                down_payment,
+                interest_rate,
+                taxes_yr,
+                insurance_yr,
+                maint,
+                mort,
+                limit,
+                ua_input,
+                maint_capex,
+                prop_mgmt_pct,
+                loan_term_years,
+                initial_repairs,
+                proj,
+                rent_growth,
+                appreciation,
+                closing_costs
+            )
+            st.download_button(
+                "📂 PDF Report",
+                data=pdf.encode('latin-1'),
+                file_name="Report.pdf",
+                use_container_width=True
+            )
 
-    with e3: 
-        st.download_button("📊 Export CSV", data=row.to_frame().T.to_csv().encode('utf-8'), file_name=f"Data_{selected_zip}.csv", use_container_width=True)
-    
-    render_footer()
+    with e3:
+        st.download_button(
+            "📊 Export CSV",
+            data=row.to_frame().T.to_csv().encode('utf-8'),
+            file_name=f"Data_{selected_zip}.csv",
+            use_container_width=True
+        )
 
-# ==========================================
-# TAB 2: PORTFOLIO (NEW LOCATION)
-# ==========================================
 elif page == "My Portfolio":
-    st.header("⚖️ Portfolio Command Center")
-    
-    if len(st.session_state.portfolio) == 0:
-        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
+    # ==========================================
+    # TAB 2: PORTFOLIO
+    # ==========================================
+    st.header("Portfolio Command Center")
+    if not st.session_state.portfolio:
+        st.info("No deals saved.")
     else:
+        # ANALYTICS SUMMARY
+        t_cf = sum(d['Cashflow'] for d in st.session_state.portfolio)
+        avg_c = sum(d['CoC'] for d in st.session_state.portfolio) / len(st.session_state.portfolio)
+        t_val = sum(d['Price'] for d in st.session_state.portfolio)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total CF", f"${t_cf:,.0f}")
+        c2.metric("Total Value", f"${t_val:,.0f}")
+        c3.metric("Avg CoC", f"{avg_c:.1f}%")
+
+        st.divider()
+
+        # MANAGE DEALS
         st.markdown("### 📋 Manage Deals")
         for i, deal in enumerate(st.session_state.portfolio):
             with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
-                c1, c2, c3 = st.columns([2,2,1])
+                c1, c2, c3 = st.columns([2, 2, 1])
                 c1.write(f"**Price:** ${deal['Price']:,.0f}")
                 c2.write(f"**CoC:** {deal['CoC']:.1f}%")
                 if c3.button("🗑️ Delete", key=f"port_del_{i}"):
                     st.session_state.portfolio.pop(i)
                     st.rerun()
-        
+
         st.divider()
-        
+
+        # COMPARISON
         st.markdown("### 📊 Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
-        
+
         def highlight_max(s):
             is_max = s == s.max()
             return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
@@ -910,120 +1140,131 @@ elif page == "My Portfolio":
             }).apply(highlight_max, subset=['CoC', 'Cashflow']),
             use_container_width=True
         )
-        
+
+        # CHARTS
         st.markdown("### 📈 Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
-            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %", staticPlot=True)
-            st.plotly_chart(fig_coc, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
+            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})
         with c2:
             fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
-            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $", staticPlot=True)
-            st.plotly_chart(fig_cf, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})
 
-# ==========================================
-# TAB 3: IQ CENTER (EXISTING CONTENT)
-# ==========================================
 elif page == "IQ Center":
+    # ==========================================
+    # TAB 3: IQ CENTER
+    # ==========================================
     st.header("YieldMap IQ Center: Expert Knowledge Base")
     st.markdown("---")
-    
+
     st.subheader("1. Pro Metrics Explained")
-    st.markdown("""
-    * **Cash-on-Cash Return (CoC):** The most important metric for investors. It measures the annual net cash flow divided by your total cash investment (Down payment + Closing costs). A CoC of 12% is generally considered excellent.
-    * **Net Monthly Cashflow:** The actual money left in your bank account each month after paying the Mortgage, Taxes, Insurance, Maintenance (Reserves), and Vacancy losses.
-    * **Operating Expense Ratio (OER):** The percentage of your gross income that goes to operating expenses (excluding mortgage).
-    """)
+    st.markdown(
+        """
+        * **Cash-on-Cash Return (CoC):** The most important metric for investors. It measures the annual net cash flow divided by your total cash investment (Down payment + Closing costs). A CoC of 12% is generally considered excellent.
+        * **Net Monthly Cashflow:** The actual money left in your bank account each month after paying the Mortgage, Taxes, Insurance, Maintenance (Reserves), and Vacancy losses.
+        * **Operating Expense Ratio (OER):** The percentage of your gross income that goes to operating expenses (excluding mortgage).
+        """
+    )
     st.markdown("---")
 
     st.subheader("2. Strategic Investment Grading")
     col_iq1, col_iq2 = st.columns(2)
-    
+
     with col_iq1:
         st.markdown("#### Neighborhood Grades (Risk Profile)")
         st.caption("Based on FY 2026 Rent Ceilings (Income Proxy).")
-        st.markdown("""
-        * **Grade A (Prime / >$2500 Rent):** High appreciation, lower yield. Best for long-term hold.
-        * **Grade B (Strong / $1800-$2500):** Balanced performance.
-        * **Grade C (Stable / $1200-$1800):** The "Sweet Spot" for Section 8. High demand, solid yield.
-        * **Grade D (Working / <$1200):** High cash flow potential but requires intensive management.
-        """)
-        
+        st.markdown(
+            """
+            * **Grade A (Prime / >$2500 Rent):** High appreciation, lower yield. Best for long-term hold.
+            * **Grade B (Strong / $1800-$2500):** Balanced performance.
+            * **Grade C (Stable / $1200-$1800):** The "Sweet Spot" for Section 8. High demand, solid yield.
+            * **Grade D (Working / <$1200):** High cash flow potential but requires intensive management.
+            """
+        )
+
     with col_iq2:
         st.markdown("#### Deal Grades (Performance Index)")
         st.caption("Calculated using Cash-on-Cash Return.")
-        st.markdown("""
-        * **Grade A+ (Unicorn):** CoC > 12%. Immediate Buy.
-        * **Grade B (Core Asset):** CoC 8-12%. Solid portfolio builder.
-        * **Grade C (Average):** CoC < 8%. Average market return.
-        * **Grade D (Distressed):** Negative cash flow or high risk.
-        """)
+        st.markdown(
+            """
+            * **Grade A+ (Unicorn):** CoC > 12%. Immediate Buy.
+            * **Grade B (Core Asset):** CoC 8-12%. Solid portfolio builder.
+            * **Grade C (Average):** CoC < 8%. Average market return.
+            * **Grade D (Distressed):** Negative cash flow or high risk.
+            """
+        )
 
     st.markdown("---")
-    
+
     st.subheader("3. HUD & Utility Math Explained")
     col_iq3, col_iq4 = st.columns(2)
-    
+
     with col_iq3:
         st.markdown("#### The 'Gross Rent' Trap")
         st.write("Many investors mistake the HUD FMR for their check amount. **HUD FMR includes utilities.**")
         st.info("**Net Contract Rent = HUD FMR - Utility Allowance**")
         st.markdown("If you miss this calculation, you could lose $150-$300/month in cash flow.")
-        
+
         st.markdown("#### The 90-110% Rule (Voucher Standards)")
         st.warning("Did you know? The HUD FMR is just a baseline.")
         st.write("Local Housing Authorities (PHAs) can set their payments anywhere between **90% and 110%** of the HUD FMR. Some 'Opportunity Zones' pay up to 120%. Always call your local office to confirm their specific %.")
 
     with col_iq4:
         st.markdown("#### Utility Presets Guide")
-        st.markdown("""
-        * **Low ($120):** Modern Apartments, Gas Heat, Landlord pays Water/Sewer.
-        * **Mid ($180):** Row Homes/Townhomes. Tenant pays Electric & Gas.
-        * **High ($250):** Older Detached Homes, Oil/Electric Heat, Poor Insulation.
-        """)
+        st.markdown(
+            """
+            * **Low ($120):** Modern Apartments, Gas Heat, Landlord pays Water/Sewer.
+            * **Mid ($180):** Row Homes/Townhomes. Tenant pays Electric & Gas.
+            * **High ($250):** Older Detached Homes, Oil/Electric Heat, Poor Insulation.
+            """
+        )
         st.caption("*Always download the specific UA Schedule from the local Housing Authority.*")
 
     st.markdown("---")
-    
+
     st.subheader("4. Inspections & The 'Auto-Fail' List")
     st.write("Before you get paid, you must pass the HQS (Housing Quality Standards) Inspection. Here are the top failure items:")
-    
+
     with st.expander("🚨 The Top 5 Inspection Failures (Check these first!)", expanded=True):
-        st.markdown("""
-        1.  **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
-        2.  **Window Locks:** Every single window that is accessible from the outside (1st floor) must have a working lock.
-        3.  **Water Heater TPR Valve:** The discharge pipe on the water heater must be copper/metal and end within 6 inches of the floor.
-        4.  **Smoke & Carbon Detectors:** Must be present on every floor and in every bedroom.
-        5.  **Trip Hazards:** Torn carpet, uneven concrete, or loose floorboards will fail.
-        """)
-        
+        st.markdown(
+            """
+            1.  **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
+            2.  **Window Locks:** Every single window that is accessible from the outside (1st floor) must have a working lock.
+            3.  **Water Heater TPR Valve:** The discharge pipe on the water heater must be copper/metal and end within 6 inches of the floor.
+            4.  **Smoke & Carbon Detectors:** Must be present on every floor and in every bedroom.
+            5.  **Trip Hazards:** Torn carpet, uneven concrete, or loose floorboards will fail.
+            """
+        )
+
     st.markdown("#### The 'Golden' Lease-Up Timeline")
     st.info("1. **Find Tenant** -> 2. **Submit RFTA (Request for Tenancy Approval)** -> 3. **Rent Determination** -> 4. **Inspection** -> 5. **Lease Sign** -> 6. **First Payment (can take 30-60 days)**")
 
     st.markdown("---")
-    
+
     col_iq5, col_iq6 = st.columns(2)
     with col_iq5:
         st.subheader("5. The YieldMap Score")
         st.write("Our 100-point risk index is weighted as follows:")
-        st.progress(40); st.caption("40% - HUD Rent Safety (Is the rent legal?)")
-        st.progress(30); st.caption("30% - Gross Yield (Is the return high?)")
-        st.progress(30); st.caption("30% - Absorption (Can we find a tenant?)")
+        st.progress(40)
+        st.caption("40% - HUD Rent Safety (Is the rent legal?)")
+        st.progress(30)
+        st.caption("30% - Gross Yield (Is the return high?)")
+        st.progress(30)
+        st.caption("30% - Absorption (Can we find a tenant?)")
 
     with col_iq6:
         st.subheader("6. Glossary of Terms")
-        st.markdown("""
-        * **FMR (Fair Market Rent):** HUD's gross rent limit for a county/zip.
-        * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
-        * **HAP Contract:** The contract between you and the PHA (Housing Authority).
-        * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
-        * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
-        """)
+        st.markdown(
+            """
+            * **FMR (Fair Market Rent):** HUD's gross rent limit for a county/zip.
+            * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
+            * **HAP Contract:** The contract between you and the PHA (Housing Authority).
+            * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
+            * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
+            """
+        )
 
-    render_footer()
-
-# --- OPTIONAL: TESTER CODE ---
-if __name__ == "__main__":
-
-    pass
+render_footer()
