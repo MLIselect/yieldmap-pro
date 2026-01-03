@@ -9,8 +9,12 @@ import base64
 from datetime import datetime
 import requests
 import math
+# NEW: Import Supabase Client
+from supabase import create_client, Client
 
-# --- 1. PRO CONFIGURATION ---
+# ==========================================
+# 1. PRO CONFIGURATION
+# ==========================================
 st.set_page_config(
     page_title="YieldMap Pro | Section 8 Intelligence",
     page_icon="favicon.ico",
@@ -18,28 +22,61 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (Aggressive Blue Button Override) ---
+# ==========================================
+# 2. SUPABASE CONNECTION
+# ==========================================
+@st.cache_resource
+def init_connection():
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        return create_client(url, key)
+    except Exception as e:
+        st.error(f"Error connecting to Database: {e}")
+        return None
+
+supabase = init_connection()
+
+# ==========================================
+# 3. VISUAL UPGRADE: CUSTOM CSS
+# ==========================================
 st.markdown(
     """
     <style>
-    /* 1. GLOBAL FONT RESET */
+    /* ------------------------------------------------ */
+    /* 1. GLOBAL RESET & FONTS                          */
+    /* ------------------------------------------------ */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
         color: #1e293b; /* Slate 800 */
     }
 
-    /* 2. PUSH CONTENT DOWN */
+    /* ------------------------------------------------ */
+    /* 2. LAYOUT & SPACING                              */
+    /* ------------------------------------------------ */
     .block-container {
         padding-top: 7rem;
         padding-bottom: 5rem;
     }
 
-    /* 3. HIDE DEFAULTS */
-    header { visibility: hidden; }
-    [data-testid="stSidebar"] { display: none; }
-    footer { visibility: hidden; }
+    /* ------------------------------------------------ */
+    /* 3. HIDE DEFAULT STREAMLIT ELEMENTS               */
+    /* ------------------------------------------------ */
+    header {
+        visibility: hidden;
+    }
+    
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+    
+    footer {
+        visibility: hidden;
+    }
 
-    /* 4. THE STICKY HEADER BACKGROUND */
+    /* ------------------------------------------------ */
+    /* 4. THE STICKY HEADER BACKGROUND                  */
+    /* ------------------------------------------------ */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -55,7 +92,9 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 5. BRANDING (Left Side) */
+    /* ------------------------------------------------ */
+    /* 5. BRANDING (Left Side)                          */
+    /* ------------------------------------------------ */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -84,7 +123,9 @@ st.markdown(
         cursor: default;
     }
 
-    /* 6. NAVIGATION BAR STYLING */
+    /* ------------------------------------------------ */
+    /* 6. NAVIGATION BAR STYLING (Tabs in Header)       */
+    /* ------------------------------------------------ */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -95,12 +136,10 @@ st.markdown(
         height: 40px;
     }
 
-    /* Hide radio circles */
     div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
 
-    /* Style nav links */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -129,12 +168,12 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* ============================================================ */
-    /* 7.  FORCE ALL BUTTONS TO BE BLUE (THE FIX)                   */
-    /* ============================================================ */
+    /* ------------------------------------------------ */
+    /* 7. FORCE ALL BUTTONS TO BE BLUE (THE FIX)        */
+    /* ------------------------------------------------ */
 
-    /* A. Standard Buttons (Save Deal, etc.) */
-    .stButton > button {
+    /* A. Standard Buttons */
+    div.stButton > button {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
         border: none !important;
@@ -142,13 +181,19 @@ st.markdown(
         box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
     }
-    .stButton > button:hover {
+    
+    div.stButton > button:hover {
         background-color: #1e40af !important;
+        color: #ffffff !important;
+    }
+    
+    div.stButton > button:active {
+        background-color: #172554 !important;
         color: #ffffff !important;
     }
 
     /* B. Link Buttons (Zillow, Rentometer, PHA) */
-    /* Streamlit renders these as <a> tags with specific test-ids */
+    /* Force the anchor tag to be blue */
     a[data-testid="stLinkButton"] {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
@@ -161,19 +206,20 @@ st.markdown(
         justify-content: center !important;
         align-items: center !important;
     }
-    /* Ensure the text inside the link button is white */
-    a[data-testid="stLinkButton"] p {
+    
+    /* FORCE TEXT INSIDE LINK BUTTONS TO BE WHITE */
+    a[data-testid="stLinkButton"] * {
         color: #ffffff !important;
     }
+
     /* Hover state for Link Buttons */
     a[data-testid="stLinkButton"]:hover {
         background-color: #1e40af !important;
-        color: #ffffff !important;
         text-decoration: none !important;
     }
 
-    /* C. Download Buttons (PDF, CSV) */
-    .stDownloadButton > button {
+    /* C. Download Buttons */
+    div.stDownloadButton > button {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
         border: none !important;
@@ -181,32 +227,33 @@ st.markdown(
         box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
     }
-    .stDownloadButton > button:hover {
+    
+    div.stDownloadButton > button:hover {
         background-color: #1e40af !important;
         color: #ffffff !important;
     }
-    .stDownloadButton > button:active, .stButton > button:active {
-        background-color: #172554 !important;
-        color: #ffffff !important;
-    }
 
-    /* ============================================================ */
-
-    /* 9. CARDS & CONTAINERS */
-    .stExpander, .element-container, [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
-        /* Clean look for containers */
+    /* ------------------------------------------------ */
+    /* 8. CARDS & CONTAINERS                            */
+    /* ------------------------------------------------ */
+    .stExpander, .element-container {
+        border-radius: 8px;
     }
     
-    /* Headers inside app */
     h1, h2, h3, h4, h5 {
         color: #0f172a;
         font-weight: 700;
         letter-spacing: -0.025em;
     }
 
-    /* MOBILE RESPONSIVENESS */
+    /* ------------------------------------------------ */
+    /* 9. MOBILE RESPONSIVENESS                         */
+    /* ------------------------------------------------ */
     @media (max-width: 900px) {
-        .brand-subtitle { display: none; }
+        .brand-subtitle {
+            display: none;
+        }
+        
         div[data-testid="stRadio"] {
             top: 80px;
             left: 0;
@@ -216,38 +263,97 @@ st.markdown(
             display: flex;
             justify-content: center;
         }
-        div[role="radiogroup"] p { color: #64748b !important; }
-        div[role="radiogroup"] label[data-checked="true"] { background-color: #1e3a8a !important; }
-        div[role="radiogroup"] label[data-checked="true"] p { color: white !important; }
-        .block-container { padding-top: 10rem; }
+        
+        div[role="radiogroup"] p {
+            color: #64748b !important;
+        }
+        
+        div[role="radiogroup"] label[data-checked="true"] {
+            background-color: #1e3a8a !important;
+        }
+        
+        div[role="radiogroup"] label[data-checked="true"] p {
+            color: white !important;
+        }
+        
+        .block-container {
+            padding-top: 10rem;
+        }
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# --- 3. REFERENCE DATA ---
+# ==========================================
+# 4. REFERENCE DATA (STATE MAP)
+# ==========================================
 STATE_MAP = {
-    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
-    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
-    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
-    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
-    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
-    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
-    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina",
-    "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
-    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee",
-    "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
-    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+    "AL": "Alabama",
+    "AK": "Alaska",
+    "AZ": "Arizona",
+    "AR": "Arkansas",
+    "CA": "California",
+    "CO": "Colorado",
+    "CT": "Connecticut",
+    "DE": "Delaware",
+    "FL": "Florida",
+    "GA": "Georgia",
+    "HI": "Hawaii",
+    "ID": "Idaho",
+    "IL": "Illinois",
+    "IN": "Indiana",
+    "IA": "Iowa",
+    "KS": "Kansas",
+    "KY": "Kentucky",
+    "LA": "Louisiana",
+    "ME": "Maine",
+    "MD": "Maryland",
+    "MA": "Massachusetts",
+    "MI": "Michigan",
+    "MN": "Minnesota",
+    "MS": "Mississippi",
+    "MO": "Missouri",
+    "MT": "Montana",
+    "NE": "Nebraska",
+    "NV": "Nevada",
+    "NH": "New Hampshire",
+    "NJ": "New Jersey",
+    "NM": "New Mexico",
+    "NY": "New York",
+    "NC": "North Carolina",
+    "ND": "North Dakota",
+    "OH": "Ohio",
+    "OK": "Oklahoma",
+    "OR": "Oregon",
+    "PA": "Pennsylvania",
+    "RI": "Rhode Island",
+    "SC": "South Carolina",
+    "SD": "South Dakota",
+    "TN": "Tennessee",
+    "TX": "Texas",
+    "UT": "Utah",
+    "VT": "Vermont",
+    "VA": "Virginia",
+    "WA": "Washington",
+    "WV": "West Virginia",
+    "WI": "Wisconsin",
+    "WY": "Wyoming",
     "DC": "District of Columbia"
 }
 
-# --- 4. DATA UTILITIES ---
+# ==========================================
+# 5. DATA UTILITIES
+# ==========================================
 @st.cache_data
 def load_data():
     try:
         # Load HUD FY 2026 Data (Excel)
-        df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
+        df = pd.read_excel(
+            "hud_2026.xlsx",
+            header=0,
+            dtype=str
+        )
 
         # CLEAN HEADERS
         df.columns = df.columns.astype(str).str.replace('\n', '_').str.replace(' ', '_').str.upper().str.strip()
@@ -288,6 +394,7 @@ def load_data():
             '3-Bedroom',
             '4-Bedroom'
         ]
+        
         for c in cols_to_numeric:
             if c in df.columns:
                 df[c] = pd.to_numeric(
@@ -327,7 +434,9 @@ def get_vacancy_rate(zip_code):
         pass
     return 5.0
 
-# --- 5. MATH ENGINES ---
+# ==========================================
+# 6. MATH ENGINES
+# ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct / 100))
     if loan_amount <= 0:
@@ -401,13 +510,16 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
 
     return pd.DataFrame(data)
 
-# --- 6. MULTI-PAGE PDF GENERATOR ---
+# ==========================================
+# 7. MULTI-PAGE PDF GENERATOR
+# ==========================================
 class ProPDF(FPDF):
     def header(self):
         self.set_font('Helvetica', 'B', 50)
         self.set_text_color(240, 240, 240)
         self.set_xy(0, 110)
         self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
+        
         self.set_fill_color(37, 99, 235)
         self.set_xy(0, 0)
         self.rect(0, 0, 210, 22, 'F')
@@ -650,114 +762,17 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- 8. MAIN APP ---
-df = load_data()
-if df.empty:
-    st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
-    st.stop()
-
-# SESSION STATE INIT
-if 'agreed' not in st.session_state:
-    st.session_state.agreed = False
-if 'pro_unlocked' not in st.session_state:
-    st.session_state.pro_unlocked = False
-if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = []
-if 'scroll_to_top' not in st.session_state:
-    st.session_state.scroll_to_top = False
+# ==========================================
+# 8. INITIALIZE DATABASE & STATE
+# ==========================================
+if 'user' not in st.session_state:
+    st.session_state.user = None
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 
-# --- TERMS OF SERVICE SCREEN ---
-if not st.session_state.agreed:
-    st.title("🔒 YieldMap Pro")
-
-    with st.expander("📝 READ FULL TERMS OF USE & PRIVACY POLICY", expanded=True):
-        st.markdown(
-            """
-            ### **TERMS OF USE AND USER AGREEMENT**
-            **Effective Date:** December 30, 2025 (FY 2026)
-
-            **By clicking "Agree" or accessing the YieldMap Pro Application ("App"), you confirm you are at least 18 years old, eligible to use the service, and agree to these terms. If you disagree, do not use the App.**
-
-            #### **1. NO FINANCIAL ADVICE**
-            The YieldMap Pro Application ("App") is strictly an educational and analytical tool. Yieldmappro.com is **not** a registered investment advisor, broker-dealer, or financial institution. The data, scores, and grades provided are theoretical estimates and do not constitute financial advice. **The App is provided "as-is" and "as-available," without any warranties, express or implied.**
-
-            #### **2. DATA ACCURACY & VERIFICATION**
-            While we utilize official data from HUD and the U.S. Census Bureau, you acknowledge that:
-            * HUD FMRs are subject to annual revision.
-            * Utility Allowances vary by specific local Public Housing Authority (PHA) schedules.
-            * **You are solely responsible** for verifying all rent limits and utility deductions with the local PHA before executing any contract.
-            * We are not liable for third-party data errors, API downtime, or changes in government policies.
-
-            #### **3. LIMITATION OF LIABILITY**
-            In no event shall Yieldmappro.com, its owners, affiliates, or employees be liable for any direct, indirect, incidental, special, consequential, or punitive damages (including lost profits, data loss, or bad investment decisions) arising from your use of the App. **Our total liability is limited to the fees you paid us in the prior 12 months.**
-
-            #### **4. PRIVACY POLICY & DATA USAGE**
-            * **We DO NOT sell your data.** Any property data or underwriting assumptions you enter into this App are processed locally for the purpose of generating your session report.
-            * We respect your privacy and will never monetize your personal usage habits or client lists.
-
-            #### **5. INDEMNIFICATION**
-            By accessing this App, you agree to indemnify, defend, and hold harmless Yieldmappro.com from any claims, losses, damages, liabilities, or expenses (including attorneys' fees) resulting from your use of the analytics, violation of these terms, or infringement of third-party rights.
-
-            #### **6. INTELLECTUAL PROPERTY & USAGE RESTRICTIONS**
-            All App content and algorithms are owned by Yieldmappro.com. You agree not to:
-            * Copy, modify, or create derivative works.
-            * Reverse-engineer or scrape the App.
-            * **We may suspend access for violations without notice.**
-
-            #### **7. GOVERNING LAW**
-            These terms are governed by the laws of the United States. Any disputes will be resolved through binding arbitration.
-
-            ---
-            **Contact Us:** For questions, email support@yieldmappro.com.
-            """
-        )
-
-    st.warning("⚠️ By checking the box below, you legally agree to these Terms.")
-
-    # 1. THE CHECKBOX
-    if st.checkbox("I have read and agree to the Terms of Use, Privacy Policy, and Limitation of Liability."):
-
-        # 2. THE BUTTON
-        if st.button("Accept & Enter Pro Analyzer"):
-            st.session_state.agreed = True
-            st.session_state.scroll_to_top = True
-            st.rerun()
-
-        # 3. AUTO-SCROLL DOWN
-        st.markdown(
-            """
-            <script>
-                setTimeout(function() {
-                    var container = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
-                    if (container) {
-                        container.scrollTo({
-                            top: container.scrollHeight, 
-                            behavior: 'smooth'
-                        });
-                    }
-                }, 300);
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.stop()
-
-if st.session_state.get('scroll_to_top'):
-    st.markdown(
-        """
-        <script>
-            var body = window.parent.document.querySelector(".main");
-            if (body) { body.scrollTop = 0; }
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-    st.session_state.scroll_to_top = False
-
-# --- HEADER SECTION (STICKY & BRANDED) ---
+# ==========================================
+# 9. AUTHENTICATION & HEADER
+# ==========================================
 st.markdown(
     """
     <div class="fixed-header">
@@ -770,16 +785,48 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- NAVIGATION (HORIZONTAL RADIO BUTTONS) ---
-# Visual logic moved to header via CSS.
-page = st.radio(
-    "Navigation",
-    ["Pro Analyzer", "My Portfolio", "IQ Center"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+# LOGIN LOGIC
+if not st.session_state.user:
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1,1,1])
+    with c2:
+        with st.form("auth_form"):
+            st.markdown("### 🔐 User Access")
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            
+            b1, b2 = st.columns(2)
+            with b1:
+                submitted = st.form_submit_button("Log In", type="primary")
+            with b2:
+                register = st.form_submit_button("Sign Up")
+            
+            if submitted:
+                try:
+                    user = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                    st.session_state.user = user
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {e}")
+            
+            if register:
+                try:
+                    user = supabase.auth.sign_up({"email": email, "password": password})
+                    st.success("Account created! You can now log in.")
+                except Exception as e:
+                    st.error(f"Registration failed: {e}")
+    st.stop()
 
-# --- MAIN CONTENT SWITCHER ---
+# ==========================================
+# 10. MAIN APP (AFTER LOGIN)
+# ==========================================
+df = load_data()
+if df.empty:
+    st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
+    st.stop()
+
+# --- NAVIGATION ---
+page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], horizontal=True, label_visibility="collapsed")
 
 if page == "Pro Analyzer":
     # ==========================================
@@ -878,8 +925,6 @@ if page == "Pro Analyzer":
             step=10,
             help="Consult local PHA for exact utility allowance schedule."
         )
-        
-        # UPDATE SESSION STATE FROM INPUT
         st.session_state.ua_value = ua_input
 
         target_rent = limit - ua_input
@@ -894,7 +939,7 @@ if page == "Pro Analyzer":
             rent_in = st.number_input("Rent", value=int(target_rent))
 
         api_vacancy = get_vacancy_rate(selected_zip)
-        is_unlocked = st.session_state.pro_unlocked
+        is_unlocked = True # Since user is logged in, features are unlocked
 
         # ADVANCED CONFIG (SECTION STYLE, NO EMOJI)
         with st.container(border=True):
@@ -902,29 +947,20 @@ if page == "Pro Analyzer":
             
             c1, c2 = st.columns(2)
             with c1:
-                user_vacancy = st.number_input("Vacancy %", value=5.0, disabled=not is_unlocked)
-                down_payment = st.number_input("Down %", value=20.0, disabled=not is_unlocked)
-                interest_rate = st.number_input("Rate %", value=7.0, disabled=not is_unlocked)
-                loan_term_years = st.number_input("Term", value=30, disabled=not is_unlocked)
-                initial_repairs = st.number_input("Repairs", value=2000, disabled=not is_unlocked)
-                appreciation = st.number_input("Appreciation %", value=2.0, disabled=not is_unlocked)
-                rent_growth = st.number_input("Rent Growth %", value=2.0, disabled=not is_unlocked)
+                user_vacancy = st.number_input("Vacancy %", value=5.0)
+                down_payment = st.number_input("Down %", value=20.0)
+                interest_rate = st.number_input("Rate %", value=7.0)
+                loan_term_years = st.number_input("Term", value=30)
+                initial_repairs = st.number_input("Repairs", value=2000)
+                appreciation = st.number_input("Appreciation %", value=2.0)
+                rent_growth = st.number_input("Rent Growth %", value=2.0)
             with c2:
-                taxes_yr = st.number_input("Taxes", value=3000, disabled=not is_unlocked)
-                insurance_yr = st.number_input("Insurance", value=1200, disabled=not is_unlocked)
-                
-                # UPDATED: Maintenance is now a user input, not a slider
-                maint_capex = st.number_input(
-                    "Maint/CapEx (%)", 
-                    value=10.0, 
-                    step=1.0, 
-                    disabled=not is_unlocked, 
-                    help="Pro Only"
-                )
-                
-                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, disabled=not is_unlocked)
-                closing_costs = st.number_input("Closing %", value=3.0, disabled=not is_unlocked)
-                target_coc_input = st.number_input("Target CoC", value=12.0, disabled=not is_unlocked)
+                taxes_yr = st.number_input("Taxes", value=3000)
+                insurance_yr = st.number_input("Insurance", value=1200)
+                maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0)
+                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0)
+                closing_costs = st.number_input("Closing %", value=3.0)
+                target_coc_input = st.number_input("Target CoC", value=12.0)
 
     # CALCS
     gross = rent_in * 12
@@ -959,155 +995,120 @@ if page == "Pro Analyzer":
     st.markdown("## Asset Rating")
 
     r1, r2, r3, r4 = st.columns(4)
+    r1.metric("Deal Grade", d_grade)
+    r2.metric("CoC Return", f"{coc:.1f}%")
+    r3.metric("Monthly CF", f"${cf / 12:,.0f}")
+    r4.metric("Cash Needed", f"${invest:,.0f}")
 
-    metric_grade = "🔒"
-    if is_unlocked:
-        metric_grade = d_grade
-    r1.metric("Deal Grade", metric_grade)
-
-    metric_coc = "🔒"
-    if is_unlocked:
-        metric_coc = f"{coc:.1f}%"
-    r2.metric("CoC Return", metric_coc)
-
-    metric_cf = "🔒"
-    if is_unlocked:
-        metric_cf = f"${cf / 12:,.0f}"
-    r3.metric("Monthly CF", metric_cf)
-
-    metric_invest = "🔒"
-    if is_unlocked:
-        metric_invest = f"${invest:,.0f}"
-    r4.metric("Cash Needed", metric_invest)
-
-    if is_unlocked:
-        mao = calculate_max_offer(
-            rent_in * (1 - user_vacancy / 100),
-            target_coc_input,
-            initial_repairs,
-            closing_costs,
-            down_payment,
-            interest_rate,
-            taxes_yr,
-            insurance_yr,
-            maint / 12,
-            pm / 12
-        )
-        st.info(f"**Max Allowable Offer (MAO):** ${mao:,.0f} for {target_coc_input}% CoC")
-    else:
-        st.info("🔒 Unlock Pro for Max Offer")
+    mao = calculate_max_offer(
+        rent_in * (1 - user_vacancy / 100),
+        target_coc_input,
+        initial_repairs,
+        closing_costs,
+        down_payment,
+        interest_rate,
+        taxes_yr,
+        insurance_yr,
+        maint / 12,
+        pm / 12
+    )
+    st.info(f"**Max Allowable Offer (MAO):** ${mao:,.0f} for {target_coc_input}% CoC")
 
     st.divider()
     g1, g2 = st.columns(2)
     with g1:
-        if is_unlocked:
-            st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True)
-        else:
-            st.info("🔒 Gauge Locked")
+        st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True)
 
     with g2:
-        if is_unlocked:
-            years = list(range(1, 6))
-            equity_vals = []
-            current_bal = price * (1 - down_payment / 100)
-            for y in years:
-                paid_principal = (mort * 12) - (current_bal * interest_rate / 100)
-                if paid_principal < 0:
-                    paid_principal = 0
-                current_bal -= paid_principal
-                equity = price * ((1 + appreciation / 100)**y) - current_bal
-                equity_vals.append(equity)
-            fig_eq = go.Figure()
-            fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy'))
-            fig_eq.update_layout(
-                height=180,
-                margin=dict(l=20, r=20, t=10, b=10),
-                paper_bgcolor="rgba(0,0,0,0)"
-            )
-            st.plotly_chart(fig_eq, use_container_width=True)
-        else:
-            st.info("🔒 Equity Locked")
+        years = list(range(1, 6))
+        equity_vals = []
+        current_bal = price * (1 - down_payment / 100)
+        for y in years:
+            paid_principal = (mort * 12) - (current_bal * interest_rate / 100)
+            if paid_principal < 0:
+                paid_principal = 0
+            current_bal -= paid_principal
+            equity = price * ((1 + appreciation / 100)**y) - current_bal
+            equity_vals.append(equity)
+        fig_eq = go.Figure()
+        fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy'))
+        fig_eq.update_layout(
+            height=180,
+            margin=dict(l=20, r=20, t=10, b=10),
+            paper_bgcolor="rgba(0,0,0,0)"
+        )
+        st.plotly_chart(fig_eq, use_container_width=True)
 
     st.divider()
-
-    # SECRET CODE CHECK
-    try:
-        PRO_CODE = st.secrets["PRO_CODE"]
-    except:
-        PRO_CODE = "1234"
 
     e1, e2, e3 = st.columns(3)
 
     with e1:
-        if is_unlocked:
-            if st.button("Save Deal", type="primary", use_container_width=True):
-                save_address = prop_address
-                if not save_address:
-                    save_address = f"ZIP {selected_zip}"
-                    
-                st.session_state.portfolio.append({
-                    "Address": save_address,
-                    "Price": price,
-                    "CoC": coc,
-                    "Cashflow": cf / 12,
-                    "Grade": d_grade
-                })
-                st.success("Saved!")
-        else:
-            c_input = st.text_input("Access Code", type="password")
-            if c_input == PRO_CODE:
-                st.session_state.pro_unlocked = True
-                st.rerun()
+        if st.button("Save Deal", type="primary", use_container_width=True):
+            try:
+                # DATABASE INSERT
+                deal_data = {
+                    "user_email": st.session_state.user.user.email,
+                    "address": prop_address or f"ZIP {selected_zip}",
+                    "price": price,
+                    "rent": rent_in,
+                    "coc": coc,
+                    "cashflow": cf / 12,
+                    "grade": d_grade
+                }
+                supabase.table("portfolios").insert(deal_data).execute()
+                st.success("Saved to Portfolio!")
+            except Exception as e:
+                st.error(f"Error saving: {e}")
 
     with e2:
-        if is_unlocked:
-            proj = calculate_projections(
-                price,
-                rent_in,
-                exp,
-                debt,
-                down_payment,
-                interest_rate,
-                loan_term_years,
-                rent_growth,
-                appreciation
-            )
-            pdf = generate_pro_report(
-                client_name,
-                prop_address,
-                row,
-                beds,
-                price,
-                rent_in,
-                user_vacancy,
-                0,
-                coc,
-                cf / 12,
-                d_grade,
-                n_grade,
-                down_payment,
-                interest_rate,
-                taxes_yr,
-                insurance_yr,
-                maint,
-                mort,
-                limit,
-                ua_input,
-                maint_capex,
-                prop_mgmt_pct,
-                loan_term_years,
-                initial_repairs,
-                proj,
-                rent_growth,
-                appreciation,
-                closing_costs
-            )
-            st.download_button(
-                "Download Report",
-                data=pdf.encode('latin-1'),
-                file_name="Report.pdf",
-                use_container_width=True
-            )
+        proj = calculate_projections(
+            price,
+            rent_in,
+            exp,
+            debt,
+            down_payment,
+            interest_rate,
+            loan_term_years,
+            rent_growth,
+            appreciation
+        )
+        pdf = generate_pro_report(
+            client_name,
+            prop_address,
+            row,
+            beds,
+            price,
+            rent_in,
+            user_vacancy,
+            0,
+            coc,
+            cf / 12,
+            d_grade,
+            n_grade,
+            down_payment,
+            interest_rate,
+            taxes_yr,
+            insurance_yr,
+            maint,
+            mort,
+            limit,
+            ua_input,
+            maint_capex,
+            prop_mgmt_pct,
+            loan_term_years,
+            initial_repairs,
+            proj,
+            rent_growth,
+            appreciation,
+            closing_costs
+        )
+        st.download_button(
+            "Download Report",
+            data=pdf.encode('latin-1'),
+            file_name="Report.pdf",
+            use_container_width=True
+        )
 
     with e3:
         st.download_button(
@@ -1119,40 +1120,55 @@ if page == "Pro Analyzer":
 
 elif page == "My Portfolio":
     # ==========================================
-    # TAB 2: PORTFOLIO
+    # TAB 2: PORTFOLIO (REAL DATABASE)
     # ==========================================
     st.header("Portfolio Command Center")
-    if not st.session_state.portfolio:
-        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
+    
+    # FETCH DATA
+    try:
+        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.user.email).execute()
+        deals = response.data
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        deals = []
+
+    if not deals:
+        st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
     else:
         # ANALYTICS SUMMARY
-        t_cf = sum(d['Cashflow'] for d in st.session_state.portfolio)
-        avg_c = sum(d['CoC'] for d in st.session_state.portfolio) / len(st.session_state.portfolio)
-        t_val = sum(d['Price'] for d in st.session_state.portfolio)
+        t_cf = sum(d['cashflow'] for d in deals)
+        avg_c = sum(d['coc'] for d in deals) / len(deals)
+        t_val = sum(d['price'] for d in deals)
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total CF", f"${t_cf:,.0f}")
-        c2.metric("Total Value", f"${t_val:,.0f}")
-        c3.metric("Avg CoC", f"{avg_c:.1f}%")
+        c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
+        c2.metric("Portfolio Value", f"${t_val:,.0f}")
+        c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
 
         st.divider()
 
         # MANAGE DEALS
         st.markdown("### Manage Deals")
-        for i, deal in enumerate(st.session_state.portfolio):
-            with st.expander(f"{deal['Address']} (Grade: {deal['Grade']})"):
+        for deal in deals:
+            with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
                 c1, c2, c3 = st.columns([2, 2, 1])
-                c1.write(f"**Price:** ${deal['Price']:,.0f}")
-                c2.write(f"**CoC:** {deal['CoC']:.1f}%")
-                if c3.button("Delete", key=f"port_del_{i}"):
-                    st.session_state.portfolio.pop(i)
-                    st.rerun()
+                c1.write(f"**Price:** ${deal['price']:,.0f}")
+                c2.write(f"**CoC:** {deal['coc']:.1f}%")
+                if c3.button("Delete", key=f"del_{deal['id']}"):
+                    try:
+                        supabase.table("portfolios").delete().eq("id", deal['id']).execute()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error deleting: {e}")
 
         st.divider()
 
         # COMPARISON
         st.markdown("### Comparison Matrix")
-        comp_df = pd.DataFrame(st.session_state.portfolio)
+        comp_df = pd.DataFrame(deals)
+        # Rename columns to look nice
+        comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
+        comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
 
         def highlight_max(s):
             is_max = s == s.max()
