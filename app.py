@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (All Blue Buttons) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (All Buttons Forced Blue) ---
 st.markdown(
     """
     <style>
@@ -129,7 +129,9 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* 7. STANDARD BUTTONS (Primary & Secondary) */
+    /* 7. FORCE ALL BUTTONS TO BE BLUE (Primary & Secondary & Links) */
+    
+    /* Target Standard Buttons */
     div.stButton > button {
         background-color: #1e3a8a !important; /* Corporate Blue */
         color: white !important;
@@ -138,50 +140,43 @@ st.markdown(
         padding: 0.5rem 1rem !important;
         font-weight: 600 !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-        transition: all 0.2s ease-in-out !important;
     }
 
     div.stButton > button:hover {
-        background-color: #1e40af !important; /* Lighter Blue on Hover */
+        background-color: #1e40af !important; /* Lighter Blue */
         color: white !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     }
 
     div.stButton > button:active {
         background-color: #172554 !important;
         color: white !important;
     }
-    
-    div.stButton > button:focus {
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
-        outline: none !important;
-    }
 
-    /* 8. LINK BUTTONS (Zillow, Rentometer, PHA) - NOW BLUE */
-    a[data-testid="stLinkButton"] {
+    /* Target Link Buttons (Zillow, Rentometer, PHA) explicitly */
+    /* Streamlit sometimes wraps these in anchor tags with specific data attributes */
+    a[data-testid="stLinkButton"], 
+    a[data-testid="stLinkButton"] > div {
         background-color: #1e3a8a !important;
         color: white !important;
         border: none !important;
         border-radius: 6px !important;
         font-weight: 600 !important;
-        text-decoration: none !important;
-        transition: all 0.2s ease-in-out !important;
         text-align: center !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+    }
+
+    /* Ensure text inside link buttons is white */
+    a[data-testid="stLinkButton"] p {
+        color: white !important;
     }
 
     a[data-testid="stLinkButton"]:hover {
         background-color: #1e40af !important;
         color: white !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        text-decoration: none !important;
     }
 
-    /* 9. DOWNLOAD BUTTONS (Report, CSV) - NOW BLUE */
-    /* Streamlit download buttons usually use the same class as standard buttons, 
-       but we ensure specificity here just in case */
+    /* Target Download Buttons */
     div.stDownloadButton > button {
         background-color: #1e3a8a !important;
         color: white !important;
@@ -192,7 +187,7 @@ st.markdown(
         background-color: #1e40af !important;
     }
 
-    /* 10. CARDS & CONTAINERS */
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container, [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
         /* Clean look for containers */
     }
