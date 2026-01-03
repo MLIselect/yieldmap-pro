@@ -648,6 +648,8 @@ if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 if 'scroll_to_top' not in st.session_state:
     st.session_state.scroll_to_top = False
+if 'ua_value' not in st.session_state:
+    st.session_state.ua_value = 150
 
 # --- TERMS OF SERVICE SCREEN ---
 if not st.session_state.agreed:
@@ -834,15 +836,37 @@ if page == "Pro Analyzer":
     st.markdown("---")
     limit = row[beds]
 
+    # --- UA SECTION: Presets + Number Input ---
     with st.container(border=True):
-        st.markdown(f"#### Underwriting & Expenses")
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            ua_input = st.slider("Utility Allowance", 0, 400, 150)
+        st.markdown(f"#### Utility Allowance Deduction")
+        
+        # PRESET BUTTONS
+        col_presets = st.columns(3)
+        with col_presets[0]:
+            if st.button("Low ($120)"):
+                st.session_state.ua_value = 120
+        with col_presets[1]:
+            if st.button("Mid ($180)"):
+                st.session_state.ua_value = 180
+        with col_presets[2]:
+            if st.button("High ($250)"):
+                st.session_state.ua_value = 250
+        
+        # DIRECT INPUT
+        ua_input = st.number_input(
+            "Enter Deduction Amount ($)",
+            min_value=0,
+            max_value=1000,
+            value=st.session_state.ua_value,
+            step=10,
+            help="Consult local PHA for exact utility allowance schedule."
+        )
+        
+        # UPDATE SESSION STATE FROM INPUT
+        st.session_state.ua_value = ua_input
 
         target_rent = limit - ua_input
-        with c2:
-            st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Rent:** ${target_rent:,.0f}")
+        st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Contract Rent:** ${target_rent:,.0f}")
 
     with st.container(border=True):
         st.markdown("#### Acquisition")
@@ -858,9 +882,6 @@ if page == "Pro Analyzer":
         # ADVANCED CONFIG (SECTION STYLE, NO EMOJI)
         with st.container(border=True):
             st.markdown("##### Financial Assumptions")
-            
-            # API Key Config inside here
-            api_input = st.text_input("RentCast API Key", type="password", help="Optional")
             
             c1, c2 = st.columns(2)
             with c1:
