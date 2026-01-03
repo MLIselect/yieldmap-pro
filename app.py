@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (Corporate Styling + Blue Buttons) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (All Blue Buttons) ---
 st.markdown(
     """
     <style>
@@ -129,8 +129,7 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* 7. PROFESSIONAL BUTTON STYLING (ALL BUTTONS BLUE) */
-    /* This targets both Primary and Secondary Streamlit buttons */
+    /* 7. STANDARD BUTTONS (Primary & Secondary) */
     div.stButton > button {
         background-color: #1e3a8a !important; /* Corporate Blue */
         color: white !important;
@@ -153,35 +152,47 @@ st.markdown(
         color: white !important;
     }
     
-    /* Focus outline fix for accessibility/visuals */
     div.stButton > button:focus {
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
         outline: none !important;
     }
 
-    /* 8. LINK BUTTONS (Secondary) */
-    /* Zillow, Rentometer, PHA buttons */
+    /* 8. LINK BUTTONS (Zillow, Rentometer, PHA) - NOW BLUE */
     a[data-testid="stLinkButton"] {
-        background-color: #f8fafc;
-        color: #334155;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        font-weight: 500;
-        text-decoration: none;
-        transition: all 0.2s;
-        text-align: center;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        background-color: #1e3a8a !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+        transition: all 0.2s ease-in-out !important;
+        text-align: center !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
     }
 
     a[data-testid="stLinkButton"]:hover {
-        background-color: #f1f5f9;
-        border-color: #cbd5e1;
-        color: #0f172a;
+        background-color: #1e40af !important;
+        color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     }
 
-    /* 9. CARDS & CONTAINERS */
+    /* 9. DOWNLOAD BUTTONS (Report, CSV) - NOW BLUE */
+    /* Streamlit download buttons usually use the same class as standard buttons, 
+       but we ensure specificity here just in case */
+    div.stDownloadButton > button {
+        background-color: #1e3a8a !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    div.stDownloadButton > button:hover {
+        background-color: #1e40af !important;
+    }
+
+    /* 10. CARDS & CONTAINERS */
     .stExpander, .element-container, [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
         /* Clean look for containers */
     }
@@ -901,7 +912,16 @@ if page == "Pro Analyzer":
             with c2:
                 taxes_yr = st.number_input("Taxes", value=3000, disabled=not is_unlocked)
                 insurance_yr = st.number_input("Insurance", value=1200, disabled=not is_unlocked)
-                maint_capex = st.slider("Maint %", 0, 20, 10, disabled=not is_unlocked)
+                
+                # UPDATED: Maintenance is now a user input, not a slider
+                maint_capex = st.number_input(
+                    "Maint/CapEx (%)", 
+                    value=10.0, 
+                    step=1.0, 
+                    disabled=not is_unlocked, 
+                    help="Pro Only"
+                )
+                
                 prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, disabled=not is_unlocked)
                 closing_costs = st.number_input("Closing %", value=3.0, disabled=not is_unlocked)
                 target_coc_input = st.number_input("Target CoC", value=12.0, disabled=not is_unlocked)
