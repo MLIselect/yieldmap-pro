@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (All Buttons Forced Blue) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (Aggressive Blue Button Override) ---
 st.markdown(
     """
     <style>
@@ -129,63 +129,67 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* 7. FORCE ALL BUTTONS TO BE BLUE (Primary & Secondary & Links) */
-    
-    /* Target Standard Buttons */
-    div.stButton > button {
-        background-color: #1e3a8a !important; /* Corporate Blue */
-        color: white !important;
+    /* ============================================================ */
+    /* 7.  FORCE ALL BUTTONS TO BE BLUE (THE FIX)                   */
+    /* ============================================================ */
+
+    /* A. Standard Buttons (Save Deal, etc.) */
+    .stButton > button {
+        background-color: #1e3a8a !important; 
+        color: #ffffff !important;
         border: none !important;
         border-radius: 6px !important;
-        padding: 0.5rem 1rem !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+    }
+    .stButton > button:hover {
+        background-color: #1e40af !important;
+        color: #ffffff !important;
     }
 
-    div.stButton > button:hover {
-        background-color: #1e40af !important; /* Lighter Blue */
-        color: white !important;
-    }
-
-    div.stButton > button:active {
-        background-color: #172554 !important;
-        color: white !important;
-    }
-
-    /* Target Link Buttons (Zillow, Rentometer, PHA) explicitly */
-    /* Streamlit sometimes wraps these in anchor tags with specific data attributes */
-    a[data-testid="stLinkButton"], 
-    a[data-testid="stLinkButton"] > div {
-        background-color: #1e3a8a !important;
-        color: white !important;
+    /* B. Link Buttons (Zillow, Rentometer, PHA) */
+    /* Streamlit renders these as <a> tags with specific test-ids */
+    a[data-testid="stLinkButton"] {
+        background-color: #1e3a8a !important; 
+        color: #ffffff !important;
         border: none !important;
         border-radius: 6px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
-        text-align: center !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+        text-decoration: none !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
-
-    /* Ensure text inside link buttons is white */
+    /* Ensure the text inside the link button is white */
     a[data-testid="stLinkButton"] p {
-        color: white !important;
+        color: #ffffff !important;
     }
-
+    /* Hover state for Link Buttons */
     a[data-testid="stLinkButton"]:hover {
         background-color: #1e40af !important;
-        color: white !important;
-        text-decoration: none !important;
+        color: #ffffff !important;
     }
 
-    /* Target Download Buttons */
-    div.stDownloadButton > button {
-        background-color: #1e3a8a !important;
-        color: white !important;
+    /* C. Download Buttons (PDF, CSV) */
+    .stDownloadButton > button {
+        background-color: #1e3a8a !important; 
+        color: #ffffff !important;
         border: none !important;
+        border-radius: 6px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+        font-weight: 600 !important;
     }
-    
-    div.stDownloadButton > button:hover {
+    .stDownloadButton > button:hover {
         background-color: #1e40af !important;
+        color: #ffffff !important;
     }
+    .stDownloadButton > button:active, .stButton > button:active {
+        background-color: #172554 !important;
+        color: #ffffff !important;
+    }
+
+    /* ============================================================ */
 
     /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container, [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
