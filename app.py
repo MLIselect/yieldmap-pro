@@ -169,6 +169,7 @@ st.markdown(
     a[data-testid="stLinkButton"]:hover {
         background-color: #1e40af !important;
         color: #ffffff !important;
+        text-decoration: none !important;
     }
 
     /* C. Download Buttons (PDF, CSV) */
