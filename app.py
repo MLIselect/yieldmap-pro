@@ -18,13 +18,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (Corporate Styling) ---
 st.markdown(
     """
     <style>
     /* 1. GLOBAL FONT RESET */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: #1e293b; /* Slate 800 */
     }
 
     /* 2. PUSH CONTENT DOWN */
@@ -33,18 +34,10 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. HIDE DEFAULT STREAMLIT ELEMENTS */
-    header {
-        visibility: hidden;
-    }
-
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-
-    footer {
-        visibility: hidden;
-    }
+    /* 3. HIDE DEFAULTS */
+    header { visibility: hidden; }
+    [data-testid="stSidebar"] { display: none; }
+    footer { visibility: hidden; }
 
     /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -73,7 +66,7 @@ st.markdown(
 
     .brand-title {
         font-size: 26px;
-        font-weight: 800; /* Extra Bold */
+        font-weight: 800;
         color: #ffffff;
         letter-spacing: -0.5px;
         margin: 0;
@@ -84,7 +77,7 @@ st.markdown(
     .brand-subtitle {
         font-size: 11px;
         font-weight: 400;
-        color: #93c5fd; /* Soft Blue */
+        color: #93c5fd;
         letter-spacing: 1px;
         text-transform: uppercase;
         margin-top: 4px;
@@ -95,19 +88,19 @@ st.markdown(
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
-        left: 300px; /* Adjusted position since logo is gone */
+        left: 300px;
         z-index: 100002;
         background-color: transparent;
         width: auto;
         height: 40px;
     }
 
-    /* Hide the actual radio circles */
+    /* Hide radio circles */
     div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
 
-    /* Style the labels to look like Nav Links */
+    /* Style nav links */
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -117,19 +110,16 @@ st.markdown(
         transition: all 0.2s ease;
     }
 
-    /* Text Styling for Nav Links */
     div[role="radiogroup"] p {
         font-size: 15px !important;
         font-weight: 500 !important;
-        color: rgba(255, 255, 255, 0.7) !important; /* Dimmed white */
+        color: rgba(255, 255, 255, 0.7) !important;
     }
 
-    /* Hover Effect */
     div[role="radiogroup"] label:hover p {
         color: #ffffff !important;
     }
 
-    /* Selected / Active State */
     div[role="radiogroup"] label[data-checked="true"] {
         background-color: rgba(255, 255, 255, 0.15) !important;
     }
@@ -139,57 +129,80 @@ st.markdown(
         font-weight: 700 !important;
     }
 
+    /* 7. PROFESSIONAL BUTTON STYLING (Primary) */
+    div.stButton > button {
+        background-color: #1e3a8a; /* Corporate Blue */
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        transition: all 0.2s ease-in-out;
+    }
+
+    div.stButton > button:hover {
+        background-color: #1e40af; /* Lighter Blue on Hover */
+        color: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: none;
+    }
+
+    div.stButton > button:active {
+        background-color: #172554;
+        color: white;
+    }
+
+    /* 8. LINK BUTTONS (Secondary) */
+    /* Zillow, Rentometer, PHA buttons */
+    a[data-testid="stLinkButton"] {
+        background-color: #f8fafc;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    a[data-testid="stLinkButton"]:hover {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #0f172a;
+    }
+
+    /* 9. CARDS & CONTAINERS */
+    .stExpander, .element-container, [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] {
+        /* Clean look for containers */
+    }
+    
+    /* Headers inside app */
+    h1, h2, h3, h4, h5 {
+        color: #0f172a;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+    }
+
     /* MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
-        .brand-subtitle {
-            display: none;
-        }
-
-        /* On mobile, move nav below the blue bar */
+        .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
             top: 80px;
             left: 0;
             width: 100%;
-            background-color: #f1f5f9; /* Light Gray Background */
+            background-color: #f1f5f9;
             padding: 10px;
             display: flex;
             justify-content: center;
         }
-
-        /* Change text color for mobile white background */
-        div[role="radiogroup"] p {
-            color: #64748b !important;
-        }
-
-        div[role="radiogroup"] label[data-checked="true"] {
-            background-color: #1e3a8a !important;
-        }
-
-        div[role="radiogroup"] label[data-checked="true"] p {
-            color: white !important;
-        }
-
-        /* Push content down further on mobile */
-        .block-container {
-            padding-top: 10rem;
-        }
-    }
-
-    /* METRIC CARDS */
-    [data-testid="stMetricValue"] {
-        font-size: 26px !important;
-        font-weight: 700 !important;
-        color: #1e3a8a !important;
-    }
-
-    [data-testid="stMetricLabel"] {
-        font-size: 14px !important;
-        color: #64748b !important;
-    }
-
-    /* INPUT FIELDS (Cards) */
-    .stExpander, .element-container {
-        border-radius: 8px;
+        div[role="radiogroup"] p { color: #64748b !important; }
+        div[role="radiogroup"] label[data-checked="true"] { background-color: #1e3a8a !important; }
+        div[role="radiogroup"] label[data-checked="true"] p { color: white !important; }
+        .block-container { padding-top: 10rem; }
     }
     </style>
     """,
@@ -198,56 +211,17 @@ st.markdown(
 
 # --- 3. REFERENCE DATA ---
 STATE_MAP = {
-    "AL": "Alabama",
-    "AK": "Alaska",
-    "AZ": "Arizona",
-    "AR": "Arkansas",
-    "CA": "California",
-    "CO": "Colorado",
-    "CT": "Connecticut",
-    "DE": "Delaware",
-    "FL": "Florida",
-    "GA": "Georgia",
-    "HI": "Hawaii",
-    "ID": "Idaho",
-    "IL": "Illinois",
-    "IN": "Indiana",
-    "IA": "Iowa",
-    "KS": "Kansas",
-    "KY": "Kentucky",
-    "LA": "Louisiana",
-    "ME": "Maine",
-    "MD": "Maryland",
-    "MA": "Massachusetts",
-    "MI": "Michigan",
-    "MN": "Minnesota",
-    "MS": "Mississippi",
-    "MO": "Missouri",
-    "MT": "Montana",
-    "NE": "Nebraska",
-    "NV": "Nevada",
-    "NH": "New Hampshire",
-    "NJ": "New Jersey",
-    "NM": "New Mexico",
-    "NY": "New York",
-    "NC": "North Carolina",
-    "ND": "North Dakota",
-    "OH": "Ohio",
-    "OK": "Oklahoma",
-    "OR": "Oregon",
-    "PA": "Pennsylvania",
-    "RI": "Rhode Island",
-    "SC": "South Carolina",
-    "SD": "South Dakota",
-    "TN": "Tennessee",
-    "TX": "Texas",
-    "UT": "Utah",
-    "VT": "Vermont",
-    "VA": "Virginia",
-    "WA": "Washington",
-    "WV": "West Virginia",
-    "WI": "Wisconsin",
-    "WY": "Wyoming",
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina",
+    "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee",
+    "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
     "DC": "District of Columbia"
 }
 
@@ -765,7 +739,6 @@ if st.session_state.get('scroll_to_top'):
     st.session_state.scroll_to_top = False
 
 # --- HEADER SECTION (STICKY & BRANDED) ---
-# Logo and Gear Icon removed as requested.
 st.markdown(
     """
     <div class="fixed-header">
@@ -779,7 +752,7 @@ st.markdown(
 )
 
 # --- NAVIGATION (HORIZONTAL RADIO BUTTONS) ---
-# This widget is visually hoisted into the header by the CSS "div[data-testid='stRadio']" above.
+# Visual logic moved to header via CSS.
 page = st.radio(
     "Navigation",
     ["Pro Analyzer", "My Portfolio", "IQ Center"],
@@ -823,21 +796,22 @@ if page == "Pro Analyzer":
     market_area_name = row.get('area_name', 'Unknown Area')
 
     st.markdown("---")
-    st.markdown(f"#### 📍 {market_area_name} ({selected_zip})")
+    st.markdown(f"#### {market_area_name} ({selected_zip})")
 
-    # SMART LINKS
+    # SMART LINKS (No Emojis, Styled Links)
     c_link1, c_link2, c_link3 = st.columns(3)
-    beds_for_url = beds.split('-')[0]
-    zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds_for_url}_beds/"
+    
+    beds_url_str = beds.split('-')[0]
+    zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds_url_str}_beds/"
     rentometer_url = "https://www.rentometer.com/"
     pha_url = "https://www.hud.gov/program_offices/public_indian_housing/pha/contacts"
 
     with c_link1:
-        st.link_button("🏠 View Zillow Comps", zillow_url, use_container_width=True)
+        st.link_button("View Zillow Comps", zillow_url, use_container_width=True)
     with c_link2:
-        st.link_button("📊 Check Rentometer", rentometer_url, use_container_width=True)
+        st.link_button("Check Rentometer", rentometer_url, use_container_width=True)
     with c_link3:
-        st.link_button("🏛️ Find Local PHA", pha_url, use_container_width=True)
+        st.link_button("Find Local PHA", pha_url, use_container_width=True)
 
     try:
         import pgeocode
@@ -861,7 +835,7 @@ if page == "Pro Analyzer":
     limit = row[beds]
 
     with st.container(border=True):
-        st.markdown(f"#### ⚡ Pro Underwriting")
+        st.markdown(f"#### Underwriting & Expenses")
         c1, c2 = st.columns([2, 1])
         with c1:
             ua_input = st.slider("Utility Allowance", 0, 400, 150)
@@ -881,7 +855,13 @@ if page == "Pro Analyzer":
         api_vacancy = get_vacancy_rate(selected_zip)
         is_unlocked = st.session_state.pro_unlocked
 
-        with st.expander("⚙️ Advanced Config (Pro)", expanded=True):
+        # ADVANCED CONFIG (SECTION STYLE, NO EMOJI)
+        with st.container(border=True):
+            st.markdown("##### Financial Assumptions")
+            
+            # API Key Config inside here
+            api_input = st.text_input("RentCast API Key", type="password", help="Optional")
+            
             c1, c2 = st.columns(2)
             with c1:
                 user_vacancy = st.number_input("Vacancy %", value=5.0, disabled=not is_unlocked)
@@ -929,7 +909,7 @@ if page == "Pro Analyzer":
         d_grade = "B"
 
     st.divider()
-    st.markdown("## YieldMap Asset Rating")
+    st.markdown("## Asset Rating")
 
     r1, r2, r3, r4 = st.columns(4)
 
@@ -966,7 +946,7 @@ if page == "Pro Analyzer":
             maint / 12,
             pm / 12
         )
-        st.info(f"🎯 **MAO:** ${mao:,.0f} for {target_coc_input}% CoC")
+        st.info(f"**Max Allowable Offer (MAO):** ${mao:,.0f} for {target_coc_input}% CoC")
     else:
         st.info("🔒 Unlock Pro for Max Offer")
 
@@ -1013,7 +993,7 @@ if page == "Pro Analyzer":
 
     with e1:
         if is_unlocked:
-            if st.button("💾 Save", type="primary", use_container_width=True):
+            if st.button("Save Deal", type="primary", use_container_width=True):
                 save_address = prop_address
                 if not save_address:
                     save_address = f"ZIP {selected_zip}"
@@ -1076,7 +1056,7 @@ if page == "Pro Analyzer":
                 closing_costs
             )
             st.download_button(
-                "📂 PDF Report",
+                "Download Report",
                 data=pdf.encode('latin-1'),
                 file_name="Report.pdf",
                 use_container_width=True
@@ -1084,7 +1064,7 @@ if page == "Pro Analyzer":
 
     with e3:
         st.download_button(
-            "📊 Export CSV",
+            "Export Data",
             data=row.to_frame().T.to_csv().encode('utf-8'),
             file_name=f"Data_{selected_zip}.csv",
             use_container_width=True
@@ -1096,7 +1076,7 @@ elif page == "My Portfolio":
     # ==========================================
     st.header("Portfolio Command Center")
     if not st.session_state.portfolio:
-        st.info("No deals saved.")
+        st.info("Your portfolio is empty. Go to the **Pro Analyzer** tab, run a deal, and click **'Save Deal'**.")
     else:
         # ANALYTICS SUMMARY
         t_cf = sum(d['Cashflow'] for d in st.session_state.portfolio)
@@ -1111,20 +1091,20 @@ elif page == "My Portfolio":
         st.divider()
 
         # MANAGE DEALS
-        st.markdown("### 📋 Manage Deals")
+        st.markdown("### Manage Deals")
         for i, deal in enumerate(st.session_state.portfolio):
-            with st.expander(f"🏠 {deal['Address']} (Grade: {deal['Grade']})"):
+            with st.expander(f"{deal['Address']} (Grade: {deal['Grade']})"):
                 c1, c2, c3 = st.columns([2, 2, 1])
                 c1.write(f"**Price:** ${deal['Price']:,.0f}")
                 c2.write(f"**CoC:** {deal['CoC']:.1f}%")
-                if c3.button("🗑️ Delete", key=f"port_del_{i}"):
+                if c3.button("Delete", key=f"port_del_{i}"):
                     st.session_state.portfolio.pop(i)
                     st.rerun()
 
         st.divider()
 
         # COMPARISON
-        st.markdown("### 📊 Comparison Matrix")
+        st.markdown("### Comparison Matrix")
         comp_df = pd.DataFrame(st.session_state.portfolio)
 
         def highlight_max(s):
@@ -1142,7 +1122,7 @@ elif page == "My Portfolio":
         )
 
         # CHARTS
-        st.markdown("### 📈 Performance Visualizer")
+        st.markdown("### Performance Visualizer")
         c1, c2 = st.columns(2)
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
@@ -1228,7 +1208,7 @@ elif page == "IQ Center":
     st.subheader("4. Inspections & The 'Auto-Fail' List")
     st.write("Before you get paid, you must pass the HQS (Housing Quality Standards) Inspection. Here are the top failure items:")
 
-    with st.expander("🚨 The Top 5 Inspection Failures (Check these first!)", expanded=True):
+    with st.expander("The Top 5 Inspection Failures (Check these first!)", expanded=True):
         st.markdown(
             """
             1.  **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
