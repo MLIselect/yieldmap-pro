@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. VISUAL UPGRADE: CUSTOM CSS (Corporate Styling) ---
+# --- 2. VISUAL UPGRADE: CUSTOM CSS (Corporate Styling + Blue Buttons) ---
 st.markdown(
     """
     <style>
@@ -129,28 +129,34 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* 7. PROFESSIONAL BUTTON STYLING (Primary) */
+    /* 7. PROFESSIONAL BUTTON STYLING (ALL BUTTONS BLUE) */
+    /* This targets both Primary and Secondary Streamlit buttons */
     div.stButton > button {
-        background-color: #1e3a8a; /* Corporate Blue */
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        transition: all 0.2s ease-in-out;
+        background-color: #1e3a8a !important; /* Corporate Blue */
+        color: white !important;
+        border: none !important;
+        border-radius: 6px !important;
+        padding: 0.5rem 1rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+        transition: all 0.2s ease-in-out !important;
     }
 
     div.stButton > button:hover {
-        background-color: #1e40af; /* Lighter Blue on Hover */
-        color: white;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        border: none;
+        background-color: #1e40af !important; /* Lighter Blue on Hover */
+        color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     }
 
     div.stButton > button:active {
-        background-color: #172554;
-        color: white;
+        background-color: #172554 !important;
+        color: white !important;
+    }
+    
+    /* Focus outline fix for accessibility/visuals */
+    div.stButton > button:focus {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+        outline: none !important;
     }
 
     /* 8. LINK BUTTONS (Secondary) */
