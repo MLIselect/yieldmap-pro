@@ -1020,7 +1020,7 @@ if page == "Pro Analyzer":
     st.divider()
     g1, g2 = st.columns(2)
     with g1:
-        st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True)
+        st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True, config={'staticPlot': True})
 
     with g2:
         years = list(range(1, 6))
@@ -1040,7 +1040,7 @@ if page == "Pro Analyzer":
             margin=dict(l=20, r=20, t=10, b=10),
             paper_bgcolor="rgba(0,0,0,0)"
         )
-        st.plotly_chart(fig_eq, use_container_width=True)
+        st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})
 
     st.divider()
 
