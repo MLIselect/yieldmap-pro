@@ -169,31 +169,41 @@ st.markdown(
     }
 
     /* ------------------------------------------------ */
-    /* 7. FORCE ALL BUTTONS TO BE BLUE (THE FIX)        */
+    /* 7.  UNIVERSAL BUTTON STYLING (THE FIX)           */
     /* ------------------------------------------------ */
 
-    /* A. Standard Buttons */
-    div.stButton > button {
+    /* A. Standard Buttons & Download Buttons */
+    /* Targeting the button element inside Streamlit widgets */
+    [data-testid="stButton"] button, 
+    [data-testid="stDownloadButton"] button,
+    [data-testid="stFormSubmitButton"] button {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
         border: none !important;
         border-radius: 6px !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
     }
-    
-    div.stButton > button:hover {
+
+    /* Hover Effects */
+    [data-testid="stButton"] button:hover, 
+    [data-testid="stDownloadButton"] button:hover,
+    [data-testid="stFormSubmitButton"] button:hover {
         background-color: #1e40af !important;
         color: #ffffff !important;
     }
-    
-    div.stButton > button:active {
+
+    /* Active/Click Effects */
+    [data-testid="stButton"] button:active, 
+    [data-testid="stDownloadButton"] button:active,
+    [data-testid="stFormSubmitButton"] button:active {
         background-color: #172554 !important;
         color: #ffffff !important;
     }
 
     /* B. Link Buttons (Zillow, Rentometer, PHA) */
-    /* Force the anchor tag to be blue */
+    /* Streamlit uses 'a' tags for these. We must target the tag directly. */
     a[data-testid="stLinkButton"] {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
@@ -205,30 +215,17 @@ st.markdown(
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
+        padding: 0.5rem 1rem !important;
     }
-    
-    /* FORCE TEXT INSIDE LINK BUTTONS TO BE WHITE */
+
+    /* FORCE TEXT COLOR INSIDE LINKS */
     a[data-testid="stLinkButton"] * {
         color: #ffffff !important;
-    }
-
-    /* Hover state for Link Buttons */
-    a[data-testid="stLinkButton"]:hover {
-        background-color: #1e40af !important;
-        text-decoration: none !important;
-    }
-
-    /* C. Download Buttons */
-    div.stDownloadButton > button {
-        background-color: #1e3a8a !important; 
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 6px !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
         font-weight: 600 !important;
     }
-    
-    div.stDownloadButton > button:hover {
+
+    /* Hover for Links */
+    a[data-testid="stLinkButton"]:hover {
         background-color: #1e40af !important;
         color: #ffffff !important;
     }
@@ -790,31 +787,37 @@ if not st.session_state.user:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1,1,1])
     with c2:
-        with st.form("auth_form"):
-            st.markdown("### 🔐 User Access")
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            
-            b1, b2 = st.columns(2)
-            with b1:
+        # Use Tabs for cleaner UI
+        tab_login, tab_signup = st.tabs(["Log In", "Sign Up"])
+        
+        with tab_login:
+            with st.form("login_form"):
+                st.markdown("### Welcome Back")
+                email = st.text_input("Email", key="login_email")
+                password = st.text_input("Password", type="password", key="login_pass")
                 submitted = st.form_submit_button("Log In", type="primary")
-            with b2:
-                register = st.form_submit_button("Sign Up")
-            
-            if submitted:
-                try:
-                    user = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                    st.session_state.user = user
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Login failed: {e}")
-            
-            if register:
-                try:
-                    user = supabase.auth.sign_up({"email": email, "password": password})
-                    st.success("Account created! You can now log in.")
-                except Exception as e:
-                    st.error(f"Registration failed: {e}")
+                
+                if submitted:
+                    try:
+                        user = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        st.session_state.user = user
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Login failed: {e}")
+
+        with tab_signup:
+            with st.form("signup_form"):
+                st.markdown("### New Account")
+                new_email = st.text_input("Email", key="signup_email")
+                new_password = st.text_input("Password", type="password", key="signup_pass")
+                register = st.form_submit_button("Create Account")
+                
+                if register:
+                    try:
+                        user = supabase.auth.sign_up({"email": new_email, "password": new_password})
+                        st.success("Account created! Please check your email to confirm, then log in.")
+                    except Exception as e:
+                        st.error(f"Registration failed: {e}")
     st.stop()
 
 # ==========================================
