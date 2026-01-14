@@ -810,11 +810,26 @@ if not st.session_state.user:
                 st.markdown("### New Account")
                 new_email = st.text_input("Email", key="signup_email")
                 new_password = st.text_input("Password", type="password", key="signup_pass")
+                
+                # --- NEW FIELDS ADDED HERE ---
+                first_name = st.text_input("First Name", key="signup_fname")
+                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Other"], key="signup_role")
+                
                 register = st.form_submit_button("Create Account")
                 
                 if register:
                     try:
-                        user = supabase.auth.sign_up({"email": new_email, "password": new_password})
+                        # --- UPDATED SIGN UP CALL ---
+                        user = supabase.auth.sign_up({
+                            "email": new_email, 
+                            "password": new_password,
+                            "options": {
+                                "data": {
+                                    "first_name": first_name,
+                                    "role": role
+                                }
+                            }
+                        })
                         st.success("Account created! Please check your email to confirm, then log in.")
                     except Exception as e:
                         st.error(f"Registration failed: {e}")
