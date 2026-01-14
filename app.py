@@ -827,6 +827,32 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# DIALOG FUNCTION FOR TERMS
+@st.dialog("Terms of Service")
+def show_terms():
+    st.markdown("""
+    **1. Acceptance of Terms:** By accessing YieldMap Pro, you agree to be bound by these terms.
+    
+    **2. Disclaimer:** This tool is for educational purposes only. It does not constitute financial advice. We are not responsible for any investment decisions made based on this data.
+    
+    **3. Data Accuracy:** While we use official HUD and Census data, we cannot guarantee 100% accuracy of third-party data sources.
+    
+    **4. Account Security:** You are responsible for maintaining the confidentiality of your account credentials.
+    """)
+
+# DIALOG FUNCTION FOR PRIVACY
+@st.dialog("Privacy Policy")
+def show_privacy():
+    st.markdown("""
+    **1. Data Collection:** We collect your email and basic usage data to provide this service.
+    
+    **2. No Selling of Data:** We do not sell your personal data to third parties.
+    
+    **3. Cookies:** We use essential cookies to maintain your login session.
+    
+    **4. Contact:** For privacy concerns, contact support@yieldmappro.com.
+    """)
+
 # LOGIN LOGIC
 if not st.session_state.user:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -865,14 +891,19 @@ if not st.session_state.user:
             st.image(data)
             captcha_input = st.text_input("Enter the code above:", key="captcha_input")
             
-            # NEW: SPLIT COLUMN TOS LAYOUT (Fixes the "Clickable Link" issue)
-            # This creates a small column for the checkbox and a large one for the text link
-            col_tos_1, col_tos_2 = st.columns([0.05, 0.95])
-            with col_tos_1:
+            # NEW: CHECKBOX + CLICKABLE BUTTONS FOR TERMS
+            st.markdown("---")
+            c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
+            with c_check:
                 tos_agreed = st.checkbox("", label_visibility="collapsed")
-            with col_tos_2:
-                # Replace # with your actual URLs later
-                st.markdown('I agree to the [Terms of Service](#) and [Privacy Policy](#)')
+            with c_terms:
+                if st.button("📄 Read Terms", use_container_width=True):
+                    show_terms()
+            with c_priv:
+                if st.button("🔒 Read Privacy", use_container_width=True):
+                    show_privacy()
+            
+            st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
 
             if st.button("Create Account", type="primary"):
                 # 1. CHECK TOS
@@ -897,14 +928,18 @@ if not st.session_state.user:
                                 }
                             }
                         })
-                        st.success("Account created! Please check your email to confirm, then log in.")
-                        # Reset Captcha after success
-                        st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                        
+                        # --- SUCCESS LOGIC (NO RERUN) ---
+                        st.balloons()
+                        st.success("✅ Account Created Successfully! Please check your email to verify your account.")
+                        st.info("You can now switch to the 'Log In' tab once verified.")
+                        
+                        # OPTIONAL: Reset Captcha only if you want them to stay here
+                        # st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                        
                     except Exception as e:
                         # Friendly error if DB fails (often due to trigger issues)
                         st.error(f"Registration failed: {str(e)}")
-                        # Debug hint for Admin (hidden in production typically)
-                        # st.caption("Admin Note: Check if public.profiles table exists and has first_name/role columns.")
                 
                 # 4. IF CAPTCHA FAILS
                 else:
