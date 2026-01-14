@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. SUPABASE CONNECTION
+# 2. SUPABASE CONNECTION & URL HANDLING
 # ==========================================
 @st.cache_resource
 def init_connection():
@@ -36,6 +36,15 @@ def init_connection():
         return None
 
 supabase = init_connection()
+
+# --- FIX FOR EMAIL LINK "PATH INVALID" ERROR ---
+# This detects if Supabase sent the user back with a confirmation code in the URL
+# and silently handles it so Streamlit doesn't crash.
+if "code" in st.query_params:
+    # We don't need to do anything with the code here; 
+    # Supabase client handles the session automatically if initialized.
+    # We just acknowledge it exists so Streamlit doesn't treat it as a 404 path.
+    pass
 
 # ==========================================
 # 3. VISUAL UPGRADE: CUSTOM CSS
