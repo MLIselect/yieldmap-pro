@@ -20,7 +20,7 @@ from supabase import create_client, Client
 # 1. PRO CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="YieldMap Pro | Section 8 Intelligence",
+    page_title="YieldMap Pro",
     page_icon="favicon.ico",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -81,16 +81,29 @@ st.markdown(
     }
 
     /* ------------------------------------------------ */
-    /* 3. HIDE DEFAULT STREAMLIT ELEMENTS               */
+    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING       */
     /* ------------------------------------------------ */
+    /* Hide the top header bar (hamburger menu, etc) */
     header {
         visibility: hidden;
     }
     
+    /* Hide the top colored decoration line */
+    [data-testid="stDecoration"] {
+        display: none;
+    }
+
+    /* Hide the status widget (running man icon) */
+    [data-testid="stStatusWidget"] {
+        display: none;
+    }
+
+    /* Hide the sidebar completely */
     [data-testid="stSidebar"] {
         display: none;
     }
     
+    /* Hide the footer (Made with Streamlit) */
     footer {
         visibility: hidden;
     }
@@ -829,12 +842,6 @@ if not st.session_state.user:
                         st.error(f"Login failed: {e}")
 
         with tab_signup:
-            # We move the form logic outside st.form so we can use dynamic image generation properly
-            # and to separate the captcha reload from the form submission if needed.
-            # However, for simplicity and UI consistency, we keep the form structure
-            # but we need to ensure the captcha image doesn't regenerate on every keystroke inside the form.
-            # Since we generate it in session_state (line ~1050), it is stable.
-            
             st.markdown("### New Account")
             new_email = st.text_input("Email", key="signup_email")
             new_password = st.text_input("Password", type="password", key="signup_pass")
