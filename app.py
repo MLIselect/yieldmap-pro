@@ -551,11 +551,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
-        self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240)
-        self.set_xy(0, 110)
-        self.cell(210, 0, "YIELDMAP PRO", 0, 0, 'C')
-        
+        # REMOVED THE GIANT WATERMARK FROM HERE
         self.set_fill_color(37, 99, 235)
         self.set_xy(0, 0)
         self.rect(0, 0, 210, 22, 'F')
@@ -587,7 +583,7 @@ class ProPDF(FPDF):
         self.cell(0, 10, title, 0, 1, 'L')
         self.set_draw_color(200, 200, 200)
         self.line(10, self.get_y(), 200, self.get_y())
-        self.ln(2)
+        self.ln(5) # Added spacing
 
     def kpi_card(self, title, value, x, y, w=45, h=25):
         self.set_xy(x, y)
@@ -627,10 +623,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.alias_nb_pages()
     pdf.add_page()
     
-    # WATERMARK
-    pdf.set_font('Helvetica', 'B', 50)
-    pdf.set_text_color(240, 240, 240)
-    pdf.set_xy(0, 100)
+    # Subtle Watermark - Only on Page 1 if desired, or small at bottom
+    pdf.set_font('Helvetica', 'B', 40)
+    pdf.set_text_color(245, 245, 245) # Very light grey
+    pdf.set_xy(0, 200)
     pdf.cell(210, 0, "CONFIDENTIAL", 0, 0, 'C')
 
     # EXECUTIVE SUMMARY
@@ -722,6 +718,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     # PAGE 2: PROJECTIONS
     pdf.add_page()
+    # REMOVED WATERMARK FROM PAGE 2 TO FIX PUSH DOWN
     pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
     pdf.set_font('Helvetica', '', 9)
     pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
@@ -843,11 +840,11 @@ if not st.session_state.user:
                 email = st.text_input("Email", key="login_email")
                 password = st.text_input("Password", type="password", key="login_pass")
                 submitted = st.form_submit_button("Log In", type="primary")
-                
                 if submitted:
                     try:
-                        user = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                        st.session_state.user = user
+                        # FIX: Store the USER object, not the full response
+                        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        st.session_state.user = response.user 
                         st.rerun()
                     except Exception as e:
                         st.error(f"Login failed: {e}")
@@ -871,7 +868,7 @@ if not st.session_state.user:
                 if captcha_input.upper() == st.session_state.captcha_text:
                     try:
                         # --- UPDATED SIGN UP CALL ---
-                        user = supabase.auth.sign_up({
+                        response = supabase.auth.sign_up({
                             "email": new_email, 
                             "password": new_password,
                             "options": {
@@ -882,13 +879,11 @@ if not st.session_state.user:
                             }
                         })
                         st.success("Account created! Please check your email to confirm, then log in.")
-                        # Reset Captcha after success
                         st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
                     except Exception as e:
                         st.error(f"Registration failed: {e}")
                 else:
                     st.error("❌ Incorrect CAPTCHA code. Please try again.")
-                    # Reset Captcha on failure
                     st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
                     st.rerun()
     st.stop()
@@ -909,13 +904,15 @@ page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], hor
 if page == "Pro Analyzer":
     # === WELCOME HEADER ===
     try:
+        # Now this will work because st.session_state.user is the User object
         user_name = st.session_state.user.user_metadata.get('first_name', '')
         if not user_name:
             user_name = "Investor"
     except:
         user_name = "Investor"
     
-    st.markdown(f"### 👋 Welcome, {user_name}")
+    # REMOVED THE EMOJI FROM THE HEADER
+    st.markdown(f"### Welcome, {user_name}")
     st.caption("Ready to find your next deal?")
     st.markdown("---")
 
@@ -1138,7 +1135,7 @@ if page == "Pro Analyzer":
             try:
                 # DATABASE INSERT
                 deal_data = {
-                    "user_email": st.session_state.user.user.email,
+                    "user_email": st.session_state.user.email,
                     "address": prop_address or f"ZIP {selected_zip}",
                     "price": price,
                     "rent": rent_in,
@@ -1216,7 +1213,7 @@ elif page == "My Portfolio":
     
     # FETCH DATA
     try:
-        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.user.email).execute()
+        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.email).execute()
         deals = response.data
     except Exception as e:
         st.error(f"Error fetching data: {e}")
