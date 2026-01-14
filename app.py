@@ -809,7 +809,8 @@ if 'user' not in st.session_state:
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 if 'captcha_text' not in st.session_state:
-    st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    # UPDATED CAPTCHA CHARACTERS TO REMOVE AMBIGUITY (No 0, O, I, 1)
+    st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
 
 # ==========================================
 # 9. AUTHENTICATION & HEADER
@@ -879,12 +880,14 @@ if not st.session_state.user:
                             }
                         })
                         st.success("Account created! Please check your email to confirm, then log in.")
-                        st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+                        # Reset Captcha after success
+                        st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                     except Exception as e:
                         st.error(f"Registration failed: {e}")
                 else:
                     st.error("❌ Incorrect CAPTCHA code. Please try again.")
-                    st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+                    # Reset Captcha on failure
+                    st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                     st.rerun()
     st.stop()
 
