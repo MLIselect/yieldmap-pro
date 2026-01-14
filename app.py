@@ -9,6 +9,10 @@ import base64
 from datetime import datetime
 import requests
 import math
+import random
+import string
+# NEW: Import Captcha
+from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
 
@@ -23,7 +27,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. SUPABASE CONNECTION & URL HANDLING
+# 2. SUPABASE CONNECTION & AUTH HANDLER
 # ==========================================
 @st.cache_resource
 def init_connection():
@@ -37,14 +41,22 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- FIX FOR EMAIL LINK "PATH INVALID" ERROR ---
-# This detects if Supabase sent the user back with a confirmation code in the URL
-# and silently handles it so Streamlit doesn't crash.
+# --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
+# This block runs before anything else. It catches the email link,
+# exchanges the code for a session, and logs the user in automatically.
 if "code" in st.query_params:
-    # We don't need to do anything with the code here; 
-    # Supabase client handles the session automatically if initialized.
-    # We just acknowledge it exists so Streamlit doesn't treat it as a 404 path.
-    pass
+    try:
+        code = st.query_params["code"]
+        # Exchange the code for a session
+        session = supabase.auth.exchange_code_for_session({"auth_code": code})
+        # Set the user in session state
+        st.session_state.user = session.user
+        # Clear the URL parameters to prevent 'invalid path' errors on refresh
+        st.query_params.clear()
+        st.rerun()
+    except Exception as e:
+        # If it fails, just ignore it and let the user log in manually
+        pass
 
 # ==========================================
 # 3. VISUAL UPGRADE: CUSTOM CSS
@@ -775,6 +787,8 @@ if 'user' not in st.session_state:
     st.session_state.user = None
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
+if 'captcha_text' not in st.session_state:
+    st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
 # ==========================================
 # 9. AUTHENTICATION & HEADER
@@ -815,18 +829,28 @@ if not st.session_state.user:
                         st.error(f"Login failed: {e}")
 
         with tab_signup:
-            with st.form("signup_form"):
-                st.markdown("### New Account")
-                new_email = st.text_input("Email", key="signup_email")
-                new_password = st.text_input("Password", type="password", key="signup_pass")
-                
-                # --- NEW FIELDS ADDED HERE ---
-                first_name = st.text_input("First Name", key="signup_fname")
-                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
-                
-                register = st.form_submit_button("Create Account")
-                
-                if register:
+            # We move the form logic outside st.form so we can use dynamic image generation properly
+            # and to separate the captcha reload from the form submission if needed.
+            # However, for simplicity and UI consistency, we keep the form structure
+            # but we need to ensure the captcha image doesn't regenerate on every keystroke inside the form.
+            # Since we generate it in session_state (line ~1050), it is stable.
+            
+            st.markdown("### New Account")
+            new_email = st.text_input("Email", key="signup_email")
+            new_password = st.text_input("Password", type="password", key="signup_pass")
+            
+            # --- NEW FIELDS ADDED HERE ---
+            first_name = st.text_input("First Name", key="signup_fname")
+            role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
+            
+            # CAPTCHA SECTION
+            image = ImageCaptcha(width=280, height=90)
+            data = image.generate(st.session_state.captcha_text)
+            st.image(data)
+            captcha_input = st.text_input("Enter the code above:", key="captcha_input")
+            
+            if st.button("Create Account", type="primary"):
+                if captcha_input.upper() == st.session_state.captcha_text:
                     try:
                         # --- UPDATED SIGN UP CALL ---
                         user = supabase.auth.sign_up({
@@ -840,8 +864,15 @@ if not st.session_state.user:
                             }
                         })
                         st.success("Account created! Please check your email to confirm, then log in.")
+                        # Reset Captcha after success
+                        st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
                     except Exception as e:
                         st.error(f"Registration failed: {e}")
+                else:
+                    st.error("❌ Incorrect CAPTCHA code. Please try again.")
+                    # Reset Captcha on failure
+                    st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+                    st.rerun()
     st.stop()
 
 # ==========================================
