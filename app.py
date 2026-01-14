@@ -865,8 +865,14 @@ if not st.session_state.user:
             st.image(data)
             captcha_input = st.text_input("Enter the code above:", key="captcha_input")
             
-            # NEW: TOS Checkbox
-            tos_agreed = st.checkbox("I agree to the Terms of Service and Privacy Policy")
+            # NEW: SPLIT COLUMN TOS LAYOUT (Fixes the "Clickable Link" issue)
+            # This creates a small column for the checkbox and a large one for the text link
+            col_tos_1, col_tos_2 = st.columns([0.05, 0.95])
+            with col_tos_1:
+                tos_agreed = st.checkbox("", label_visibility="collapsed")
+            with col_tos_2:
+                # Replace # with your actual URLs later
+                st.markdown('I agree to the [Terms of Service](#) and [Privacy Policy](#)')
 
             if st.button("Create Account", type="primary"):
                 # 1. CHECK TOS
@@ -886,8 +892,8 @@ if not st.session_state.user:
                             "password": new_password,
                             "options": {
                                 "data": {
-                                    "first_name": first_name,
-                                    "role": role
+                                    "first_name": str(first_name), # Explicit string cast for safety
+                                    "role": str(role)              # Explicit string cast for safety
                                 }
                             }
                         })
@@ -895,7 +901,10 @@ if not st.session_state.user:
                         # Reset Captcha after success
                         st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                     except Exception as e:
-                        st.error(f"Registration failed: {e}")
+                        # Friendly error if DB fails (often due to trigger issues)
+                        st.error(f"Registration failed: {str(e)}")
+                        # Debug hint for Admin (hidden in production typically)
+                        # st.caption("Admin Note: Check if public.profiles table exists and has first_name/role columns.")
                 
                 # 4. IF CAPTCHA FAILS
                 else:
