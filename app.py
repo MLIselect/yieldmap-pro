@@ -865,8 +865,20 @@ if not st.session_state.user:
             st.image(data)
             captcha_input = st.text_input("Enter the code above:", key="captcha_input")
             
+            # NEW: TOS Checkbox
+            tos_agreed = st.checkbox("I agree to the Terms of Service and Privacy Policy")
+
             if st.button("Create Account", type="primary"):
-                if captcha_input.upper() == st.session_state.captcha_text:
+                # 1. CHECK TOS
+                if not tos_agreed:
+                    st.error("⚠️ You must agree to the Terms of Service to create an account.")
+                
+                # 2. CHECK PASSWORD LENGTH
+                elif len(new_password) < 6:
+                    st.error("⚠️ Password must be at least 6 characters.")
+                
+                # 3. CHECK CAPTCHA
+                elif captcha_input.upper() == st.session_state.captcha_text:
                     try:
                         # --- UPDATED SIGN UP CALL ---
                         response = supabase.auth.sign_up({
@@ -884,8 +896,12 @@ if not st.session_state.user:
                         st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                     except Exception as e:
                         st.error(f"Registration failed: {e}")
+                
+                # 4. IF CAPTCHA FAILS
                 else:
                     st.error("❌ Incorrect CAPTCHA code. Please try again.")
+                    # PAUSE so user can read the error before the rerun clears it
+                    time.sleep(1.5)
                     # Reset Captcha on failure
                     st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                     st.rerun()
