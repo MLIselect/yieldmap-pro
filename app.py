@@ -287,16 +287,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 # ==========================================
-# 4. LOGO DETECTION (ADDED FOR BRANDING)
-# ==========================================
-logo_path = None
-possible_files = ["logo.svg", "logo.png", "logo.jpg", "logo.jpeg"]
-for f in possible_files:
-    if os.path.exists(f):
-        logo_path = f
-        break
-# ==========================================
-# 5. REFERENCE DATA (STATE MAP)
+# 4. REFERENCE DATA (STATE MAP)
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama",
@@ -352,7 +343,7 @@ STATE_MAP = {
     "DC": "District of Columbia"
 }
 # ==========================================
-# 6. DATA UTILITIES
+# 5. DATA UTILITIES
 # ==========================================
 @st.cache_data
 def load_data():
@@ -433,7 +424,7 @@ def get_vacancy_rate(zip_code):
         pass
     return 5.0
 # ==========================================
-# 7. MATH ENGINES
+# 6. MATH ENGINES
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     loan_amount = price * (1 - (down_payment_pct / 100))
@@ -492,7 +483,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         current_expenses *= (1 + rent_growth / 100)
     return pd.DataFrame(data)
 # ==========================================
-# 8. MULTI-PAGE PDF GENERATOR
+# 7. MULTI-PAGE PDF GENERATOR
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -708,7 +699,7 @@ def render_footer():
         unsafe_allow_html=True
     )
 # ==========================================
-# 9. INITIALIZE DATABASE & STATE
+# 8. INITIALIZE DATABASE & STATE
 # ==========================================
 if 'user' not in st.session_state:
     st.session_state.user = None
@@ -717,7 +708,7 @@ if 'ua_value' not in st.session_state:
 if 'captcha_text' not in st.session_state:
     st.session_state.captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
 # ==========================================
-# 10. AUTHENTICATION & HEADER
+# 9. AUTHENTICATION & HEADER
 # ==========================================
 st.markdown(
     """
@@ -793,10 +784,9 @@ if not st.session_state.user:
                     st.rerun()
     st.stop()
 # ==========================================
-# 11. MAIN APP (AFTER LOGIN)
+# 10. MAIN APP (AFTER LOGIN)
 # ==========================================
-with st.spinner("Loading FY2026 HUD data..."):
-    df = load_data()
+df = load_data()
 if df.empty:
     st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
     st.stop()
@@ -888,7 +878,7 @@ if page == "Pro Analyzer":
             help="Consult local PHA for exact utility allowance schedule."
         )
         st.session_state.ua_value = ua_input
-        target_rent = max(0, limit - ua_input)  # Prevent negative rent
+        target_rent = limit - ua_input
         st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Contract Rent:** ${target_rent:,.0f}")
     with st.container(border=True):
         st.markdown("#### Acquisition")
@@ -1004,4 +994,226 @@ if page == "Pro Analyzer":
                 }
                 supabase.table("portfolios").insert(deal_data).execute()
                 st.success("Saved to Portfolio!")
-           
+            except Exception as e:
+                st.error(f"Error saving: {e}")
+    with e2:
+        proj = calculate_projections(
+            price,
+            rent_in,
+            exp,
+            debt,
+            down_payment,
+            interest_rate,
+            loan_term_years,
+            rent_growth,
+            appreciation
+        )
+        pdf = generate_pro_report(
+            client_name,
+            prop_address,
+            row,
+            beds,
+            price,
+            rent_in,
+            user_vacancy,
+            0,
+            coc,
+            cf / 12,
+            d_grade,
+            n_grade,
+            down_payment,
+            interest_rate,
+            taxes_yr,
+            insurance_yr,
+            maint,
+            mort,
+            limit,
+            ua_input,
+            maint_capex,
+            prop_mgmt_pct,
+            loan_term_years,
+            initial_repairs,
+            proj,
+            rent_growth,
+            appreciation,
+            closing_costs
+        )
+        st.download_button(
+            "Download Report",
+            data=pdf.encode('latin-1'),
+            file_name="Report.pdf",
+            use_container_width=True
+        )
+    with e3:
+        st.download_button(
+            "Export Data",
+            data=row.to_frame().T.to_csv().encode('utf-8'),
+            file_name=f"Data_{selected_zip}.csv",
+            use_container_width=True
+        )
+elif page == "My Portfolio":
+    # ==========================================
+    # TAB 2: PORTFOLIO (REAL DATABASE)
+    # ==========================================
+    st.header("Portfolio Command Center")
+   
+    # FETCH DATA
+    try:
+        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.user.email).execute()
+        deals = response.data
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        deals = []
+    if not deals:
+        st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
+    else:
+        # ANALYTICS SUMMARY
+        t_cf = sum(d['cashflow'] for d in deals)
+        avg_c = sum(d['coc'] for d in deals) / len(deals)
+        t_val = sum(d['price'] for d in deals)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
+        c2.metric("Portfolio Value", f"${t_val:,.0f}")
+        c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
+        st.divider()
+        # MANAGE DEALS
+        st.markdown("### Manage Deals")
+        for deal in deals:
+            with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
+                c1, c2, c3 = st.columns([2, 2, 1])
+                c1.write(f"**Price:** ${deal['price']:,.0f}")
+                c2.write(f"**CoC:** {deal['coc']:.1f}%")
+                if c3.button("Delete", key=f"del_{deal['id']}"):
+                    try:
+                        supabase.table("portfolios").delete().eq("id", deal['id']).execute()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error deleting: {e}")
+        st.divider()
+        # COMPARISON
+        st.markdown("### Comparison Matrix")
+        comp_df = pd.DataFrame(deals)
+        # Rename columns to look nice
+        comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
+        comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
+        def highlight_max(s):
+            is_max = s == s.max()
+            return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
+        st.dataframe(
+            comp_df.style.format({
+                "Price": "${:,.0f}",
+                "Rent": "${:,.0f}",
+                "CoC": "{:.1f}%",
+                "Cashflow": "${:,.0f}"
+            }).apply(highlight_max, subset=['CoC', 'Cashflow']),
+            use_container_width=True
+        )
+        # CHARTS
+        st.markdown("### Performance Visualizer")
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
+            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})
+        with c2:
+            fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})
+elif page == "IQ Center":
+    # ==========================================
+    # TAB 3: IQ CENTER
+    # ==========================================
+    st.header("YieldMap IQ Center: Expert Knowledge Base")
+    st.markdown("---")
+    st.subheader("1. Pro Metrics Explained")
+    st.markdown(
+        """
+        * **Cash-on-Cash Return (CoC):** The most important metric for investors. It measures the annual net cash flow divided by your total cash investment (Down payment + Closing costs). A CoC of 12% is generally considered excellent.
+        * **Net Monthly Cashflow:** The actual money left in your bank account each month after paying the Mortgage, Taxes, Insurance, Maintenance (Reserves), and Vacancy losses.
+        * **Operating Expense Ratio (OER):** The percentage of your gross income that goes to operating expenses (excluding mortgage).
+        """
+    )
+    st.markdown("---")
+    st.subheader("2. Strategic Investment Grading")
+    col_iq1, col_iq2 = st.columns(2)
+    with col_iq1:
+        st.markdown("#### Neighborhood Grades (Risk Profile)")
+        st.caption("Based on FY 2026 Rent Ceilings (Income Proxy).")
+        st.markdown(
+            """
+            * **Grade A (Prime / >$2500 Rent):** High appreciation, lower yield. Best for long-term hold.
+            * **Grade B (Strong / $1800-$2500):** Balanced performance.
+            * **Grade C (Stable / $1200-$1800):** The "Sweet Spot" for Section 8. High demand, solid yield.
+            * **Grade D (Working / <$1200):** High cash flow potential but requires intensive management.
+            """
+        )
+    with col_iq2:
+        st.markdown("#### Deal Grades (Performance Index)")
+        st.caption("Calculated using Cash-on-Cash Return.")
+        st.markdown(
+            """
+            * **Grade A+ (Unicorn):** CoC > 12%. Immediate Buy.
+            * **Grade B (Core Asset):** CoC 8-12%. Solid portfolio builder.
+            * **Grade C (Average):** CoC < 8%. Average market return.
+            * **Grade D (Distressed):** Negative cash flow or high risk.
+            """
+        )
+    st.markdown("---")
+    st.subheader("3. HUD & Utility Math Explained")
+    col_iq3, col_iq4 = st.columns(2)
+    with col_iq3:
+        st.markdown("#### The 'Gross Rent' Trap")
+        st.write("Many investors mistake the HUD FMR for their check amount. **HUD FMR includes utilities.**")
+        st.info("**Net Contract Rent = HUD FMR - Utility Allowance**")
+        st.markdown("If you miss this calculation, you could lose $150-$300/month in cash flow.")
+        st.markdown("#### The 90-110% Rule (Voucher Standards)")
+        st.warning("Did you know? The HUD FMR is just a baseline.")
+        st.write("Local Housing Authorities (PHAs) can set their payments anywhere between **90% and 110%** of the HUD FMR. Some 'Opportunity Zones' pay up to 120%. Always call your local office to confirm their specific %.")
+    with col_iq4:
+        st.markdown("#### Utility Presets Guide")
+        st.markdown(
+            """
+            * **Low ($120):** Modern Apartments, Gas Heat, Landlord pays Water/Sewer.
+            * **Mid ($180):** Row Homes/Townhomes. Tenant pays Electric & Gas.
+            * **High ($250):** Older Detached Homes, Oil/Electric Heat, Poor Insulation.
+            """
+        )
+        st.caption("*Always download the specific UA Schedule from the local Housing Authority.*")
+    st.markdown("---")
+    st.subheader("4. Inspections & The 'Auto-Fail' List")
+    st.write("Before you get paid, you must pass the HQS (Housing Quality Standards) Inspection. Here are the top failure items:")
+    with st.expander("The Top 5 Inspection Failures (Check these first!)", expanded=True):
+        st.markdown(
+            """
+            1. **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
+            2. **Window Locks:** Every single window that is accessible from the outside (1st floor) must have a working lock.
+            3. **Water Heater TPR Valve:** The discharge pipe on the water heater must be copper/metal and end within 6 inches of the floor.
+            4. **Smoke & Carbon Detectors:** Must be present on every floor and in every bedroom.
+            5. **Trip Hazards:** Torn carpet, uneven concrete, or loose floorboards will fail.
+            """
+        )
+    st.markdown("#### The 'Golden' Lease-Up Timeline")
+    st.info("1. **Find Tenant** -> 2. **Submit RFTA (Request for Tenancy Approval)** -> 3. **Rent Determination** -> 4. **Inspection** -> 5. **Lease Sign** -> 6. **First Payment (can take 30-60 days)**")
+    st.markdown("---")
+    col_iq5, col_iq6 = st.columns(2)
+    with col_iq5:
+        st.subheader("5. The YieldMap Score")
+        st.write("Our 100-point risk index is weighted as follows:")
+        st.progress(40)
+        st.caption("40% - HUD Rent Safety (Is the rent legal?)")
+        st.progress(30)
+        st.caption("30% - Gross Yield (Is the return high?)")
+        st.progress(30)
+        st.caption("30% - Absorption (Can we find a tenant?)")
+    with col_iq6:
+        st.subheader("6. Glossary of Terms")
+        st.markdown(
+            """
+            * **FMR (Fair Market Rent):** HUD's gross rent limit for a county/zip.
+            * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
+            * **HAP Contract:** The contract between you and the PHA (Housing Authority).
+            * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
+            * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
+            """
+        )
+render_footer()
