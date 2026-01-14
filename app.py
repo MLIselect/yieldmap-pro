@@ -43,20 +43,14 @@ def init_connection():
 supabase = init_connection()
 
 # --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
-# This block runs before anything else. It catches the email link,
-# exchanges the code for a session, and logs the user in automatically.
 if "code" in st.query_params:
     try:
         code = st.query_params["code"]
-        # Exchange the code for a session
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
-        # Set the user in session state
         st.session_state.user = session.user
-        # Clear the URL parameters to prevent 'invalid path' errors on refresh
         st.query_params.clear()
         st.rerun()
     except Exception as e:
-        # If it fails, just ignore it and let the user log in manually
         pass
 
 # ==========================================
@@ -65,53 +59,26 @@ if "code" in st.query_params:
 st.markdown(
     """
     <style>
-    /* ------------------------------------------------ */
-    /* 1. GLOBAL RESET & FONTS                          */
-    /* ------------------------------------------------ */
+    /* 1. GLOBAL RESET & FONTS */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
         color: #1e293b; /* Slate 800 */
     }
 
-    /* ------------------------------------------------ */
-    /* 2. LAYOUT & SPACING                              */
-    /* ------------------------------------------------ */
+    /* 2. LAYOUT & SPACING */
     .block-container {
         padding-top: 7rem;
         padding-bottom: 5rem;
     }
 
-    /* ------------------------------------------------ */
-    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING       */
-    /* ------------------------------------------------ */
-    /* Hide the top header bar (hamburger menu, etc) */
-    header {
-        visibility: hidden !important;
-    }
-    
-    /* Hide the top colored decoration line */
-    [data-testid="stDecoration"] {
-        display: none !important;
-    }
+    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING */
+    header { visibility: hidden !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    footer { visibility: hidden !important; }
 
-    /* Hide the status widget (running man icon) */
-    [data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-
-    /* Hide the sidebar completely */
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
-    
-    /* Hide the footer (Made with Streamlit) */
-    footer {
-        visibility: hidden !important;
-    }
-
-    /* ------------------------------------------------ */
-    /* 4. THE STICKY HEADER BACKGROUND                  */
-    /* ------------------------------------------------ */
+    /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -127,9 +94,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* ------------------------------------------------ */
-    /* 5. BRANDING (Left Side)                          */
-    /* ------------------------------------------------ */
+    /* 5. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -137,7 +102,6 @@ st.markdown(
         margin-right: 40px;
         z-index: 100003;
     }
-
     .brand-title {
         font-size: 26px;
         font-weight: 800;
@@ -147,7 +111,6 @@ st.markdown(
         line-height: 1;
         cursor: default;
     }
-
     .brand-subtitle {
         font-size: 11px;
         font-weight: 400;
@@ -158,9 +121,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* ------------------------------------------------ */
-    /* 6. NAVIGATION BAR STYLING (Tabs in Header)       */
-    /* ------------------------------------------------ */
+    /* 6. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -170,11 +131,7 @@ st.markdown(
         width: auto;
         height: 40px;
     }
-
-    div[role="radiogroup"] > label > div:first-child {
-        display: none !important;
-    }
-
+    div[role="radiogroup"] > label > div:first-child { display: none !important; }
     div[role="radiogroup"] label {
         background-color: transparent !important;
         border: none !important;
@@ -183,32 +140,16 @@ st.markdown(
         border-radius: 20px !important;
         transition: all 0.2s ease;
     }
-
     div[role="radiogroup"] p {
         font-size: 15px !important;
         font-weight: 500 !important;
         color: rgba(255, 255, 255, 0.7) !important;
     }
+    div[role="radiogroup"] label:hover p { color: #ffffff !important; }
+    div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
+    div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    div[role="radiogroup"] label:hover p {
-        color: #ffffff !important;
-    }
-
-    div[role="radiogroup"] label[data-checked="true"] {
-        background-color: rgba(255, 255, 255, 0.15) !important;
-    }
-
-    div[role="radiogroup"] label[data-checked="true"] p {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
-
-    /* ------------------------------------------------ */
-    /* 7.  UNIVERSAL BUTTON STYLING (THE FIX)           */
-    /* ------------------------------------------------ */
-
-    /* A. Standard Buttons & Download Buttons */
-    /* Targeting the button element inside Streamlit widgets */
+    /* 7. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -220,25 +161,12 @@ st.markdown(
         font-weight: 600 !important;
         padding: 0.5rem 1rem !important;
     }
-
-    /* Hover Effects */
     [data-testid="stButton"] button:hover, 
     [data-testid="stDownloadButton"] button:hover,
     [data-testid="stFormSubmitButton"] button:hover {
         background-color: #1e40af !important;
         color: #ffffff !important;
     }
-
-    /* Active/Click Effects */
-    [data-testid="stButton"] button:active, 
-    [data-testid="stDownloadButton"] button:active,
-    [data-testid="stFormSubmitButton"] button:active {
-        background-color: #172554 !important;
-        color: #ffffff !important;
-    }
-
-    /* B. Link Buttons (Zillow, Rentometer, PHA) */
-    /* Streamlit uses 'a' tags for these. We must target the tag directly. */
     a[data-testid="stLinkButton"] {
         background-color: #1e3a8a !important; 
         color: #ffffff !important;
@@ -252,65 +180,25 @@ st.markdown(
         align-items: center !important;
         padding: 0.5rem 1rem !important;
     }
+    a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
+    a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* FORCE TEXT COLOR INSIDE LINKS */
-    a[data-testid="stLinkButton"] * {
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
+    /* 8. CARDS & CONTAINERS */
+    .stExpander, .element-container { border-radius: 8px; }
+    h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* Hover for Links */
-    a[data-testid="stLinkButton"]:hover {
-        background-color: #1e40af !important;
-        color: #ffffff !important;
-    }
-
-    /* ------------------------------------------------ */
-    /* 8. CARDS & CONTAINERS                            */
-    /* ------------------------------------------------ */
-    .stExpander, .element-container {
-        border-radius: 8px;
-    }
-    
-    h1, h2, h3, h4, h5 {
-        color: #0f172a;
-        font-weight: 700;
-        letter-spacing: -0.025em;
-    }
-
-    /* ------------------------------------------------ */
-    /* 9. MOBILE RESPONSIVENESS                         */
-    /* ------------------------------------------------ */
+    /* 9. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
-        .brand-subtitle {
-            display: none;
-        }
-        
+        .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
-            top: 80px;
-            left: 0;
-            width: 100%;
-            background-color: #f1f5f9;
-            padding: 10px;
-            display: flex;
-            justify-content: center;
+            top: 80px; left: 0; width: 100%;
+            background-color: #f1f5f9; padding: 10px;
+            display: flex; justify-content: center;
         }
-        
-        div[role="radiogroup"] p {
-            color: #64748b !important;
-        }
-        
-        div[role="radiogroup"] label[data-checked="true"] {
-            background-color: #1e3a8a !important;
-        }
-        
-        div[role="radiogroup"] label[data-checked="true"] p {
-            color: white !important;
-        }
-        
-        .block-container {
-            padding-top: 10rem;
-        }
+        div[role="radiogroup"] p { color: #64748b !important; }
+        div[role="radiogroup"] label[data-checked="true"] { background-color: #1e3a8a !important; }
+        div[role="radiogroup"] label[data-checked="true"] p { color: white !important; }
+        .block-container { padding-top: 10rem; }
     }
     </style>
     """,
@@ -380,385 +268,284 @@ STATE_MAP = {
 @st.cache_data
 def load_data():
     try:
-        # Load HUD FY 2026 Data (Excel)
-        df = pd.read_excel(
-            "hud_2026.xlsx",
-            header=0,
-            dtype=str
-        )
-
-        # CLEAN HEADERS
+        df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
         df.columns = df.columns.astype(str).str.replace('\n', '_').str.replace(' ', '_').str.upper().str.strip()
-
-        # REMOVE JUNK ROWS
-        if 'ZIP_CODE' in df.columns:
-            df = df.dropna(subset=['ZIP_CODE'])
-
-        # RENAME COLUMNS
-        rename_map = {
-            'ZIP_CODE': 'zip_code',
-            'ZIP': 'zip_code',
-            'SAFMR_0BR': 'Studio',
-            'SAFMR_1BR': '1-Bedroom',
-            'SAFMR_2BR': '2-Bedroom',
-            'SAFMR_3BR': '3-Bedroom',
-            'SAFMR_4BR': '4-Bedroom',
-            'HUD_FAIR_MARKET_RENT_AREA_NAME': 'area_name'
-        }
-
-        available_cols = []
-        for c in rename_map.keys():
-            if c in df.columns:
-                available_cols.append(c)
+        if 'ZIP_CODE' in df.columns: df = df.dropna(subset=['ZIP_CODE'])
         
+        rename_map = {'ZIP_CODE': 'zip_code', 'ZIP': 'zip_code', 'SAFMR_0BR': 'Studio', 'SAFMR_1BR': '1-Bedroom', 'SAFMR_2BR': '2-Bedroom', 'SAFMR_3BR': '3-Bedroom', 'SAFMR_4BR': '4-Bedroom', 'HUD_FAIR_MARKET_RENT_AREA_NAME': 'area_name'}
+        available_cols = [c for c in rename_map.keys() if c in df.columns]
         df = df[available_cols].rename(columns=rename_map)
-
-        # EXTRACT STATE
         df['state_abbr'] = df['area_name'].str.extract(r',\s([A-Z]{2})')
-        df['state'] = df['state_abbr'].map(STATE_MAP)
-        df['state'] = df['state'].fillna('Other')
+        df['state'] = df['state_abbr'].map(STATE_MAP).fillna('Other')
 
-        # Convert Rent to Numeric
-        cols_to_numeric = [
-            'Studio',
-            '1-Bedroom',
-            '2-Bedroom',
-            '3-Bedroom',
-            '4-Bedroom'
-        ]
-        
-        for c in cols_to_numeric:
-            if c in df.columns:
-                df[c] = pd.to_numeric(
-                    df[c].str.replace('$', '').str.replace(',', ''),
-                    errors='coerce'
-                ).fillna(0)
-
+        for c in ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']:
+            if c in df.columns: df[c] = pd.to_numeric(df[c].str.replace('$', '').str.replace(',', ''), errors='coerce').fillna(0)
         return df
-
     except Exception as e:
-        st.error(f"CRITICAL ERROR loading data: {e}")
-        return pd.DataFrame()
+        st.error(f"CRITICAL ERROR loading data: {e}"); return pd.DataFrame()
 
 @st.cache_data(ttl=86400)
 def get_vacancy_rate(zip_code):
     try:
-        # Rate Limiting: Sleep to avoid hitting API limits
         time.sleep(0.5) 
-        
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_rate, timeout=3)
         data = r.json()
-        if len(data) > 1:
-            if data[1][0]:
-                return float(data[1][0])
-    except:
-        pass
+        if len(data) > 1 and data[1][0]: return float(data[1][0])
+    except: pass 
 
     try:
-        # Fallback query
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
         r = requests.get(url_raw, timeout=3)
         data = r.json()
         if len(data) > 1:
-            vacant_for_rent = float(data[1][0])
-            renter_occupied = float(data[1][1])
+            vacant_for_rent = float(data[1][0]); renter_occupied = float(data[1][1])
             total = vacant_for_rent + renter_occupied
-            if total > 0:
-                return round((vacant_for_rent / total) * 100, 1)
-    except:
-        pass
+            if total > 0: return round((vacant_for_rent / total) * 100, 1)
+    except: pass 
     return 5.0
 
 # ==========================================
 # 6. MATH ENGINES
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
-    loan_amount = price * (1 - (down_payment_pct / 100))
-    if loan_amount <= 0:
-        return 0
-
-    monthly_rate = (interest_rate / 100) / 12
-    num_payments = term_years * 12
-
-    if monthly_rate == 0:
-        return loan_amount / num_payments
-
+    loan_amount = price * (1 - (down_payment_pct/100))
+    if loan_amount <= 0: return 0
+    monthly_rate = (interest_rate / 100) / 12; num_payments = term_years * 12
+    if monthly_rate == 0: return loan_amount / num_payments
     return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
-    # Reverse calculates price based on target return
-    test_price = 50000
-    step = 1000
-
-    for _ in range(1000):
-        loan = test_price * (1 - down_pct / 100)
+    test_price = 50000; step = 1000
+    for _ in range(1000): 
+        loan = test_price * (1 - down_pct/100)
         monthly_pmt = calculate_mortgage(test_price, down_pct, interest_rate)
-
-        cashflow_yr = (net_rent - (taxes / 12) - (insurance / 12) - maint_monthly - pm_monthly - monthly_pmt) * 12
-        investment = (test_price * down_pct / 100) + (test_price * closing_costs_pct / 100) + repairs
-
-        if investment > 0:
-            coc = (cashflow_yr / investment) * 100
-        else:
-            coc = 0
-
-        if coc < target_coc:
-            return test_price - step
-
+        cashflow_yr = (net_rent - (taxes/12) - (insurance/12) - maint_monthly - pm_monthly - monthly_pmt) * 12
+        investment = (test_price * down_pct/100) + (test_price * closing_costs_pct/100) + repairs
+        coc = (cashflow_yr / investment) * 100 if investment > 0 else 0
+        if coc < target_coc: return test_price - step 
         test_price += step
     return 0
 
 def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
-    # Generates 30-year wealth chart data
     data = []
-    current_rent = rent * 12
-    current_expenses = total_expenses_yr
-    loan_balance = price * (1 - down_pct / 100)
-
+    current_rent = rent * 12; current_expenses = total_expenses_yr
+    loan_balance = price * (1 - down_pct/100)
     for year in range(1, 31):
-        # 1. Cash Flow
-        noi = current_rent - current_expenses
-        cashflow = noi - mortgage_yr
-
-        # 2. Equity (Amortization)
+        noi = current_rent - current_expenses; cashflow = noi - mortgage_yr
         if loan_balance > 0:
-            interest_payment = loan_balance * (interest_rate / 100)
+            interest_payment = loan_balance * (interest_rate/100)
             principal_payment = mortgage_yr - interest_payment
-            if principal_payment > loan_balance:
-                principal_payment = loan_balance
+            if principal_payment > loan_balance: principal_payment = loan_balance
             loan_balance -= principal_payment
-
-        # 3. Appreciation
-        property_value = price * ((1 + appreciation / 100)**year)
-        total_equity = property_value - loan_balance
-
-        data.append({
-            "Year": year,
-            "Cash Flow": cashflow,
-            "Loan Balance": loan_balance,
-            "Total Equity": total_equity
-        })
-
-        # Inflate for next year
-        current_rent *= (1 + rent_growth / 100)
-        current_expenses *= (1 + rent_growth / 100)
-
+        property_value = price * ((1 + appreciation/100)**year)
+        data.append({"Year": year, "Cash Flow": cashflow, "Loan Balance": loan_balance, "Total Equity": property_value - loan_balance})
+        current_rent *= (1 + rent_growth/100); current_expenses *= (1 + rent_growth/100)
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR
+# 7. MULTI-PAGE PDF GENERATOR (REBUILT FOR DETAIL)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
-        # REMOVED THE GIANT WATERMARK FROM HERE
-        self.set_fill_color(37, 99, 235)
-        self.set_xy(0, 0)
-        self.rect(0, 0, 210, 22, 'F')
-
-        self.set_font('Helvetica', 'B', 20)
+        # Header Box
+        self.set_fill_color(30, 58, 138) # Corporate Blue
+        self.rect(0, 0, 210, 30, 'F')
+        
+        # Logo Text
+        self.set_font('Helvetica', 'B', 24)
         self.set_text_color(255, 255, 255)
-        self.set_xy(10, 6)
-        self.cell(40, 10, "YieldMap", 0, 0, 'L')
-
-        self.set_font('Helvetica', 'B', 14)
+        self.set_xy(10, 8)
+        self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
+        
+        # Report Title
+        self.set_font('Helvetica', '', 12)
+        self.set_text_color(147, 197, 253) # Light Blue
+        self.set_xy(10, 18)
+        self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
+        
+        # Date
+        self.set_font('Helvetica', 'B', 10)
         self.set_text_color(255, 255, 255)
-        self.set_xy(0, 6)
-        self.cell(210, 10, "SECTION 8 ANALYSIS REPORT", 0, 0, 'C')
-
-        self.set_font('Helvetica', '', 9)
-        self.set_xy(160, 6)
+        self.set_xy(160, 10)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
-        self.ln(18)
+        
+        # Watermark (Subtle)
+        self.set_font('Helvetica', 'B', 50)
+        self.set_text_color(240, 240, 240)
+        self.set_xy(0, 140)
+        self.cell(210, 0, "CONFIDENTIAL", 0, 0, 'C')
+        
+        self.ln(25) # Push cursor down below header
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'YieldMap Pro | Powered by HUD.gov | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+        self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
 
     def chapter_title(self, title):
-        self.set_font('Helvetica', 'B', 12)
-        self.set_text_color(37, 99, 235)
-        self.cell(0, 10, title, 0, 1, 'L')
+        self.ln(5)
+        self.set_font('Helvetica', 'B', 14)
+        self.set_text_color(30, 58, 138)
+        self.cell(0, 8, title, 0, 1, 'L')
         self.set_draw_color(200, 200, 200)
         self.line(10, self.get_y(), 200, self.get_y())
-        self.ln(5) # Added spacing
+        self.ln(4)
 
-    def kpi_card(self, title, value, x, y, w=45, h=25):
-        self.set_xy(x, y)
+    def section_header(self, title):
+        self.ln(3)
+        self.set_font('Helvetica', 'B', 11)
+        self.set_text_color(50, 50, 50)
+        self.cell(0, 6, title, 0, 1, 'L')
+
+    def kpi_box(self, label, value, x, y):
         self.set_fill_color(248, 250, 252)
-        self.set_draw_color(226, 232, 240)
-        self.rect(x, y, w, h, 'DF')
-
-        self.set_xy(x, y + 6)
-        self.set_font('Helvetica', 'B', 9)
-        self.set_text_color(100, 116, 139)
-        self.cell(w, 5, title, 0, 1, 'C')
-
-        self.set_xy(x, y + 13)
+        self.set_draw_color(200, 200, 200)
+        self.rect(x, y, 45, 25, 'DF')
+        self.set_xy(x, y+5)
+        self.set_font('Helvetica', '', 9)
+        self.set_text_color(100, 100, 100)
+        self.cell(45, 5, label, 0, 1, 'C')
         self.set_font('Helvetica', 'B', 14)
-        self.set_text_color(37, 99, 235)
-        self.cell(w, 8, value, 0, 1, 'C')
+        self.set_text_color(30, 58, 138)
+        self.cell(45, 8, value, 0, 1, 'C')
 
-    def add_table_row(self, label, value, fill=False, text_color=None):
-        self.set_font('Helvetica', '', 10)
-        self.set_fill_color(240, 253, 244)
-
-        # Label Color
-        self.set_text_color(50, 50, 50)
-        self.cell(140, 8, label, 1, 0, 'L', fill)
-
-        # Value Color Logic
-        if text_color:
-            self.set_text_color(*text_color)
-        else:
-            self.set_text_color(50, 50, 50)
-
-        self.cell(50, 8, value, 1, 1, 'R', fill)
-        self.set_text_color(50, 50, 50)
+    def add_row(self, col1, col2, is_total=False):
+        self.set_font('Helvetica', 'B' if is_total else '', 10)
+        fill = True if is_total else False
+        self.set_fill_color(240, 249, 255) # Light Blue fill
+        self.set_text_color(0, 0, 0)
+        
+        self.cell(140, 7, col1, 1, 0, 'L', fill)
+        self.cell(50, 7, col2, 1, 1, 'R', fill)
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs):
     pdf = ProPDF()
     pdf.alias_nb_pages()
     pdf.add_page()
-    
-    # Subtle Watermark - Only on Page 1 if desired, or small at bottom
-    pdf.set_font('Helvetica', 'B', 40)
-    pdf.set_text_color(245, 245, 245) # Very light grey
-    pdf.set_xy(0, 200)
-    pdf.cell(210, 0, "CONFIDENTIAL", 0, 0, 'C')
 
-    # EXECUTIVE SUMMARY
+    # --- PAGE 1: EXECUTIVE SUMMARY ---
+    
+    # 1. Subject Property Box
     pdf.set_font('Helvetica', 'B', 16)
-    pdf.set_text_color(30, 41, 59)
+    pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
-    pdf.multi_cell(0, 8, f"Property Analysis: {area_name}")
+    pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
+    
+    pdf.set_font('Helvetica', '', 10)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
+    pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
+    pdf.ln(5)
+
+    # 2. KPI GRID (Top Row)
+    y_kpi = pdf.get_y()
+    pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
+    pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
+    pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
+    
+    # DSCR Calculation
+    dscr = 0
+    if loan_pmt > 0:
+        dscr = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))) / loan_pmt
+    pdf.kpi_box("DSCR Ratio", f"{dscr:.2f}x", 160, y_kpi)
+    
+    pdf.set_y(y_kpi + 35)
+
+    # 3. DEAL GRADES
+    pdf.chapter_title("Investment Grade Scorecard")
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(95, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
+    pdf.cell(95, 8, f"Deal Performance: {d_grade}", 1, 1, 'C')
+    pdf.ln(5)
+
+    # 4. CAPITAL REQUIREMENTS (Cash to Close)
+    pdf.chapter_title("Capital Requirements (Cash to Close)")
+    down_amt = price * (down_pct / 100)
+    closing_amt = price * (closing_costs / 100)
+    total_cash = down_amt + closing_amt + repairs
+    
+    pdf.add_row(f"Down Payment ({down_pct}%)", f"${down_amt:,.0f}")
+    pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
+    pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
+    pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
+
+    # 5. INCOME & EXPENSE STATEMENT
+    pdf.chapter_title("Pro Forma Monthly Operating Statement")
+    
+    # Income
+    pdf.section_header("Income")
+    pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
+    pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
+    pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
+    
+    # Expenses
+    pdf.section_header("Operating Expenses")
+    pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
+    pdf.add_row("Insurance", f"(${ins/12:,.2f})")
+    pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_cost:,.2f})")
+    pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
+    
+    # NOI
+    noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))
+    pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
+    
+    # Debt Service
+    pdf.section_header("Debt Service")
+    pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
+    
+    # Final CF
     pdf.ln(2)
+    pdf.set_fill_color(30, 58, 138)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
+    pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
-    # Client Info Block
-    pdf.set_x(10)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(15, 6, "Client:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    
-    client_text = client
-    if not client_text:
-        client_text = "Valued Investor"
-    pdf.cell(80, 6, client_text, 0, 0, 'L')
-    
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(15, 6, "Unit:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(40, 6, unit, 0, 1, 'L')
-    pdf.ln(6)
-    
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(17, 6, "Address:", 0, 0, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    
-    address_text = address
-    if not address_text:
-        address_text = "Not Specified"
-    pdf.cell(0, 6, address_text, 0, 1, 'L')
-    pdf.ln(8)
-
-    # KPI Grid
-    y_start = pdf.get_y()
-    pdf.kpi_card("Deal Grade", f"{d_grade}", 10, y_start)
-    pdf.kpi_card("Cash-on-Cash", f"{coc_return:.2f}%", 60, y_start)
-    pdf.kpi_card("Monthly Flow", f"${net_cashflow:,.0f}", 110, y_start)
-    pdf.kpi_card("Cap Rate", f"{yield_val:.2f}%", 160, y_start)
-    pdf.ln(32)
-
-    # Disclaimer
-    pdf.set_font('Helvetica', 'I', 8)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 5, "*Deal Grade Logic: A+ (>12% CoC), B (8-12%), C (<8%). Based on conservative vacancy reserves.", 0, 1, 'L')
-    pdf.ln(4)
-
-    # FINANCIAL BREAKDOWN
-    pdf.chapter_title("Financial Breakdown (Year 1)")
-    pdf.add_table_row("Purchase Price", f"${price:,.0f}")
-    pdf.add_table_row("HQS / Initial Repairs", f"${repairs:,.0f}")
-
-    total_cash = (price * (down_pct / 100)) + (price * (closing_costs / 100)) + repairs
-    pdf.add_table_row("Total Cash Needed (Inc. Closing)", f"${total_cash:,.0f}", True)
-    pdf.add_table_row("Loan Amount", f"${price * (1 - down_pct / 100):,.0f}")
-    pdf.add_table_row("Monthly P&I Payment", f"${loan_pmt:,.2f}")
-    pdf.ln(5)
-
-    # RENT & EXPENSES
-    pdf.chapter_title("Section 8 Rent & Expenses")
-    pdf.add_table_row("Gross HUD Rent", f"${rent:,.2f}")
-
-    # Color Coded Risk
-    if hud_limit > 0:
-        pct_limit = (rent / hud_limit) * 100
-        risk_color = (220, 20, 60) # Default Red
-        if pct_limit <= 100:
-            risk_color = (0, 128, 0) # Green
-
-        risk_label = "Risk"
-        if pct_limit <= 100:
-            risk_label = "Safe"
-            
-        pdf.add_table_row(f"Rent vs. FMR ({pct_limit:.1f}% of Limit)", risk_label, False, risk_color)
-
-    pdf.add_table_row(f"Vacancy Loss ({v_rate}%)", f"(${rent * (v_rate / 100):,.2f})")
-    pdf.add_table_row("Effective Gross Income", f"${rent * (1 - v_rate / 100):,.2f}", True)
-    pdf.add_table_row("Property Taxes", f"(${taxes / 12:,.2f})")
-    pdf.add_table_row("Insurance", f"(${ins / 12:,.2f})")
-    pdf.add_table_row(f"Maintenance & CapEx ({maint_pct}%)", f"(${maint_cost:,.2f})")
-    pdf.add_table_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct / 100):,.2f})")
-    
-    noi_val = (rent * (1 - v_rate / 100)) - (taxes / 12 + ins / 12 + maint_cost + rent * (pm_pct / 100))
-    pdf.add_table_row("Net Operating Income (NOI)", f"${noi_val:,.2f}", True)
-
-    # PAGE 2: PROJECTIONS
+    # --- PAGE 2: WEALTH ACCUMULATION ---
     pdf.add_page()
-    # REMOVED WATERMARK FROM PAGE 2 TO FIX PUSH DOWN
-    pdf.chapter_title("Buy & Hold Projections (Wealth Accumulation)")
-    pdf.set_font('Helvetica', '', 9)
-    pdf.multi_cell(0, 5, f"This projection assumes a conservative {rent_growth}% annual rent increase and {appreciation}% appreciation. It demonstrates the power of loan paydown (Amortization) in Section 8 investing.")
+    pdf.chapter_title("Long-Term Wealth Projections")
+    
+    pdf.set_font('Helvetica', '', 10)
+    pdf.set_text_color(50, 50, 50)
+    pdf.multi_cell(0, 6, f"This analysis assumes a {rent_growth}% annual increase in rents and a {appreciation}% annual property appreciation rate. It accounts for loan paydown (amortization) and cash flow reinvestment.")
     pdf.ln(5)
 
-    # Table Header
-    pdf.set_fill_color(37, 99, 235) # Blue
-    pdf.set_text_color(255, 255, 255) # White
+    # Headers
+    pdf.set_fill_color(30, 58, 138)
+    pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
     pdf.cell(20, 8, "Year", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Cash Flow", 1, 0, 'C', True)
+    pdf.cell(40, 8, "Annual CF", 1, 0, 'C', True)
     pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Total Equity", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Total Profit", 1, 1, 'C', True)
+    pdf.cell(40, 8, "Property Equity", 1, 0, 'C', True)
+    pdf.cell(50, 8, "Total Wealth Created", 1, 1, 'C', True)
 
-    # Table Rows
+    # Rows
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
-
-    snapshot_years = [1, 2, 3, 5, 10, 20, 30]
-    total_cf = 0
-    initial_cash = (price * (down_pct / 100)) + (price * (closing_costs / 100)) + repairs
-
+    
+    snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
+    cumulative_cf = 0
+    
     for index, r in projections_df.iterrows():
         yr = int(r['Year'])
-        total_cf += r['Cash Flow'] # Cumulative CF
-
+        cumulative_cf += r['Cash Flow']
+        
         if yr in snapshot_years:
-            pdf.cell(20, 8, f"Year {yr}", 1, 0, 'C')
+            # Total Wealth = Equity + Cumulative Cash Flow - Initial Investment
+            total_wealth = r['Total Equity'] + cumulative_cf - total_cash
+            
+            pdf.cell(20, 8, str(yr), 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
-
-            # Total Profit = Cumulative Cash Flow + Equity (minus initial investment)
-            total_profit = total_cf + r['Total Equity'] - initial_cash
-            pdf.cell(40, 8, f"${total_profit:,.0f}", 1, 1, 'C')
+            pdf.cell(50, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
 
     pdf.ln(10)
     pdf.set_font('Helvetica', 'I', 8)
-    pdf.multi_cell(0, 4, "Disclaimer: These projections are estimates based on your inputs. Past performance does not guarantee future results.")
+    pdf.multi_cell(0, 5, "Disclaimer: These projections are theoretical and for educational purposes. They assume constant market conditions and do not account for major unforeseen CapEx events.")
 
     return pdf.output(dest='S')
 
@@ -933,9 +720,6 @@ if not st.session_state.user:
                         st.balloons()
                         st.success("✅ Account Created Successfully! Please check your email to verify your account.")
                         st.info("You can now switch to the 'Log In' tab once verified.")
-                        
-                        # OPTIONAL: Reset Captcha only if you want them to stay here
-                        # st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
                         
                     except Exception as e:
                         # Friendly error if DB fails (often due to trigger issues)
