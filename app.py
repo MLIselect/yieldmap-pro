@@ -813,7 +813,7 @@ if not st.session_state.user:
                 
                 # --- NEW FIELDS ADDED HERE ---
                 first_name = st.text_input("First Name", key="signup_fname")
-                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Other"], key="signup_role")
+                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
                 
                 register = st.form_submit_button("Create Account")
                 
