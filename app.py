@@ -43,7 +43,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT (For Email Link Only) ---
+# --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -722,23 +722,16 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
-def switch_to_login_callback():
-    st.session_state.auth_mode = 'login'
-    # Clear signup keys just in case
-    for key in list(st.session_state.keys()):
-        if key.startswith("signup_"):
-            del st.session_state[key]
-    # No need to call st.rerun() here, button callback does it automatically
-
-# NEW: SUCCESS DIALOG
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use native Streamlit button with callback ===
-    st.button("OK, Go to Login", on_click=switch_to_login_callback)
+    # === THE FIX: Use native Streamlit button logic ===
+    if st.button("OK, Go to Login", type="primary"):
+        st.session_state.auth_mode = 'login'
+        st.rerun()
 
 # LOGIN LOGIC
 if not st.session_state.user:
