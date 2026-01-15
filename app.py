@@ -46,6 +46,7 @@ supabase = init_connection()
 # --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     # This script forces the browser to navigate to the new URL
+    # window.top.location.href ensures we break out of any iframes
     redirect_code = f"""
     <script>
         window.top.location.href = "{url}";
@@ -87,6 +88,7 @@ st.markdown(
     }
 
     /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
+    /* A white bar fixed to the bottom to cover Streamlit branding */
     .titan-bar {
         position: fixed;
         left: 0;
@@ -729,8 +731,9 @@ support@yieldmappro.com
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
+    
+    # === THE FIX: Use a regular Streamlit button that triggers JS Redirect ===
     if st.button("OK, Go to Login"):
-        # *** TRIGGER REDIRECT TO CUSTOM DOMAIN HERE ***
         js_redirect("https://yieldmappro.com/app")
 
 # LOGIN LOGIC
@@ -1335,7 +1338,7 @@ elif page == "IQ Center":
             """
         )
 
-# NEW: INJECT THE TITAN BAR DIV (PHYSICAL COVER UP FOR EMBED MODE)
+# INJECT THE TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
