@@ -43,10 +43,8 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT ---
+# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
 def js_redirect(url):
-    # Forces the browser to navigate to the new URL
-    # Added ?embed=true to the target to force cleaner UI
     redirect_code = f"""
     <script>
         window.top.location.href = "{url}";
@@ -62,7 +60,8 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
-        # Redirect to main app URL with embed mode enabled
+        
+        # Redirect to main app URL with embed mode enabled to clean UI
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -86,7 +85,7 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
+    /* 3. THE "TITAN BAR" (Footer Hider) */
     .titan-bar {
         position: fixed;
         left: 0;
@@ -109,10 +108,9 @@ st.markdown(
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     
-    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
+    /* Hide Manage/Deploy Buttons */
     [data-testid="manage-app-button"] { display: none !important; }
     .stAppDeployButton { display: none !important; }
-    [data-testid="stMainMenu"] { display: none !important; }
     
     /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
@@ -730,21 +728,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
-def switch_to_login_callback():
-    st.session_state.auth_mode = 'login'
-    # Clear signup keys just in case
-    for key in list(st.session_state.keys()):
-        if key.startswith("signup_"):
-            del st.session_state[key]
-
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use native Streamlit button logic ===
+    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
     if st.button("OK, Go to Login", type="primary"):
         st.session_state.auth_mode = 'login'
         st.rerun()
@@ -767,8 +757,7 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1349,7 +1338,7 @@ elif page == "IQ Center":
             """
         )
 
-# INJECT THE TITAN BAR OVERLAY (Bottom of page execution)
+# INJECT THE TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
