@@ -419,16 +419,22 @@ class ProPDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
 
     def kpi_box(self, label, value, x, y):
+        # FIX: Draw box and label without moving the cursor down lines
         self.set_fill_color(248, 250, 252)
         self.set_draw_color(200, 200, 200)
         self.rect(x, y, 45, 25, 'DF')
+        
+        # Label
         self.set_xy(x, y+5)
         self.set_font('Helvetica', '', 9)
         self.set_text_color(100, 100, 100)
-        self.cell(45, 5, label, 0, 1, 'C')
+        self.cell(45, 5, label, 0, 2, 'C') # 0, 2 means move down after
+        
+        # Value - FIX: Ensure it is a string and center it, no new line trigger
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(30, 58, 138)
-        self.cell(45, 8, value, 0, 1, 'C')
+        self.set_xy(x, y+13)
+        self.cell(45, 8, str(value), 0, 0, 'C') 
 
     def add_row(self, col1, col2, is_total=False):
         self.set_font('Helvetica', 'B' if is_total else '', 10)
@@ -473,7 +479,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_y(y_kpi + 35)
 
     # 3. DEAL GRADES
-    pdf.check_space(30) # Ensure header + content fits
+    pdf.check_space(40) # Ensure header + content fits
     pdf.chapter_title("Investment Grade Scorecard")
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(95, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
@@ -481,7 +487,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.ln(5)
 
     # 4. CAPITAL REQUIREMENTS (Cash to Close)
-    pdf.check_space(45) # Ensure header + table fits
+    pdf.check_space(50) # Ensure header + table fits
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
     closing_amt = price * (closing_costs / 100)
@@ -493,7 +499,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
     # 5. INCOME & EXPENSE STATEMENT
-    pdf.check_space(60) # Bigger block
+    pdf.check_space(80) # Bigger block
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     
     # Income
@@ -748,15 +754,7 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
-def switch_to_login_callback():
-    st.session_state.auth_mode = 'login'
-    # Clear signup keys just in case
-    for key in list(st.session_state.keys()):
-        if key.startswith("signup_"):
-            del st.session_state[key]
-
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
@@ -785,7 +783,6 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            
                             st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
