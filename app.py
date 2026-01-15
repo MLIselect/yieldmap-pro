@@ -357,39 +357,29 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (REBUILT FOR DETAIL & PAGINATION FIX)
+# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
-        # Header Box
         self.set_fill_color(30, 58, 138) # Corporate Blue
         self.rect(0, 0, 210, 30, 'F')
         
-        # Logo Text
         self.set_font('Helvetica', 'B', 24)
         self.set_text_color(255, 255, 255)
         self.set_xy(10, 8)
         self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
         
-        # Report Title
         self.set_font('Helvetica', '', 12)
         self.set_text_color(147, 197, 253) # Light Blue
         self.set_xy(10, 18)
         self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
         
-        # Date
         self.set_font('Helvetica', 'B', 10)
         self.set_text_color(255, 255, 255)
         self.set_xy(160, 10)
         self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
         
-        # Watermark (Subtle)
-        self.set_font('Helvetica', 'B', 50)
-        self.set_text_color(240, 240, 240)
-        self.set_xy(0, 140)
-        self.cell(210, 0, "CONFIDENTIAL", 0, 0, 'C')
-        
-        self.ln(25) # Push cursor down below header
+        self.ln(25)
 
     def footer(self):
         self.set_y(-15)
@@ -398,8 +388,7 @@ class ProPDF(FPDF):
         self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
 
     def check_space(self, height_needed):
-        # Helper to check if we need a page break
-        # Safe height is roughly 270mm (297mm - margins)
+        # Checks if there is enough space on the page, else adds a new page
         if self.get_y() + height_needed > 270:
             self.add_page()
 
@@ -419,22 +408,22 @@ class ProPDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
 
     def kpi_box(self, label, value, x, y):
-        # FIX: Draw box and label without moving the cursor down lines
+        # DRAW BOX
         self.set_fill_color(248, 250, 252)
         self.set_draw_color(200, 200, 200)
         self.rect(x, y, 45, 25, 'DF')
         
-        # Label
-        self.set_xy(x, y+5)
+        # LABEL (Absolute Position)
+        self.set_xy(x, y + 5)
         self.set_font('Helvetica', '', 9)
         self.set_text_color(100, 100, 100)
-        self.cell(45, 5, label, 0, 2, 'C') # 0, 2 means move down after
+        self.cell(45, 5, label, 0, 0, 'C') # 0, 0 = No line break
         
-        # Value - FIX: Ensure it is a string and center it, no new line trigger
+        # VALUE (Absolute Position)
+        self.set_xy(x, y + 13)
         self.set_font('Helvetica', 'B', 14)
         self.set_text_color(30, 58, 138)
-        self.set_xy(x, y+13)
-        self.cell(45, 8, str(value), 0, 0, 'C') 
+        self.cell(45, 8, str(value), 0, 0, 'C') # 0, 0 = No line break
 
     def add_row(self, col1, col2, is_total=False):
         self.set_font('Helvetica', 'B' if is_total else '', 10)
@@ -451,8 +440,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_page()
 
     # --- PAGE 1: EXECUTIVE SUMMARY ---
-    
-    # 1. Subject Property Box
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
@@ -464,30 +451,29 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
     pdf.ln(5)
 
-    # 2. KPI GRID (Top Row)
+    # 2. KPI GRID (Fixed Positioning)
     y_kpi = pdf.get_y()
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
-    # DSCR Calculation
     dscr = 0
     if loan_pmt > 0:
         dscr = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))) / loan_pmt
     pdf.kpi_box("DSCR Ratio", f"{dscr:.2f}x", 160, y_kpi)
     
-    pdf.set_y(y_kpi + 35)
+    pdf.set_y(y_kpi + 35) # Force cursor down past boxes
 
     # 3. DEAL GRADES
-    pdf.check_space(40) # Ensure header + content fits
+    pdf.check_space(30)
     pdf.chapter_title("Investment Grade Scorecard")
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(95, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
     pdf.cell(95, 8, f"Deal Performance: {d_grade}", 1, 1, 'C')
-    pdf.ln(5)
+    pdf.ln(10)
 
-    # 4. CAPITAL REQUIREMENTS (Cash to Close)
-    pdf.check_space(50) # Ensure header + table fits
+    # 4. CAPITAL REQUIREMENTS
+    pdf.check_space(50) # Ensure header + table fits on same page
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
     closing_amt = price * (closing_costs / 100)
@@ -498,32 +484,29 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
-    # 5. INCOME & EXPENSE STATEMENT
-    pdf.check_space(80) # Bigger block
+    # 5. INCOME & EXPENSES
+    pdf.check_space(80) # Large buffer for the main table
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     
-    # Income
     pdf.section_header("Income")
     pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
     pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
     
-    # Expenses
     pdf.section_header("Operating Expenses")
     pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_row("Insurance", f"(${ins/12:,.2f})")
     pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_cost:,.2f})")
     pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
     
-    # NOI
     noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))
     pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     
-    # Debt Service
+    # Ensure Debt Service and Final CF stay together with the table
+    pdf.check_space(30) 
     pdf.section_header("Debt Service")
     pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     
-    # Final CF
     pdf.ln(2)
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
@@ -562,9 +545,23 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         cumulative_cf += r['Cash Flow']
         
         if yr in snapshot_years:
-            # Total Wealth = Equity + Cumulative Cash Flow - Initial Investment
-            total_wealth = r['Total Equity'] + cumulative_cf - total_cash
+            # CHECK FOR PAGE BREAK BEFORE PRINTING A ROW
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                # Re-print headers on new page
+                pdf.set_fill_color(30, 58, 138)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font('Helvetica', 'B', 9)
+                pdf.cell(20, 8, "Year", 1, 0, 'C', True)
+                pdf.cell(40, 8, "Annual CF", 1, 0, 'C', True)
+                pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
+                pdf.cell(40, 8, "Property Equity", 1, 0, 'C', True)
+                pdf.cell(50, 8, "Total Wealth Created", 1, 1, 'C', True)
+                pdf.set_text_color(50, 50, 50)
+                pdf.set_font('Helvetica', '', 9)
             
+            # Print Row
+            total_wealth = r['Total Equity'] + cumulative_cf - total_cash
             pdf.cell(20, 8, str(yr), 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
@@ -754,7 +751,15 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+def switch_to_login_callback():
+    st.session_state.auth_mode = 'login'
+    # Clear signup keys just in case
+    for key in list(st.session_state.keys()):
+        if key.startswith("signup_"):
+            del st.session_state[key]
+
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
@@ -783,7 +788,10 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            st.rerun()
+                            
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
