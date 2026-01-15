@@ -15,7 +15,7 @@ import time
 import tempfile
 import matplotlib
 
-# === CRITICAL FIX: Use Agg backend & Pure OO Interface ===
+# === CRITICAL FIX: Use Agg backend & Pure OO Interface (No Pyplot) ===
 matplotlib.use('Agg') 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -362,7 +362,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
+# 7. MULTI-PAGE PDF GENERATOR (FIXED)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -437,7 +437,10 @@ class ProPDF(FPDF):
         self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
         self.set_font('Helvetica', 'B', 10)
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
-        box_height = 24 if text_width > 180 else 15
+        
+        # === FIX: Box height tripled to ensure text fit ===
+        box_height = 20 if text_width > 180 else 15
+        
         self.rect(10, self.get_y(), 190, box_height, 'DF')
         self.set_xy(12, self.get_y()+4)
         self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
@@ -446,9 +449,9 @@ class ProPDF(FPDF):
 
 def generate_chart_image(proj_df):
     # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
+    # Using Figure directly bypasses the pyplot state machine that Streamlit watches
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        # Canvas Agg is required to render the figure without a GUI
         canvas = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
         
@@ -464,10 +467,9 @@ def generate_chart_image(proj_df):
         
         fig.tight_layout()
         fig.savefig(tmpfile.name, dpi=100)
-        
         return tmpfile.name
 
-@st.cache_data(show_spinner=False)
+# REMOVED CACHE DECORATOR TO PREVENT NONE RETURN ISSUES
 def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
