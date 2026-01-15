@@ -683,6 +683,14 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
+# NEW: SUCCESS DIALOG
+@st.dialog("Account Created Successfully! 🚀")
+def show_success_modal():
+    st.write("Your account has been created.")
+    st.write("Please check your email to confirm your address.")
+    if st.button("OK, Go to Login"):
+        st.rerun()
+
 # LOGIN LOGIC
 if not st.session_state.user:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -759,10 +767,8 @@ if not st.session_state.user:
                             }
                         })
                         
-                        # --- SUCCESS LOGIC (NO RERUN) ---
-                        st.balloons()
-                        st.success("✅ Account Created Successfully! Please check your email to verify your account.")
-                        st.info("You can now switch to the 'Log In' tab once verified.")
+                        # --- SUCCESS LOGIC (POPUP INSTEAD OF BALLOONS) ---
+                        show_success_modal()
                         
                     except Exception as e:
                         # Friendly error if DB fails (often due to trigger issues)
