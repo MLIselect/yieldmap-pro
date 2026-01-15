@@ -14,10 +14,11 @@ import string
 import time
 import tempfile
 import matplotlib
-# === CRITICAL FIX: Use Agg backend ===
+
+# === CRITICAL FIX: Use Agg backend & Pure OO Interface ===
 matplotlib.use('Agg') 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure # Importing Figure to bypass pyplot tracking
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -50,7 +51,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
+# --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -67,8 +68,6 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
-        
-        # Redirect to main app URL with embed mode enabled to clean UI
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -316,7 +315,7 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES (UPDATED)
+# 6. MATH ENGINES
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
@@ -363,7 +362,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (GHOST TEXT FIX & LAYOUT)
+# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -446,11 +445,12 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Using raw Figure() instead of pyplot.subplots() ===
-    # This prevents Streamlit's magic mode from intercepting the chart object and printing "None"
+    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        ax = fig.subplots()
+        # Canvas Agg is required to render the figure without a GUI
+        canvas = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
         
         ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
@@ -467,7 +467,8 @@ def generate_chart_image(proj_df):
         
         return tmpfile.name
 
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
+@st.cache_data(show_spinner=False)
+def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
     pdf.add_page()
@@ -534,17 +535,14 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
     pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
-    
     pdf.section_header("Operating Expenses")
     pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_row("Insurance", f"(${ins/12:,.2f})")
     maint_monthly = maint_cost / 12
     pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
     pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
-    
     noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
     pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
-    
     pdf.check_space(30) 
     pdf.section_header("Debt Service")
     pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
@@ -562,7 +560,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
-    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -627,8 +624,8 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
-    
-    return pdf.output(dest='S')
+
+    return pdf.output(dest='S').encode('latin-1')
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
@@ -1165,7 +1162,7 @@ if page == "Pro Analyzer":
     )
     
     # Generate PDF bytes here (Cleanly separated from UI)
-    pdf_bytes = generate_pro_report(
+    pdf_bytes = generate_pro_report_bytes(
         client_name,
         prop_address,
         row,
@@ -1195,7 +1192,7 @@ if page == "Pro Analyzer":
         appreciation,
         closing_costs,
         mao
-    ).encode('latin-1')
+    )
 
     # --- UI LAYOUT WITH BUTTONS ---
     e1, e2, e3 = st.columns(3)
