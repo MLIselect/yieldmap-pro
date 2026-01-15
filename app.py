@@ -16,7 +16,8 @@ import tempfile
 import sys
 from contextlib import contextmanager
 
-# === CRITICAL FIX: Matplotlib Agg Backend & Stdout Suppression ===
+# === CRITICAL FIX: NO PYPLOT IMPORT ===
+# We use raw Matplotlib Figure to prevent Streamlit from hooking into the output
 import matplotlib
 matplotlib.use('Agg') 
 from matplotlib.figure import Figure
@@ -28,7 +29,7 @@ from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
 
-# --- UTILITY: Suppress Stdout (The "None" Killer) ---
+# --- UTILITY: Suppress Stdout (The Final Guardrail) ---
 @contextmanager
 def suppress_stdout():
     with open(os.devnull, "w") as devnull:
@@ -92,45 +93,59 @@ if "code" in st.query_params:
 st.markdown(
     """
     <style>
+    /* 1. GLOBAL RESET & FONTS */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        color: #1e293b;
+        color: #1e293b; /* Slate 800 */
     }
+
+    /* 2. LAYOUT & SPACING */
     .block-container {
         padding-top: 7rem;
         padding-bottom: 5rem;
     }
+
+    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
         height: 50px; 
-        background-color: #ffffff;
+        background-color: #ffffff; /* Matches app background */
         z-index: 2147483647; 
         pointer-events: auto;
     }
+
+    /* 4. AGGRESSIVE HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { display: none !important; }
+    
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
+    
+    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
     [data-testid="manage-app-button"] { display: none !important; }
     .stAppDeployButton { display: none !important; }
     [data-testid="stMainMenu"] { display: none !important; }
+    
+    /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     .viewerBadge_container__1QSob { display: none !important; }
+
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 80px;
-        background-color: #1e3a8a;
+        background-color: #1e3a8a; /* Deep Corporate Blue */
         z-index: 100000;
         display: flex;
         align-items: center;
@@ -138,6 +153,8 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border-bottom: none;
     }
+
+    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -163,6 +180,8 @@ st.markdown(
         margin-top: 4px;
         cursor: default;
     }
+
+    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -189,6 +208,8 @@ st.markdown(
     div[role="radiogroup"] label:hover p { color: #ffffff !important; }
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
+
+    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -221,8 +242,12 @@ st.markdown(
     }
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
+
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
+
+    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -429,21 +454,24 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # FIX: Pure OO Matplotlib + explicit assignments to avoid "None" return capture
+    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        _ = FigureCanvasAgg(fig) # Assign to dummy var
+        canvas = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
-        _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
-        _ = ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
-        _ = ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
-        _ = ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
-        _ = ax.set_xlabel("Year")
-        _ = ax.set_ylabel("Value ($)")
-        _ = ax.legend()
-        _ = ax.grid(True, alpha=0.3)
-        _ = fig.tight_layout()
-        _ = fig.savefig(tmpfile.name, dpi=100)
+        
+        ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
+        ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
+        ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        
+        ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Value ($)")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        fig.tight_layout()
+        fig.savefig(tmpfile.name, dpi=100)
         return tmpfile.name
 
 def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
@@ -535,7 +563,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
-    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -600,47 +627,8 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
-    
+
     return pdf.output(dest='S').encode('latin-1')
-
-def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
-    colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
-    if flip:
-        colors = ["#d1fae5", "#fef3c7", "#fee2e2"]
-
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        number={'suffix': suffix, 'font': {'size': 35}},
-        gauge={
-            'axis': {'range': [min_v, max_v]},
-            'bar': {'color': "#2563eb"},
-            'steps': [
-                {'range': [min_v, max_v * 0.33], 'color': colors[0]},
-                {'range': [max_v * 0.33, max_v * 0.66], 'color': colors[1]},
-                {'range': [max_v * 0.66, max_v], 'color': colors[2]}
-            ]
-        }
-    ))
-    fig.update_layout(
-        height=180,
-        margin=dict(l=40, r=40, t=10, b=10),
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-    return fig
-
-def render_footer():
-    st.divider()
-    st.markdown(
-        """
-        <div style="text-align: center; font-size: 12px; color: #64748b;">
-            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
-            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
