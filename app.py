@@ -55,10 +55,8 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS & JS INJECTION
+# 3. VISUAL UPGRADE: CUSTOM CSS (FINAL FIX)
 # ==========================================
-
-# A. CSS OVERRIDES
 st.markdown(
     """
     <style>
@@ -74,35 +72,56 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING */
-    header { visibility: hidden !important; }
-    footer { display: none !important; visibility: hidden !important; opacity: 0 !important; }
-    #MainMenu { display: none !important; }
+    /* 3. TARGETED FOOTER DESTRUCTION */
     
-    [data-testid="stDecoration"] { display: none !important; height: 0px !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stHeader"] { display: none !important; }
+    /* Target the root footer element */
+    footer {
+        visibility: hidden !important;
+        display: none !important;
+        height: 0px !important;
+        opacity: 0 !important;
+    }
     
-    /* Viewer Badge & Fullscreen Hiding */
-    .viewerBadge_container__1QSob { display: none !important; visibility: hidden !important; }
-    button[title="View fullscreen"] { display: none !important; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    /* Target the specific "Made with Streamlit" link text */
+    a[href^="https://streamlit.io/cloud"] {
+        display: none !important;
+    }
+    
+    /* Target the Viewer Badge (User Icon) */
+    .viewerBadge_container__1QSob {
+        display: none !important;
+    }
+    
+    /* Target the Embed Mode Toolbar (The bottom bar in your screenshot) */
+    [data-testid="stToolbar"] {
+        visibility: hidden !important;
+        display: none !important;
+    }
+    
+    /* Target the Fullscreen Button */
+    button[title="View fullscreen"] {
+        display: none !important;
+    }
+    
+    /* Target the Header Decoration */
+    [data-testid="stDecoration"] {
+        display: none !important;
+    }
 
-    /* 4. THE TITAN BAR (Overlay) */
+    /* 4. THE "TITAN BAR" V2 (MAX Z-INDEX OVERLAY) */
+    /* This creates a physical white block at the bottom of the screen */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
-        height: 50px;
+        height: 40px; /* Covers the standard Streamlit footer height */
         background-color: #ffffff;
-        z-index: 2147483647; /* Max Z-Index */
-        pointer-events: none;
+        z-index: 2147483647; /* Maximum allowable Z-Index in browsers */
+        pointer-events: none; /* Allows clicks to pass through if necessary, but blocks view */
     }
 
-    /* 5. HEADER STYLING */
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -229,42 +248,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# B. JS MUTATION OBSERVER (THE ACTIVE HUNTER)
-js_cleaner = """
-<script>
-    // This observer actively watches the DOM for new elements and deletes them
-    const observer = new MutationObserver((mutations) => {
-        
-        // 1. Delete Footer
-        const footer = document.querySelector('footer');
-        if(footer) footer.remove();
-
-        // 2. Delete Viewer Badge (Generic Class Search)
-        const badges = document.querySelectorAll('[class*="viewerBadge"]');
-        badges.forEach(el => el.remove());
-
-        // 3. Delete Toolbar
-        const toolbar = document.querySelector('[data-testid="stToolbar"]');
-        if(toolbar) toolbar.remove();
-
-        // 4. Delete Decoration
-        const decor = document.querySelector('[data-testid="stDecoration"]');
-        if(decor) decor.remove();
-
-        // 5. Delete Fullscreen Buttons
-        const fsBtns = document.querySelectorAll('button[title="View fullscreen"]');
-        fsBtns.forEach(el => el.remove());
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-</script>
-"""
-components.html(js_cleaner, height=0)
-
-# C. TITAN BAR OVERLAY
+# INJECT THE TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -1355,5 +1339,8 @@ elif page == "IQ Center":
             * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
             """
         )
+
+# NEW: INJECT THE TITAN BAR DIV (PHYSICAL COVER UP FOR EMBED MODE)
+st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
