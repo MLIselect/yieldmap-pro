@@ -50,7 +50,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
+# --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -316,18 +316,17 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES (UPDATED FOR SAFETY)
+# 6. MATH ENGINES
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
         loan_amount = price * (1 - (down_payment_pct/100))
         if loan_amount <= 0: return 0
-        if term_years <= 0: return loan_amount # Avoid division by zero
+        if term_years <= 0: return loan_amount 
         
         monthly_rate = (interest_rate / 100) / 12
         num_payments = term_years * 12
         
-        # Handle 0% interest
         if monthly_rate == 0: 
             return loan_amount / num_payments
             
@@ -364,7 +363,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (ENHANCED & FIXED)
+# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT & SPACING)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -426,6 +425,8 @@ class ProPDF(FPDF):
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
+        # HARD RESET X to ensure perfect alignment
+        self.set_x(10)
         self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
         self.set_fill_color(240, 249, 255)
@@ -511,7 +512,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') # Added MAO Here
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C')
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -569,11 +570,12 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
-    pdf.cell(20, 8, "Year", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Annual CF", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
-    pdf.cell(40, 8, "Property Equity", 1, 0, 'C', True)
-    pdf.cell(50, 8, "Total Wealth Created", 1, 1, 'C', True)
+    # Reduced width (2mm) to prevent wrap
+    pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+    pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+    pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+    pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+    pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
 
     # Rows
     pdf.set_text_color(50, 50, 50)
@@ -592,20 +594,21 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
                 pdf.set_fill_color(30, 58, 138)
                 pdf.set_text_color(255, 255, 255)
                 pdf.set_font('Helvetica', 'B', 9)
-                pdf.cell(20, 8, "Year", 1, 0, 'C', True)
-                pdf.cell(40, 8, "Annual CF", 1, 0, 'C', True)
-                pdf.cell(40, 8, "Loan Balance", 1, 0, 'C', True)
-                pdf.cell(40, 8, "Property Equity", 1, 0, 'C', True)
-                pdf.cell(50, 8, "Total Wealth Created", 1, 1, 'C', True)
+                pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+                pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+                pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+                pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+                pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
                 pdf.set_text_color(50, 50, 50)
                 pdf.set_font('Helvetica', '', 9)
             
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
-            pdf.cell(20, 8, str(yr), 1, 0, 'C')
-            pdf.cell(40, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
-            pdf.cell(40, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
-            pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
-            pdf.cell(50, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
+            pdf.set_x(10) # Hard reset X
+            pdf.cell(18, 8, str(yr), 1, 0, 'C')
+            pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
+            pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
+            pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
+            pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
 
     # --- SENSITIVITY ANALYSIS ---
     pdf.ln(10)
@@ -817,6 +820,14 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
+# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+def switch_to_login_callback():
+    st.session_state.auth_mode = 'login'
+    # Clear signup keys just in case
+    for key in list(st.session_state.keys()):
+        if key.startswith("signup_"):
+            del st.session_state[key]
+
 # NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
@@ -847,9 +858,7 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
