@@ -45,33 +45,26 @@ supabase = init_connection()
 
 # --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
-    # This script forces the browser to navigate to the new URL
+    # Forces the browser to navigate to the URL at the top window level
     redirect_code = f"""
     <script>
         window.top.location.href = "{url}";
     </script>
-    <meta http-equiv="refresh" content="0;url={url}">
     """
-    components.html(redirect_code, height=0, width=0)
+    components.html(redirect_code, height=0)
 
 # --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
 if "code" in st.query_params:
     try:
         code = st.query_params["code"]
-        # Exchange the code for a session
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
-        
-        # CLEAR PARAMS
         st.query_params.clear()
         
-        # *** NEW: REDIRECT TO CUSTOM DOMAIN AFTER VERIFICATION ***
-        # This takes the user away from the .streamlit.app URL to your clean URL
+        # Immediate Redirect on Success
         js_redirect("https://yieldmappro.com/app")
-        st.stop() # Stop execution here
-        
+        st.stop()
     except Exception as e:
-        # If error, just pass and let them try manual login
         pass
 
 # ==========================================
@@ -92,21 +85,44 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" V3 (TALLER & STRONGER) */
-    /* This creates a physical white block at the bottom of the screen */
+    /* 3. THE "TITAN BAR" (Updated to be less obtrusive) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
-        height: 60px; /* Increased to 60px to ensure total coverage */
-        background-color: #ffffff !important;
-        z-index: 2147483647; /* Maximum allowable Z-Index in browsers */
-        pointer-events: auto; /* Block clicks */
-        display: block !important;
+        height: 35px; /* Just enough to cover the text */
+        background-color: #ffffff; /* Matches app background */
+        z-index: 2147483647; 
+        pointer-events: auto;
     }
 
-    /* 4. AGGRESSIVE HIDING (BACKUP) */
+    /* 4. BUTTON STYLING FOR REDIRECT */
+    .custom-auth-btn {
+        display: inline-flex;
+        -webkit-box-align: center;
+        align-items: center;
+        -webkit-box-pack: center;
+        justify-content: center;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        min-height: 38.4px;
+        margin: 0px;
+        line-height: 1.6;
+        color: white !important;
+        background-color: #1e3a8a;
+        width: 100%;
+        text-decoration: none;
+        border: 1px solid rgba(250, 250, 250, 0.2);
+    }
+    .custom-auth-btn:hover {
+        background-color: #1e40af;
+        color: white !important;
+        text-decoration: none;
+    }
+
+    /* 5. AGGRESSIVE HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { display: none !important; }
@@ -117,12 +133,11 @@ st.markdown(
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     
-    /* Target Buttons */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     .viewerBadge_container__1QSob { display: none !important; }
 
-    /* 5. THE STICKY HEADER BACKGROUND */
+    /* 6. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -138,7 +153,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 6. BRANDING */
+    /* 7. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -165,7 +180,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 7. NAVIGATION BAR STYLING */
+    /* 8. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -193,7 +208,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 8. UNIVERSAL BUTTON STYLING */
+    /* 9. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -227,11 +242,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 9. CARDS & CONTAINERS */
+    /* 10. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 10. MOBILE RESPONSIVENESS */
+    /* 11. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -249,7 +264,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# NEW: INJECT THE TITAN BAR DIV
+# INJECT THE TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -582,51 +597,18 @@ def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     )
     return fig
 
-# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR (ACTIVE HUNTER)
-js_code = """
-<script>
-    // CONTINUOUSLY MONITOR AND DESTROY STREAMLIT ELEMENTS
-    setInterval(function() {
-        // 1. Hide Footer
-        var footer = document.querySelector('footer');
-        if (footer) { 
-            footer.remove(); 
-        }
-        
-        // 2. Hide Top Decoration
-        var decoration = document.querySelector('[data-testid="stDecoration"]');
-        if (decoration) { 
-            decoration.remove(); 
-        }
-        
-        // 3. Hide Toolbar (Top Right)
-        var toolbar = document.querySelector('[data-testid="stToolbar"]');
-        if (toolbar) { 
-            toolbar.remove(); 
-        }
-
-        // 4. Hide Viewer Badge (Bottom Right)
-        var badges = document.querySelectorAll('.viewerBadge_container__1QSob');
-        badges.forEach(function(badge) {
-            badge.remove();
-        });
-
-        // 5. Hide Fullscreen Button (Bottom Right)
-        var fsButtons = document.querySelectorAll('button[title="View fullscreen"]');
-        fsButtons.forEach(function(btn) {
-            btn.remove();
-        });
-        
-        // 6. Backup for Fullscreen Button
-        var styledFs = document.querySelectorAll('[data-testid="StyledFullScreenButton"]');
-        styledFs.forEach(function(btn) {
-            btn.remove();
-        });
-
-    }, 50); // Run every 50ms
-</script>
-"""
-components.html(js_code, height=0)
+def render_footer():
+    st.divider()
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 12px; color: #64748b;">
+            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
+            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
@@ -766,14 +748,22 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# NEW: SUCCESS DIALOG WITH DIRECT HTML REDIRECT BUTTON
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
-    if st.button("OK, Go to Login"):
-        # *** TRIGGER REDIRECT TO CUSTOM DOMAIN HERE ***
-        js_redirect("https://yieldmappro.com/app")
+    
+    # --- DIRECT HTML BUTTON FOR REDIRECT ---
+    # This bypasses Python execution logic and acts as a standard web link
+    st.markdown(
+        """
+        <a href="https://yieldmappro.com/app" target="_top" class="custom-auth-btn">
+            OK, Go to Login
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
 
 # LOGIN LOGIC
 if not st.session_state.user:
@@ -794,7 +784,7 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            # --- DIRECT REDIRECT ON LOGIN ---
                             js_redirect("https://yieldmappro.com/app")
                             
                         except Exception as e:
