@@ -71,12 +71,18 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING */
+    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING (UPDATED) */
     header { visibility: hidden !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
-    footer { visibility: hidden !important; }
+    
+    /* HIDE FOOTER & VIEWER BADGE COMPLETELY */
+    footer { display: none !important; }
+    #MainMenu { display: none !important; }
+    [data-testid="stFooter"] { display: none !important; }
+    .viewerBadge_container__1QSob { display: none !important; }
+    ._profileContainer_gzau3_53 { display: none !important; }
 
     /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -556,6 +562,7 @@ if 'user' not in st.session_state:
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 if 'captcha_text' not in st.session_state:
+    # UPDATED CAPTCHA CHARACTERS TO REMOVE AMBIGUITY (No 0, O, I, 1)
     st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
 # NEW: AUTH PAGE STATE HANDLER
 if 'auth_mode' not in st.session_state:
@@ -1097,84 +1104,6 @@ if page == "Pro Analyzer":
             file_name=f"Data_{selected_zip}.csv",
             use_container_width=True
         )
-
-elif page == "My Portfolio":
-    # ==========================================
-    # TAB 2: PORTFOLIO (REAL DATABASE)
-    # ==========================================
-    st.header("Portfolio Command Center")
-    
-    # FETCH DATA
-    try:
-        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.email).execute()
-        deals = response.data
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        deals = []
-
-    if not deals:
-        st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
-    else:
-        # ANALYTICS SUMMARY
-        t_cf = sum(d['cashflow'] for d in deals)
-        avg_c = sum(d['coc'] for d in deals) / len(deals)
-        t_val = sum(d['price'] for d in deals)
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
-        c2.metric("Portfolio Value", f"${t_val:,.0f}")
-        c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
-
-        st.divider()
-
-        # MANAGE DEALS
-        st.markdown("### Manage Deals")
-        for deal in deals:
-            with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                c1.write(f"**Price:** ${deal['price']:,.0f}")
-                c2.write(f"**CoC:** {deal['coc']:.1f}%")
-                if c3.button("Delete", key=f"del_{deal['id']}"):
-                    try:
-                        supabase.table("portfolios").delete().eq("id", deal['id']).execute()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error deleting: {e}")
-
-        st.divider()
-
-        # COMPARISON
-        st.markdown("### Comparison Matrix")
-        comp_df = pd.DataFrame(deals)
-        # Rename columns to look nice
-        comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
-        comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
-
-        def highlight_max(s):
-            is_max = s == s.max()
-            return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
-
-        st.dataframe(
-            comp_df.style.format({
-                "Price": "${:,.0f}",
-                "Rent": "${:,.0f}",
-                "CoC": "{:.1f}%",
-                "Cashflow": "${:,.0f}"
-            }).apply(highlight_max, subset=['CoC', 'Cashflow']),
-            use_container_width=True
-        )
-
-        # CHARTS
-        st.markdown("### Performance Visualizer")
-        c1, c2 = st.columns(2)
-        with c1:
-            fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
-            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
-            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})
-        with c2:
-            fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
-            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
-            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})
 
 elif page == "IQ Center":
     # ==========================================
