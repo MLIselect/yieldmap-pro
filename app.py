@@ -71,7 +71,7 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING (UPDATED) */
+    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING */
     header { visibility: hidden !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
@@ -693,11 +693,14 @@ support@yieldmappro.com
     """)
 
 # NEW: SUCCESS DIALOG
-@st.dialog("Account Created Successfully")
+@st.dialog("Account Created! 📧")
 def show_success_modal():
-    st.write("Your account has been created.")
-    st.write("Please check your email to confirm your address.")
+    st.success("Registration successful.")
+    st.markdown("**Action Required:** Please check your email inbox to verify your email address.")
+    st.caption("You will not be able to log in until you click the link in that email.")
+    
     if st.button("OK, Go to Login"):
+        # Explicitly switch state AND rerun
         st.session_state.auth_mode = 'login'
         st.rerun()
 
@@ -734,6 +737,7 @@ if not st.session_state.user:
                 st.markdown("### New Account")
                 new_email = st.text_input("Email", key="signup_email")
                 new_password = st.text_input("Password", type="password", key="signup_pass")
+                confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_pass")
                 
                 first_name = st.text_input("First Name", key="signup_fname")
                 role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
@@ -763,6 +767,8 @@ if not st.session_state.user:
                         st.error("⚠️ You must agree to the Terms of Service.")
                     elif len(new_password) < 6:
                         st.error("⚠️ Password must be at least 6 characters.")
+                    elif new_password != confirm_password:
+                        st.error("⚠️ Passwords do not match.")
                     elif captcha_input.upper() == st.session_state.captcha_text:
                         try:
                             response = supabase.auth.sign_up({
@@ -806,6 +812,7 @@ page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], hor
 if page == "Pro Analyzer":
     # === WELCOME HEADER ===
     try:
+        # Now this will work because st.session_state.user is the User object
         user_name = st.session_state.user.user_metadata.get('first_name', '')
         if not user_name:
             user_name = "Investor"
@@ -1104,6 +1111,84 @@ if page == "Pro Analyzer":
             file_name=f"Data_{selected_zip}.csv",
             use_container_width=True
         )
+
+elif page == "My Portfolio":
+    # ==========================================
+    # TAB 2: PORTFOLIO (REAL DATABASE)
+    # ==========================================
+    st.header("Portfolio Command Center")
+    
+    # FETCH DATA
+    try:
+        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.email).execute()
+        deals = response.data
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        deals = []
+
+    if not deals:
+        st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
+    else:
+        # ANALYTICS SUMMARY
+        t_cf = sum(d['cashflow'] for d in deals)
+        avg_c = sum(d['coc'] for d in deals) / len(deals)
+        t_val = sum(d['price'] for d in deals)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
+        c2.metric("Portfolio Value", f"${t_val:,.0f}")
+        c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
+
+        st.divider()
+
+        # MANAGE DEALS
+        st.markdown("### Manage Deals")
+        for deal in deals:
+            with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
+                c1, c2, c3 = st.columns([2, 2, 1])
+                c1.write(f"**Price:** ${deal['price']:,.0f}")
+                c2.write(f"**CoC:** {deal['coc']:.1f}%")
+                if c3.button("Delete", key=f"del_{deal['id']}"):
+                    try:
+                        supabase.table("portfolios").delete().eq("id", deal['id']).execute()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error deleting: {e}")
+
+        st.divider()
+
+        # COMPARISON
+        st.markdown("### Comparison Matrix")
+        comp_df = pd.DataFrame(deals)
+        # Rename columns to look nice
+        comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
+        comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
+
+        def highlight_max(s):
+            is_max = s == s.max()
+            return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
+
+        st.dataframe(
+            comp_df.style.format({
+                "Price": "${:,.0f}",
+                "Rent": "${:,.0f}",
+                "CoC": "{:.1f}%",
+                "Cashflow": "${:,.0f}"
+            }).apply(highlight_max, subset=['CoC', 'Cashflow']),
+            use_container_width=True
+        )
+
+        # CHARTS
+        st.markdown("### Performance Visualizer")
+        c1, c2 = st.columns(2)
+        with c1:
+            fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
+            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
+            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})
+        with c2:
+            fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
+            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})
 
 elif page == "IQ Center":
     # ==========================================
