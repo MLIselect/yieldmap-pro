@@ -43,7 +43,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
+# --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -60,8 +60,7 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
-        
-        # Redirect to main app URL with embed mode enabled to clean UI
+        # Redirect to main app URL with embed mode enabled
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -85,7 +84,7 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (Footer Hider) */
+    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
@@ -108,9 +107,10 @@ st.markdown(
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     
-    /* Hide Manage/Deploy Buttons */
+    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
     [data-testid="manage-app-button"] { display: none !important; }
     .stAppDeployButton { display: none !important; }
+    [data-testid="stMainMenu"] { display: none !important; }
     
     /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
@@ -308,14 +308,24 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES
+# 6. MATH ENGINES (UPDATED FOR SAFETY)
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
-    loan_amount = price * (1 - (down_payment_pct/100))
-    if loan_amount <= 0: return 0
-    monthly_rate = (interest_rate / 100) / 12; num_payments = term_years * 12
-    if monthly_rate == 0: return loan_amount / num_payments
-    return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
+    try:
+        loan_amount = price * (1 - (down_payment_pct/100))
+        if loan_amount <= 0: return 0
+        if term_years <= 0: return loan_amount # Avoid division by zero
+        
+        monthly_rate = (interest_rate / 100) / 12
+        num_payments = term_years * 12
+        
+        # Handle 0% interest
+        if monthly_rate == 0: 
+            return loan_amount / num_payments
+            
+        return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
+    except:
+        return 0
 
 def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_pct, interest_rate, taxes, insurance, maint_monthly, pm_monthly):
     test_price = 50000; step = 1000
@@ -735,7 +745,8 @@ def show_success_modal():
     st.write("Please check your email to confirm your address.")
     
     # === REVERTED TO NATIVE STREAMLIT BUTTON ===
-    if st.button("OK, Go to Login", type="primary"):
+    # Using specific key to ensure it registers and triggers state change + rerun
+    if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
 
@@ -757,7 +768,10 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            st.rerun()
+                            
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1172,6 +1186,16 @@ elif page == "My Portfolio":
         c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
         c2.metric("Portfolio Value", f"${t_val:,.0f}")
         c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
+
+        # NEW: BULK EXPORT BUTTON
+        csv_export = pd.DataFrame(deals).to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "Download Portfolio CSV",
+            data=csv_export,
+            file_name="My_Portfolio_YieldMap.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
         st.divider()
 
