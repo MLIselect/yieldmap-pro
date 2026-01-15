@@ -43,19 +43,39 @@ def init_connection():
 
 supabase = init_connection()
 
+# --- HELPER: JAVASCRIPT REDIRECT ---
+def js_redirect(url):
+    # This script forces the browser to navigate to the new URL
+    redirect_code = f"""
+    <script>
+        window.top.location.href = "{url}";
+    </script>
+    <meta http-equiv="refresh" content="0;url={url}">
+    """
+    components.html(redirect_code, height=0, width=0)
+
 # --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
 if "code" in st.query_params:
     try:
         code = st.query_params["code"]
+        # Exchange the code for a session
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
+        
+        # CLEAR PARAMS
         st.query_params.clear()
-        st.rerun()
+        
+        # *** NEW: REDIRECT TO CUSTOM DOMAIN AFTER VERIFICATION ***
+        # This takes the user away from the .streamlit.app URL to your clean URL
+        js_redirect("https://yieldmappro.com/app")
+        st.stop() # Stop execution here
+        
     except Exception as e:
+        # If error, just pass and let them try manual login
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (FINAL FIX)
+# 3. VISUAL UPGRADE: CUSTOM CSS
 # ==========================================
 st.markdown(
     """
@@ -72,54 +92,35 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. TARGETED FOOTER DESTRUCTION */
-    
-    /* Target the root footer element */
-    footer {
-        visibility: hidden !important;
-        display: none !important;
-        height: 0px !important;
-        opacity: 0 !important;
-    }
-    
-    /* Target the specific "Made with Streamlit" link text */
-    a[href^="https://streamlit.io/cloud"] {
-        display: none !important;
-    }
-    
-    /* Target the Viewer Badge (User Icon) */
-    .viewerBadge_container__1QSob {
-        display: none !important;
-    }
-    
-    /* Target the Embed Mode Toolbar (The bottom bar in your screenshot) */
-    [data-testid="stToolbar"] {
-        visibility: hidden !important;
-        display: none !important;
-    }
-    
-    /* Target the Fullscreen Button */
-    button[title="View fullscreen"] {
-        display: none !important;
-    }
-    
-    /* Target the Header Decoration */
-    [data-testid="stDecoration"] {
-        display: none !important;
-    }
-
-    /* 4. THE "TITAN BAR" V2 (MAX Z-INDEX OVERLAY) */
+    /* 3. THE "TITAN BAR" V3 (TALLER & STRONGER) */
     /* This creates a physical white block at the bottom of the screen */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
-        height: 40px; /* Covers the standard Streamlit footer height */
-        background-color: #ffffff;
+        height: 60px; /* Increased to 60px to ensure total coverage */
+        background-color: #ffffff !important;
         z-index: 2147483647; /* Maximum allowable Z-Index in browsers */
-        pointer-events: none; /* Allows clicks to pass through if necessary, but blocks view */
+        pointer-events: auto; /* Block clicks */
+        display: block !important;
     }
+
+    /* 4. AGGRESSIVE HIDING (BACKUP) */
+    header { visibility: hidden !important; }
+    footer { visibility: hidden !important; display: none !important; }
+    #MainMenu { display: none !important; }
+    
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    
+    /* Target Buttons */
+    button[title="View fullscreen"] { display: none !important; }
+    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    .viewerBadge_container__1QSob { display: none !important; }
 
     /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -248,7 +249,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# INJECT THE TITAN BAR OVERLAY
+# NEW: INJECT THE TITAN BAR DIV
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -581,18 +582,51 @@ def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     )
     return fig
 
-def render_footer():
-    st.divider()
-    st.markdown(
-        """
-        <div style="text-align: center; font-size: 12px; color: #64748b;">
-            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
-            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR (ACTIVE HUNTER)
+js_code = """
+<script>
+    // CONTINUOUSLY MONITOR AND DESTROY STREAMLIT ELEMENTS
+    setInterval(function() {
+        // 1. Hide Footer
+        var footer = document.querySelector('footer');
+        if (footer) { 
+            footer.remove(); 
+        }
+        
+        // 2. Hide Top Decoration
+        var decoration = document.querySelector('[data-testid="stDecoration"]');
+        if (decoration) { 
+            decoration.remove(); 
+        }
+        
+        // 3. Hide Toolbar (Top Right)
+        var toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) { 
+            toolbar.remove(); 
+        }
+
+        // 4. Hide Viewer Badge (Bottom Right)
+        var badges = document.querySelectorAll('.viewerBadge_container__1QSob');
+        badges.forEach(function(badge) {
+            badge.remove();
+        });
+
+        // 5. Hide Fullscreen Button (Bottom Right)
+        var fsButtons = document.querySelectorAll('button[title="View fullscreen"]');
+        fsButtons.forEach(function(btn) {
+            btn.remove();
+        });
+        
+        // 6. Backup for Fullscreen Button
+        var styledFs = document.querySelectorAll('[data-testid="StyledFullScreenButton"]');
+        styledFs.forEach(function(btn) {
+            btn.remove();
+        });
+
+    }, 50); // Run every 50ms
+</script>
+"""
+components.html(js_code, height=0)
 
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
@@ -738,8 +772,8 @@ def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     if st.button("OK, Go to Login"):
-        st.session_state.auth_mode = 'login'
-        st.rerun()
+        # *** TRIGGER REDIRECT TO CUSTOM DOMAIN HERE ***
+        js_redirect("https://yieldmappro.com/app")
 
 # LOGIN LOGIC
 if not st.session_state.user:
@@ -759,7 +793,10 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            st.rerun()
+                            
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1340,7 +1377,7 @@ elif page == "IQ Center":
             """
         )
 
-# NEW: INJECT THE TITAN BAR DIV (PHYSICAL COVER UP FOR EMBED MODE)
+# INJECT THE TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
