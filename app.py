@@ -43,7 +43,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT ---
+# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -60,7 +60,8 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
-        # Redirect to main app URL with embed mode enabled
+        
+        # Redirect to main app URL with embed mode enabled to clean UI
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -356,7 +357,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (REBUILT FOR DETAIL)
+# 7. MULTI-PAGE PDF GENERATOR (REBUILT FOR DETAIL & PAGINATION FIX)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -395,6 +396,12 @@ class ProPDF(FPDF):
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+
+    def check_space(self, height_needed):
+        # Helper to check if we need a page break
+        # Safe height is roughly 270mm (297mm - margins)
+        if self.get_y() + height_needed > 270:
+            self.add_page()
 
     def chapter_title(self, title):
         self.ln(5)
@@ -466,6 +473,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_y(y_kpi + 35)
 
     # 3. DEAL GRADES
+    pdf.check_space(30) # Ensure header + content fits
     pdf.chapter_title("Investment Grade Scorecard")
     pdf.set_font('Helvetica', '', 10)
     pdf.cell(95, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
@@ -473,6 +481,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.ln(5)
 
     # 4. CAPITAL REQUIREMENTS (Cash to Close)
+    pdf.check_space(45) # Ensure header + table fits
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
     closing_amt = price * (closing_costs / 100)
@@ -484,6 +493,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
     # 5. INCOME & EXPENSE STATEMENT
+    pdf.check_space(60) # Bigger block
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     
     # Income
@@ -738,14 +748,21 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+def switch_to_login_callback():
+    st.session_state.auth_mode = 'login'
+    # Clear signup keys just in case
+    for key in list(st.session_state.keys()):
+        if key.startswith("signup_"):
+            del st.session_state[key]
+
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
-    # Using specific key to ensure it registers and triggers state change + rerun
+    # === THE FIX: Use native Streamlit button logic ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
@@ -769,9 +786,7 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
