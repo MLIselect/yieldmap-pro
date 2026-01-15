@@ -209,57 +209,17 @@ st.markdown(
 # 4. REFERENCE DATA (STATE MAP)
 # ==========================================
 STATE_MAP = {
-    "AL": "Alabama",
-    "AK": "Alaska",
-    "AZ": "Arizona",
-    "AR": "Arkansas",
-    "CA": "California",
-    "CO": "Colorado",
-    "CT": "Connecticut",
-    "DE": "Delaware",
-    "FL": "Florida",
-    "GA": "Georgia",
-    "HI": "Hawaii",
-    "ID": "Idaho",
-    "IL": "Illinois",
-    "IN": "Indiana",
-    "IA": "Iowa",
-    "KS": "Kansas",
-    "KY": "Kentucky",
-    "LA": "Louisiana",
-    "ME": "Maine",
-    "MD": "Maryland",
-    "MA": "Massachusetts",
-    "MI": "Michigan",
-    "MN": "Minnesota",
-    "MS": "Mississippi",
-    "MO": "Missouri",
-    "MT": "Montana",
-    "NE": "Nebraska",
-    "NV": "Nevada",
-    "NH": "New Hampshire",
-    "NJ": "New Jersey",
-    "NM": "New Mexico",
-    "NY": "New York",
-    "NC": "North Carolina",
-    "ND": "North Dakota",
-    "OH": "Ohio",
-    "OK": "Oklahoma",
-    "OR": "Oregon",
-    "PA": "Pennsylvania",
-    "RI": "Rhode Island",
-    "SC": "South Carolina",
-    "SD": "South Dakota",
-    "TN": "Tennessee",
-    "TX": "Texas",
-    "UT": "Utah",
-    "VT": "Vermont",
-    "VA": "Virginia",
-    "WA": "Washington",
-    "WV": "West Virginia",
-    "WI": "Wisconsin",
-    "WY": "Wyoming",
-    "DC": "District of Columbia"
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina",
+    "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee",
+    "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia"
 }
 
 # ==========================================
@@ -618,26 +578,109 @@ st.markdown(
 @st.dialog("Terms of Service")
 def show_terms():
     st.markdown("""
-    **1. Acceptance of Terms:** By accessing YieldMap Pro, you agree to be bound by these terms.
-    
-    **2. Disclaimer:** This tool is for educational purposes only. It does not constitute financial advice. We are not responsible for any investment decisions made based on this data.
-    
-    **3. Data Accuracy:** While we use official HUD and Census data, we cannot guarantee 100% accuracy of third-party data sources.
-    
-    **4. Account Security:** You are responsible for maintaining the confidentiality of your account credentials.
+### Terms of Use
+**Last Updated: December 30, 2025**
+
+**Introduction**
+YieldMap Pro is provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. These Terms of Use govern your access to and use of our website, services, and tools. By using YieldMap Pro, you agree to these terms.
+
+**1. Acceptance of Terms**
+By accessing YieldMap Pro, you agree to be bound by these Terms of Use. This agreement governs your use of our underwriting dashboard, data exports, and audit reports.
+
+**2. No Professional Advice**
+YieldMap Pro is an analytical tool for informational purposes only. We do not provide financial, legal, tax, or real estate investment advice.
+All deal grades (A-F), ROI percentages, and cash flow projections are estimates based on your manual inputs and historical government data. You should perform your own independent due diligence before making any financial commitments.
+
+**3. Data Accuracy & HUD Compliance**
+While we use official federal data sources (HUD User API and US Census), local Housing Authorities (PHAs) have the final authority to set voucher payment standards. YieldMap Pro does not guarantee that a specific PHA will approve the exact contract rent calculated by our tool.
+
+**4. Usage Restrictions**
+You are granted a non-exclusive license to use this tool for professional underwriting. You agree not to:
+* Scrape data from our interface for use in competing products.
+* Attempt to reverse-engineer our proprietary Asset Rating logic.
+* Redistribute "Investor Pro" features or PDF reports without a valid subscription.
+
+**Intellectual Property**
+All content, features, and functionality (including software, algorithms, and data integrations) are owned by YieldMap Pro or its licensors and protected by intellectual property laws. You may not copy, modify, or distribute any part without written permission.
+
+**5. Limitation of Liability**
+YieldMap Pro shall not be liable for any financial losses, investment failures, or damages arising from your reliance on our projections. All calculations are provided "as-is" without warranty of any kind.
+
+**Indemnification**
+You agree to indemnify and hold harmless YieldMap Pro, its affiliates, and employees from any claims, damages, or expenses arising from your misuse of the service or violation of these terms.
+
+**6. Subscription & Cancellation**
+Investor Pro subscriptions are billed monthly. You may cancel at any time via your dashboard. Fees already paid are non-refundable for the current billing cycle.
+
+**Dispute Resolution**
+Any disputes arising from these terms will be resolved through binding arbitration in [Your Location, e.g., California], under the rules of [e.g., AAA]. You waive the right to class actions.
+
+**Governing Law**
+These terms are governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+
+**Changes to Terms**
+We may update these terms periodically. We will notify you via email or site notice for material changes. Continued use constitutes acceptance.
     """)
 
 # DIALOG FUNCTION FOR PRIVACY
 @st.dialog("Privacy Policy")
 def show_privacy():
     st.markdown("""
-    **1. Data Collection:** We collect your email and basic usage data to provide this service.
-    
-    **2. No Selling of Data:** We do not sell your personal data to third parties.
-    
-    **3. Cookies:** We use essential cookies to maintain your login session.
-    
-    **4. Contact:** For privacy concerns, contact support@yieldmappro.com.
+### Privacy Policy
+**Last Updated: December 30, 2025**
+
+**Introduction**
+YieldMap Pro is a Section 8 deal analysis tool provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services. By using YieldMap Pro, you agree to the practices described here.
+
+**1. Data Philosophy**
+At YieldMap Pro, we believe your investment strategy is your own business. Unlike mainstream listing scrapers, we prioritize a "Privacy-First" underwriting environment. We do not sell your deal data to third-party brokers or lenders.
+
+**2. Information We Collect**
+* **Account Information:** Email addresses provided during Pro registration are used solely for account management and support.
+* **Usage Data:** We use basic analytics to monitor tool performance and ensure federal API connection stability.
+* **Underwriting Data:** Input values like "Target Contract Rent" or "Interest Rate" are processed in-session. We do not permanently store specific property addresses on our public-tier servers.
+
+**How We Use Your Information**
+* To provide and improve our services, such as generating reports and analyzing deals.
+* For internal analytics to enhance tool performance and user experience.
+* To communicate with you about updates, support, or account-related matters.
+* To comply with legal obligations, such as responding to subpoenas.
+
+**Data Sharing and Disclosure**
+We do not sell or rent your personal information. We may share data with:
+* Service providers (e.g., hosting, analytics) under strict confidentiality agreements.
+* Government APIs (HUD, Census) as described, but only anonymized queries.
+* Legal authorities if required by law.
+We do not engage in targeted advertising or share data for marketing purposes.
+
+**Cookies and Tracking Technologies**
+We use essential cookies for session management and basic analytics (e.g., via Google Analytics). These help us understand usage patterns without identifying individuals. You can manage cookies via your browser settings, but disabling them may limit functionality.
+
+**3. Federal API Integrations**
+YieldMap Pro connects directly to the **HUD User API** and **US Census Bureau ACS Survey**. When you query a ZIP code, your request is sent to these government servers to fetch the most recent FY 2026 data. These requests are anonymized.
+
+**4. Security**
+We use industry-standard SSL encryption for all data transmissions. Your "Lender-Ready PDF Reports" are generated locally in your browser session to ensure your deal numbers remain private until you choose to export them.
+
+**Your Rights**
+Depending on your location, you may have rights under laws like CCPA (California) or GDPR (EU):
+* Access, correct, or delete your personal data.
+* Opt-out of data sharing (though we don't sell data).
+* Request information on data processing.
+To exercise these rights, email support@yieldmappro.com. We respond within 30-45 days, as required by law.
+
+**Children's Privacy**
+YieldMap Pro is not intended for users under 18. We do not knowingly collect data from children. If we learn of such collection, we will delete it promptly.
+
+**Changes to This Policy**
+We may update this policy to reflect changes in our practices or laws. We will notify users via email or site notice for material changes. Continued use after updates constitutes acceptance.
+
+**Governing Law**
+This policy is governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+
+**5. Contact Us**
+For questions regarding your data or to request account deletion, please contact us at:
+support@yieldmappro.com
     """)
 
 # LOGIN LOGIC
