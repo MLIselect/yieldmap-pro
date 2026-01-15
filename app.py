@@ -15,7 +15,7 @@ import time
 import tempfile
 import matplotlib
 
-# === CRITICAL FIX: Set Backend BEFORE importing pyplot ===
+# === CRITICAL FIX: Set Backend BEFORE importing pyplot to stop ghosts ===
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 
@@ -316,7 +316,7 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES
+# 6. MATH ENGINES (UPDATED)
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
@@ -363,7 +363,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (DYNAMIC BOX FIX)
+# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -425,7 +425,7 @@ class ProPDF(FPDF):
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
-        self.set_x(10) # Hard reset X
+        self.set_x(10)
         self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
         self.set_fill_color(240, 249, 255)
@@ -436,25 +436,14 @@ class ProPDF(FPDF):
     def add_insight_box(self, text, is_good=True):
         self.set_fill_color(240, 253, 244) if is_good else self.set_fill_color(254, 242, 242)
         self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
-        
-        # === FIX: DYNAMIC HEIGHT CALCULATION ===
-        # Calculate how many lines this text will take
         self.set_font('Helvetica', 'B', 10)
-        # 185 is usable width approx
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
-        
-        # Standard height 15, double height 24 if text wraps
         box_height = 24 if text_width > 180 else 15
-        
         self.rect(10, self.get_y(), 190, box_height, 'DF')
         self.set_xy(12, self.get_y()+4)
-        
         self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
-        # Use MultiCell to handle wrapping cleanly
         self.multi_cell(186, 6, "ANALYST INSIGHT: " + text, 0, 'L')
-        
-        # Move cursor below box based on new height
-        self.ln(box_height - 6) # Adjust spacing
+        self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
@@ -477,19 +466,17 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    # --- PAGE 1: EXECUTIVE SUMMARY ---
+    # PAGE 1
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
     pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
-    
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(80, 80, 80)
     pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
     pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
     pdf.ln(5)
     
-    # INSIGHT BOX
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
@@ -501,21 +488,17 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
         pdf.add_insight_box(insight, is_good=True)
 
-    # 2. KPI GRID
     y_kpi = pdf.get_y() + 5
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
-    
     dscr = "N/A"
     if loan_pmt > 0:
         dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
         dscr = f"{dscr_val:.2f}x"
     pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
-    
     pdf.set_y(y_kpi + 35)
 
-    # 3. DEAL GRADES & MAO
     pdf.check_space(30)
     pdf.chapter_title("Scorecard & Strategy")
     pdf.set_font('Helvetica', '', 10)
@@ -526,41 +509,33 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
     pdf.ln(10)
 
-    # 4. CAPITAL REQUIREMENTS
     pdf.check_space(50)
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
     closing_amt = price * (closing_costs / 100)
     total_cash = down_amt + closing_amt + repairs
-    
     pdf.add_row(f"Down Payment ({down_pct}%)", f"${down_amt:,.0f}")
     pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
     pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
-    # 5. INCOME & EXPENSES
     pdf.check_space(120)
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
-    
     pdf.section_header("Income")
     pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
     pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
-    
     pdf.section_header("Operating Expenses")
     pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_row("Insurance", f"(${ins/12:,.2f})")
     maint_monthly = maint_cost / 12
     pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
     pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
-    
     noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
     pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
-    
     pdf.check_space(30) 
     pdf.section_header("Debt Service")
     pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
-    
     pdf.ln(2)
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
@@ -568,16 +543,13 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
     pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
-    # --- PAGE 2: WEALTH ACCUMULATION ---
+    # --- PAGE 2 ---
     pdf.add_page()
     pdf.chapter_title("Long-Term Wealth Projections")
-    
     chart_path = generate_chart_image(projections_df)
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
-
-    # Headers
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -586,18 +558,14 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
     pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
     pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
-
-    # Rows
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
     
     snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
     cumulative_cf = 0
-    
     for index, r in projections_df.iterrows():
         yr = int(r['Year'])
         cumulative_cf += r['Cash Flow']
-        
         if yr in snapshot_years:
             if pdf.get_y() > 260:
                 pdf.add_page()
@@ -611,45 +579,41 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
                 pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
                 pdf.set_text_color(50, 50, 50)
                 pdf.set_font('Helvetica', '', 9)
-            
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
-            pdf.set_x(10) # Hard reset X
+            pdf.set_x(10)
             pdf.cell(18, 8, str(yr), 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
 
-    # --- SENSITIVITY ANALYSIS ---
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
-    
     rent_up = rent * 1.10
     rent_down = rent * 0.90
     rate_up = interest_rate + 1.0
     rate_down = interest_rate - 1.0
-    
     def fast_cf(r, i):
         m = calculate_mortgage(price, down_pct, i, term_years)
         e = (taxes/12) + (ins/12) + (r * (maint_pct/100)) + (r * (pm_pct/100)) + (r * (v_rate/100))
         return (r - e - m)
-
     cf_base = net_cashflow
     cf_rent_up = fast_cf(rent_up, interest_rate)
     cf_rent_down = fast_cf(rent_down, interest_rate)
     cf_rate_down = fast_cf(rent, rate_down)
-
     pdf.add_row("Base Case", f"${cf_base:,.0f}/mo")
     pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
     pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
-
+    
     pdf.ln(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
     pdf.set_font('Helvetica', 'I', 8)
-    pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}% | Local PHA VPS overrides HUD FMRs.")
+    pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
+    pdf.set_text_color(220, 38, 38)
+    pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
 
     return pdf.output(dest='S')
 
@@ -686,7 +650,7 @@ def render_footer():
         <div style="text-align: center; font-size: 12px; color: #64748b;">
             <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
             <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. HUD FMRs are baselines; Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult your local PHA for overrides. Always verify data.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -830,13 +794,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use native Streamlit button logic ===
+    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
