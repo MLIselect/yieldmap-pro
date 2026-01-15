@@ -556,8 +556,10 @@ if 'user' not in st.session_state:
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 if 'captcha_text' not in st.session_state:
-    # UPDATED CAPTCHA CHARACTERS TO REMOVE AMBIGUITY (No 0, O, I, 1)
     st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+# NEW: AUTH PAGE STATE HANDLER
+if 'auth_mode' not in st.session_state:
+    st.session_state.auth_mode = 'login'
 
 # ==========================================
 # 9. AUTHENTICATION & HEADER
@@ -684,11 +686,12 @@ support@yieldmappro.com
     """)
 
 # NEW: SUCCESS DIALOG
-@st.dialog("Account Created Successfully! 🚀")
+@st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     if st.button("OK, Go to Login"):
+        st.session_state.auth_mode = 'login'
         st.rerun()
 
 # LOGIN LOGIC
@@ -696,91 +699,87 @@ if not st.session_state.user:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1,1,1])
     with c2:
-        # Use Tabs for cleaner UI
-        tab_login, tab_signup = st.tabs(["Log In", "Sign Up"])
-        
-        with tab_login:
-            with st.form("login_form"):
+        # LOG IN FORM
+        if st.session_state.auth_mode == 'login':
+            with st.container(border=True):
                 st.markdown("### Welcome Back")
-                email = st.text_input("Email", key="login_email")
-                password = st.text_input("Password", type="password", key="login_pass")
-                submitted = st.form_submit_button("Log In", type="primary")
-                if submitted:
-                    try:
-                        # FIX: Store the USER object, not the full response
-                        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                        st.session_state.user = response.user 
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Login failed: {e}")
-
-        with tab_signup:
-            st.markdown("### New Account")
-            new_email = st.text_input("Email", key="signup_email")
-            new_password = st.text_input("Password", type="password", key="signup_pass")
-            
-            # --- NEW FIELDS ADDED HERE ---
-            first_name = st.text_input("First Name", key="signup_fname")
-            role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
-            
-            # CAPTCHA SECTION
-            image = ImageCaptcha(width=280, height=90)
-            data = image.generate(st.session_state.captcha_text)
-            st.image(data)
-            captcha_input = st.text_input("Enter the code above:", key="captcha_input")
-            
-            # NEW: CHECKBOX + CLICKABLE BUTTONS FOR TERMS
-            st.markdown("---")
-            c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
-            with c_check:
-                tos_agreed = st.checkbox("", label_visibility="collapsed")
-            with c_terms:
-                if st.button("📄 Read Terms", use_container_width=True):
-                    show_terms()
-            with c_priv:
-                if st.button("🔒 Read Privacy", use_container_width=True):
-                    show_privacy()
-            
-            st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
-
-            if st.button("Create Account", type="primary"):
-                # 1. CHECK TOS
-                if not tos_agreed:
-                    st.error("⚠️ You must agree to the Terms of Service to create an account.")
+                with st.form("login_form"):
+                    email = st.text_input("Email", key="login_email")
+                    password = st.text_input("Password", type="password", key="login_pass")
+                    submitted = st.form_submit_button("Log In", type="primary")
+                    if submitted:
+                        try:
+                            # FIX: Store the USER object
+                            response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                            st.session_state.user = response.user 
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Login failed: {e}")
                 
-                # 2. CHECK PASSWORD LENGTH
-                elif len(new_password) < 6:
-                    st.error("⚠️ Password must be at least 6 characters.")
+                st.markdown("---")
+                if st.button("Don't have an account? Create one"):
+                    st.session_state.auth_mode = 'signup'
+                    st.rerun()
+
+        # SIGN UP FORM
+        else:
+            with st.container(border=True):
+                st.markdown("### New Account")
+                new_email = st.text_input("Email", key="signup_email")
+                new_password = st.text_input("Password", type="password", key="signup_pass")
                 
-                # 3. CHECK CAPTCHA
-                elif captcha_input.upper() == st.session_state.captcha_text:
-                    try:
-                        # --- UPDATED SIGN UP CALL ---
-                        response = supabase.auth.sign_up({
-                            "email": new_email, 
-                            "password": new_password,
-                            "options": {
-                                "data": {
-                                    "first_name": str(first_name), # Explicit string cast for safety
-                                    "role": str(role)              # Explicit string cast for safety
+                first_name = st.text_input("First Name", key="signup_fname")
+                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
+                
+                # CAPTCHA
+                image = ImageCaptcha(width=280, height=90)
+                data = image.generate(st.session_state.captcha_text)
+                st.image(data)
+                captcha_input = st.text_input("Enter the code above:", key="captcha_input")
+                
+                # TERMS
+                st.markdown("---")
+                c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
+                with c_check:
+                    tos_agreed = st.checkbox("", label_visibility="collapsed")
+                with c_terms:
+                    if st.button("📄 Read Terms", use_container_width=True):
+                        show_terms()
+                with c_priv:
+                    if st.button("🔒 Read Privacy", use_container_width=True):
+                        show_privacy()
+                
+                st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
+
+                if st.button("Create Account", type="primary"):
+                    if not tos_agreed:
+                        st.error("⚠️ You must agree to the Terms of Service.")
+                    elif len(new_password) < 6:
+                        st.error("⚠️ Password must be at least 6 characters.")
+                    elif captcha_input.upper() == st.session_state.captcha_text:
+                        try:
+                            response = supabase.auth.sign_up({
+                                "email": new_email, 
+                                "password": new_password,
+                                "options": {
+                                    "data": {
+                                        "first_name": str(first_name),
+                                        "role": str(role)
+                                    }
                                 }
-                            }
-                        })
-                        
-                        # --- SUCCESS LOGIC (POPUP INSTEAD OF BALLOONS) ---
-                        show_success_modal()
-                        
-                    except Exception as e:
-                        # Friendly error if DB fails (often due to trigger issues)
-                        st.error(f"Registration failed: {str(e)}")
+                            })
+                            show_success_modal()
+                        except Exception as e:
+                            st.error(f"Registration failed: {str(e)}")
+                    else:
+                        st.error("❌ Incorrect CAPTCHA code.")
+                        time.sleep(1.5)
+                        st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                        st.rerun()
                 
-                # 4. IF CAPTCHA FAILS
-                else:
-                    st.error("❌ Incorrect CAPTCHA code. Please try again.")
-                    # PAUSE so user can read the error before the rerun clears it
-                    time.sleep(1.5)
-                    # Reset Captcha on failure
-                    st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                st.markdown("---")
+                if st.button("Already have an account? Log In"):
+                    st.session_state.auth_mode = 'login'
                     st.rerun()
     st.stop()
 
@@ -800,14 +799,12 @@ page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], hor
 if page == "Pro Analyzer":
     # === WELCOME HEADER ===
     try:
-        # Now this will work because st.session_state.user is the User object
         user_name = st.session_state.user.user_metadata.get('first_name', '')
         if not user_name:
             user_name = "Investor"
     except:
         user_name = "Investor"
     
-    # REMOVED THE EMOJI FROM THE HEADER
     st.markdown(f"### Welcome, {user_name}")
     st.caption("Ready to find your next deal?")
     st.markdown("---")
