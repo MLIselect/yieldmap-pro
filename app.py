@@ -13,12 +13,16 @@ import random
 import string
 import time
 import tempfile
+import matplotlib
 import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
+
+# Set Matplotlib Backend to non-interactive (Crucial for Streamlit)
+matplotlib.use('Agg')
 
 # ==========================================
 # 1. PRO CONFIGURATION
@@ -45,7 +49,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
+# --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -62,8 +66,6 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
-        
-        # Redirect to main app URL with embed mode enabled to clean UI
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -359,7 +361,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (ENHANCED)
+# 7. MULTI-PAGE PDF GENERATOR (ABSOLUTE POSITIONING FIX)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -405,19 +407,24 @@ class ProPDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
 
     def kpi_box(self, label, value, x, y):
+        # Explicitly drawing boxes using absolute coordinates
         self.set_fill_color(248, 250, 252)
         self.set_draw_color(200, 200, 200)
         self.rect(x, y, 45, 25, 'DF')
+        
+        # Label Position
         self.set_xy(x, y + 5)
         self.set_font('Helvetica', '', 9)
         self.set_text_color(100, 100, 100)
         self.cell(45, 5, label, 0, 0, 'C')
+        
+        # Value Position
         self.set_xy(x, y + 13)
         self.set_font('Helvetica', 'B', 14)
         if "-" in str(value):
-            self.set_text_color(220, 38, 38)
+            self.set_text_color(220, 38, 38) # Red for negative
         else:
-            self.set_text_color(30, 58, 138)
+            self.set_text_color(30, 58, 138) # Blue for positive
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
@@ -439,23 +446,18 @@ class ProPDF(FPDF):
         self.ln(8)
 
 def generate_chart_image(proj_df):
-    # Matplotlib chart generation
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         plt.figure(figsize=(7, 4))
         plt.style.use('bmh')
-        
-        # Plot Equity and Loan
         plt.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         plt.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
         plt.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
-        
         plt.title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
         plt.xlabel("Year")
         plt.ylabel("Value ($)")
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        
         plt.savefig(tmpfile.name, dpi=100)
         plt.close()
         return tmpfile.name
@@ -489,7 +491,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
         pdf.add_insight_box(insight, is_good=True)
 
-    # 2. KPI GRID
+    # 2. KPI GRID (ABSOLUTE POSITIONING)
     y_kpi = pdf.get_y()
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
@@ -511,7 +513,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') # Added MAO Here
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C')
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -560,11 +562,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_page()
     pdf.chapter_title("Long-Term Wealth Projections")
     
-    # Generate Chart
     chart_path = generate_chart_image(projections_df)
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
-    pdf.ln(95) # Move cursor past image
-    os.remove(chart_path) # Clean up temp file
+    pdf.ln(95)
+    os.remove(chart_path)
 
     # Headers
     pdf.set_fill_color(30, 58, 138)
@@ -588,7 +589,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         cumulative_cf += r['Cash Flow']
         
         if yr in snapshot_years:
-            # Check for page break
             if pdf.get_y() > 260:
                 pdf.add_page()
                 pdf.set_fill_color(30, 58, 138)
@@ -609,18 +609,16 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             pdf.cell(40, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(50, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
 
-    # --- SENSITIVITY ANALYSIS (NEW SECTION) ---
+    # --- SENSITIVITY ANALYSIS ---
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
     
-    # Calculate Scenarios
     rent_up = rent * 1.10
     rent_down = rent * 0.90
     rate_up = interest_rate + 1.0
     rate_down = interest_rate - 1.0
     
-    # Helper for fast recalc
     def fast_cf(r, i):
         m = calculate_mortgage(price, down_pct, i, term_years)
         e = (taxes/12) + (ins/12) + (r * (maint_pct/100)) + (r * (pm_pct/100)) + (r * (v_rate/100))
@@ -636,7 +634,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
 
-    # --- ASSUMPTIONS BLOCK (NEW SECTION) ---
     pdf.ln(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
@@ -692,7 +689,6 @@ if 'user' not in st.session_state:
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 if 'captcha_text' not in st.session_state:
-    # UPDATED CAPTCHA CHARACTERS TO REMOVE AMBIGUITY (No 0, O, I, 1)
     st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
 # NEW: AUTH PAGE STATE HANDLER
 if 'auth_mode' not in st.session_state:
@@ -822,13 +818,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use native Streamlit button logic ===
+    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
