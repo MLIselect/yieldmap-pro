@@ -12,6 +12,7 @@ import math
 import random
 import string
 import time
+import streamlit.components.v1 as components # NEW: For JS Injection
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
@@ -71,43 +72,28 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. NUCLEAR HIDING OF STREAMLIT BRANDING (UPDATED FOR 9.7) */
+    /* 3. WILDCARD HIDING (THE FIX) */
     
-    /* Force Hide the Header/Menu */
-    header { visibility: hidden !important; height: 0px !important; }
-    #MainMenu { visibility: hidden !important; display: none !important; }
-    [data-testid="stDecoration"] { visibility: hidden !important; height: 0px !important; }
+    /* Hide Header/Decoration */
+    header { visibility: hidden !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
     
-    /* Force Hide the Footer ("Built with Streamlit") */
-    footer { 
-        visibility: hidden !important; 
-        display: none !important; 
-        height: 0px !important; 
-        opacity: 0 !important;
-        bottom: -500px !important; /* Push it off screen if it tries to show */
-    }
+    /* Hide Footer (Bottom Left "Built with Streamlit") */
+    footer { display: none !important; visibility: hidden !important; }
+    [data-testid="stFooter"] { display: none !important; }
     
-    /* Specific Target for the "Viewer Badge" (Bottom Right User Icon) */
-    .viewerBadge_container__1QSob { 
-        display: none !important; 
-        visibility: hidden !important; 
-    }
+    /* Hide Viewer Badge/Fullscreen (Bottom Right) - WILDCARD SELECTOR */
+    /* This selects ANY class that contains 'viewerBadge' */
+    [class*="viewerBadge"] { display: none !important; }
     
-    /* Specific Target for the "Fullscreen" Button (Bottom Right Arrows) */
-    [data-testid="StyledFullScreenButton"] {
-        display: none !important; 
-        visibility: hidden !important;
-    }
-    button[title="View fullscreen"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
+    /* Hide Toolbar/Deploy Button */
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    .stDeployButton { display: none !important; }
     
-    /* Hide the Status Widget (Running Man) */
-    [data-testid="stStatusWidget"] { 
-        visibility: hidden !important; 
-        display: none !important; 
-    }
+    /* Hide Sidebar */
+    [data-testid="stSidebar"] { display: none !important; }
 
     /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -1324,5 +1310,44 @@ elif page == "IQ Center":
             * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
             """
         )
+
+# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR IF CSS FAILS
+js_code = """
+<script>
+    // Create a MutationObserver to watch for Streamlit's injected elements
+    const observer = new MutationObserver((mutations) => {
+        const footer = document.querySelector('footer');
+        if (footer) {
+            footer.style.display = 'none';
+            footer.remove(); // Nuke it from DOM
+        }
+        
+        // Hide top toolbar
+        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) {
+            toolbar.style.display = 'none';
+            toolbar.remove();
+        }
+        
+        // Hide decoration line
+        const decoration = document.querySelector('[data-testid="stDecoration"]');
+        if (decoration) {
+            decoration.style.display = 'none';
+            decoration.remove();
+        }
+        
+        // Hide viewer badge container specifically
+        const viewerBadge = document.querySelector('.viewerBadge_container__1QSob');
+        if (viewerBadge) {
+            viewerBadge.style.display = 'none';
+            viewerBadge.remove();
+        }
+    });
+
+    // Start observing the document body
+    observer.observe(document.body, { childList: true, subtree: true });
+</script>
+"""
+components.html(js_code, height=0)
 
 render_footer()
