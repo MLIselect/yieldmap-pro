@@ -16,8 +16,7 @@ import tempfile
 import sys
 from contextlib import contextmanager
 
-# === CRITICAL FIX: NO PYPLOT IMPORT ===
-# We use raw Matplotlib Figure to prevent Streamlit from hooking into the output
+# === CRITICAL FIX: Matplotlib Agg Backend & Stdout Suppression ===
 import matplotlib
 matplotlib.use('Agg') 
 from matplotlib.figure import Figure
@@ -29,7 +28,7 @@ from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
 
-# --- UTILITY: Suppress Stdout (The Final Guardrail) ---
+# --- UTILITY: Suppress Stdout (The "None" Killer) ---
 @contextmanager
 def suppress_stdout():
     with open(os.devnull, "w") as devnull:
@@ -93,59 +92,45 @@ if "code" in st.query_params:
 st.markdown(
     """
     <style>
-    /* 1. GLOBAL RESET & FONTS */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        color: #1e293b; /* Slate 800 */
+        color: #1e293b;
     }
-
-    /* 2. LAYOUT & SPACING */
     .block-container {
         padding-top: 7rem;
         padding-bottom: 5rem;
     }
-
-    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
         height: 50px; 
-        background-color: #ffffff; /* Matches app background */
+        background-color: #ffffff;
         z-index: 2147483647; 
         pointer-events: auto;
     }
-
-    /* 4. AGGRESSIVE HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { display: none !important; }
-    
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
-    
-    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
     [data-testid="manage-app-button"] { display: none !important; }
     .stAppDeployButton { display: none !important; }
     [data-testid="stMainMenu"] { display: none !important; }
-    
-    /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     .viewerBadge_container__1QSob { display: none !important; }
-
-    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 80px;
-        background-color: #1e3a8a; /* Deep Corporate Blue */
+        background-color: #1e3a8a;
         z-index: 100000;
         display: flex;
         align-items: center;
@@ -153,8 +138,6 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border-bottom: none;
     }
-
-    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -180,8 +163,6 @@ st.markdown(
         margin-top: 4px;
         cursor: default;
     }
-
-    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -208,8 +189,6 @@ st.markdown(
     div[role="radiogroup"] label:hover p { color: #ffffff !important; }
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
-
-    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -242,12 +221,8 @@ st.markdown(
     }
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
-
-    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
-
-    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -286,7 +261,7 @@ STATE_MAP = {
 }
 
 # ==========================================
-# 5. DATA UTILITIES
+# 5. DATA & HELPER FUNCTIONS (MOVED TO TOP)
 # ==========================================
 @st.cache_data
 def load_data():
@@ -328,9 +303,6 @@ def get_vacancy_rate(zip_code):
     except: pass 
     return 5.0
 
-# ==========================================
-# 6. MATH ENGINES
-# ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
         loan_amount = price * (1 - (down_payment_pct/100))
@@ -370,9 +342,46 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         current_rent *= (1 + rent_growth/100); current_expenses *= (1 + rent_growth/100)
     return pd.DataFrame(data)
 
-# ==========================================
-# 7. MULTI-PAGE PDF GENERATOR
-# ==========================================
+def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
+    colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
+    if flip:
+        colors = ["#d1fae5", "#fef3c7", "#fee2e2"]
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        number={'suffix': suffix, 'font': {'size': 35}},
+        gauge={
+            'axis': {'range': [min_v, max_v]},
+            'bar': {'color': "#2563eb"},
+            'steps': [
+                {'range': [min_v, max_v * 0.33], 'color': colors[0]},
+                {'range': [max_v * 0.33, max_v * 0.66], 'color': colors[1]},
+                {'range': [max_v * 0.66, max_v], 'color': colors[2]}
+            ]
+        }
+    ))
+    fig.update_layout(
+        height=180,
+        margin=dict(l=40, r=40, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)"
+    )
+    return fig
+
+def render_footer():
+    st.divider()
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 12px; color: #64748b;">
+            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
+            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# --- PDF GENERATOR CLASS (DEFINED BEFORE USE) ---
 class ProPDF(FPDF):
     def header(self):
         self.set_fill_color(30, 58, 138)
@@ -454,22 +463,18 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         canvas = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
-        
         ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
         ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
-        
         ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
         ax.set_xlabel("Year")
         ax.set_ylabel("Value ($)")
         ax.legend()
         ax.grid(True, alpha=0.3)
-        
         fig.tight_layout()
         fig.savefig(tmpfile.name, dpi=100)
         return tmpfile.name
@@ -478,7 +483,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf = ProPDF()
     pdf.alias_nb_pages()
     pdf.add_page()
-    
     # PAGE 1
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 58, 138)
@@ -489,7 +493,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
     pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
     pdf.ln(5)
-    
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
@@ -500,7 +503,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
         pdf.add_insight_box(insight, is_good=True)
-
     y_kpi = pdf.get_y() + 5
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
@@ -511,7 +513,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
         dscr = f"{dscr_val:.2f}x"
     pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
     pdf.set_y(y_kpi + 35)
-
     pdf.check_space(30)
     pdf.chapter_title("Scorecard & Strategy")
     pdf.set_font('Helvetica', '', 10)
@@ -521,7 +522,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.set_text_color(22, 101, 52)
     pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
     pdf.ln(10)
-
     pdf.check_space(50)
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
@@ -531,7 +531,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
     pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
-
     pdf.check_space(120)
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     pdf.section_header("Income")
@@ -555,7 +554,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.set_font('Helvetica', 'B', 12)
     pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
     pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
-
     # --- PAGE 2 ---
     pdf.add_page()
     pdf.chapter_title("Long-Term Wealth Projections")
@@ -573,7 +571,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
-    
     snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
     cumulative_cf = 0
     for index, r in projections_df.iterrows():
@@ -599,7 +596,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
-
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
@@ -619,7 +615,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
     pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
-    
     pdf.ln(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
@@ -627,7 +622,6 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
-
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
@@ -768,6 +762,14 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
+# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+def switch_to_login_callback():
+    st.session_state.auth_mode = 'login'
+    # Clear signup keys just in case
+    for key in list(st.session_state.keys()):
+        if key.startswith("signup_"):
+            del st.session_state[key]
+
 # NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
@@ -797,10 +799,7 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1128,7 +1127,7 @@ if page == "Pro Analyzer":
             )
             
             # Generate PDF bytes here (Cleanly separated from UI)
-            pdf_bytes = generate_pro_report_bytes(
+            pdf_bytes = generate_pro_report(
                 client_name,
                 prop_address,
                 row,
