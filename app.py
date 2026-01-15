@@ -519,7 +519,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') # Added MAO Here
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -827,13 +827,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
+    # === THE FIX: Use native Streamlit button logic ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
@@ -856,7 +856,10 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            st.rerun()
+                            
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
