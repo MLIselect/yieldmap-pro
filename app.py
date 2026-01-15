@@ -357,7 +357,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
+# 7. MULTI-PAGE PDF GENERATOR (REBUILT FOR DETAIL & PAGINATION FIX)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -457,10 +457,12 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
-    dscr = 0
+    dscr = "N/A"
     if loan_pmt > 0:
-        dscr = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))) / loan_pmt
-    pdf.kpi_box("DSCR Ratio", f"{dscr:.2f}x", 160, y_kpi)
+        dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
+        dscr = f"{dscr_val:.2f}x"
+    
+    pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
     
     pdf.set_y(y_kpi + 35) # Force cursor down past boxes
 
@@ -485,7 +487,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
     # 5. INCOME & EXPENSES
-    pdf.check_space(80) # Large buffer for the main table
+    pdf.check_space(120) # Ensure enough space so header stays with table
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     
     pdf.section_header("Income")
@@ -496,10 +498,13 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.section_header("Operating Expenses")
     pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_row("Insurance", f"(${ins/12:,.2f})")
-    pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_cost:,.2f})")
+    
+    # FIX: Divide annual maintenance by 12 for monthly report
+    maint_monthly = maint_cost / 12
+    pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
     pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
     
-    noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_cost + rent*(pm_pct/100))
+    noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
     pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     
     # Ensure Debt Service and Final CF stay together with the table
@@ -788,10 +793,7 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
