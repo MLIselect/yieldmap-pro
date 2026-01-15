@@ -72,39 +72,18 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "WHITE TAPE" COVER-UP (NEW FIX) */
-    /* This creates a white bar at the bottom that sits ON TOP of Streamlit's footer */
-    .footer-cover {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 50px; /* Tall enough to hide badge/footer */
-        background-color: #ffffff; /* Matches app background */
-        z-index: 2147483647; /* Maximum Z-Index possible */
-        pointer-events: auto; /* Blocks clicks to buttons underneath */
-    }
-
-    /* 4. AGGRESSIVE CSS HIDING (BACKUP) */
+    /* 3. CSS BACKUP HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
-    #MainMenu { display: none !important; }
     
+    /* Hide specific Streamlit IDs */
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     
-    /* Target the specific "Viewer Badge" in bottom right */
-    .viewerBadge_container__1QSob { display: none !important; }
-    ._profileContainer_gzau3_53 { display: none !important; }
-    
-    /* Target Fullscreen Button */
-    button[title="View fullscreen"] { display: none !important; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
-
-    /* 5. THE STICKY HEADER BACKGROUND */
+    /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -120,7 +99,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 6. BRANDING */
+    /* 5. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -147,7 +126,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 7. NAVIGATION BAR STYLING */
+    /* 6. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -175,7 +154,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 8. UNIVERSAL BUTTON STYLING */
+    /* 7. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -209,11 +188,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 9. CARDS & CONTAINERS */
+    /* 8. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 10. MOBILE RESPONSIVENESS */
+    /* 9. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -230,9 +209,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# NEW: INJECT THE WHITE TAPE DIV
-st.markdown('<div class="footer-cover"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -564,18 +540,58 @@ def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     )
     return fig
 
-def render_footer():
-    st.divider()
-    st.markdown(
-        """
-        <div style="text-align: center; font-size: 12px; color: #64748b;">
-            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
-            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR (ACTIVE HUNTER)
+js_code = """
+<script>
+    // CONTINUOUSLY MONITOR AND DESTROY STREAMLIT ELEMENTS
+    setInterval(function() {
+        // 1. Hide Footer
+        var footer = document.querySelector('footer');
+        if (footer) { 
+            footer.style.display = 'none'; 
+            footer.style.visibility = 'hidden';
+        }
+        
+        // 2. Hide Top Decoration
+        var decoration = document.querySelector('[data-testid="stDecoration"]');
+        if (decoration) { 
+            decoration.style.display = 'none'; 
+            decoration.style.visibility = 'hidden';
+        }
+        
+        // 3. Hide Toolbar (Top Right)
+        var toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) { 
+            toolbar.style.display = 'none'; 
+            toolbar.style.visibility = 'hidden';
+        }
+
+        // 4. Hide Viewer Badge (Bottom Right) - WILDCARD MATCH
+        // This finds any element with a class name containing 'viewerBadge'
+        var badges = document.querySelectorAll('[class*="viewerBadge"]');
+        badges.forEach(function(badge) {
+            badge.style.display = 'none';
+            badge.style.visibility = 'hidden';
+        });
+
+        // 5. Hide Fullscreen Button (Bottom Right) - WILDCARD MATCH
+        var fsButtons = document.querySelectorAll('button[title="View fullscreen"]');
+        fsButtons.forEach(function(btn) {
+            btn.style.display = 'none';
+            btn.style.visibility = 'hidden';
+        });
+        
+        // 6. Backup for Fullscreen Button
+        var styledFs = document.querySelectorAll('[data-testid="StyledFullScreenButton"]');
+        styledFs.forEach(function(btn) {
+            btn.style.display = 'none';
+            btn.style.visibility = 'hidden';
+        });
+
+    }, 50); // Run every 50ms
+</script>
+"""
+components.html(js_code, height=0)
 
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
@@ -1322,44 +1338,5 @@ elif page == "IQ Center":
             * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
             """
         )
-
-# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR IF CSS FAILS
-js_code = """
-<script>
-    // Create a MutationObserver to watch for Streamlit's injected elements
-    const observer = new MutationObserver((mutations) => {
-        const footer = document.querySelector('footer');
-        if (footer) {
-            footer.style.display = 'none';
-            footer.remove(); // Nuke it from DOM
-        }
-        
-        // Hide top toolbar
-        const toolbar = document.querySelector('[data-testid="stToolbar"]');
-        if (toolbar) {
-            toolbar.style.display = 'none';
-            toolbar.remove();
-        }
-        
-        // Hide decoration line
-        const decoration = document.querySelector('[data-testid="stDecoration"]');
-        if (decoration) {
-            decoration.style.display = 'none';
-            decoration.remove();
-        }
-        
-        // Hide viewer badge container specifically
-        const viewerBadge = document.querySelector('.viewerBadge_container__1QSob');
-        if (viewerBadge) {
-            viewerBadge.style.display = 'none';
-            viewerBadge.remove();
-        }
-    });
-
-    // Start observing the document body
-    observer.observe(document.body, { childList: true, subtree: true });
-</script>
-"""
-components.html(js_code, height=0)
 
 render_footer()
