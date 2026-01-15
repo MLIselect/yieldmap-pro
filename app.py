@@ -45,13 +45,14 @@ supabase = init_connection()
 
 # --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
-    # Forces the browser to navigate to the URL at the top window level
+    # This script forces the browser to navigate to the new URL
     redirect_code = f"""
     <script>
         window.top.location.href = "{url}";
     </script>
+    <meta http-equiv="refresh" content="0;url={url}">
     """
-    components.html(redirect_code, height=0)
+    components.html(redirect_code, height=0, width=0)
 
 # --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
 if "code" in st.query_params:
@@ -85,44 +86,19 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (Updated to be less obtrusive) */
+    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
-        height: 35px; /* Just enough to cover the text */
+        height: 40px; 
         background-color: #ffffff; /* Matches app background */
         z-index: 2147483647; 
         pointer-events: auto;
     }
 
-    /* 4. BUTTON STYLING FOR REDIRECT */
-    .custom-auth-btn {
-        display: inline-flex;
-        -webkit-box-align: center;
-        align-items: center;
-        -webkit-box-pack: center;
-        justify-content: center;
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        min-height: 38.4px;
-        margin: 0px;
-        line-height: 1.6;
-        color: white !important;
-        background-color: #1e3a8a;
-        width: 100%;
-        text-decoration: none;
-        border: 1px solid rgba(250, 250, 250, 0.2);
-    }
-    .custom-auth-btn:hover {
-        background-color: #1e40af;
-        color: white !important;
-        text-decoration: none;
-    }
-
-    /* 5. AGGRESSIVE HIDING */
+    /* 4. AGGRESSIVE HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { display: none !important; }
@@ -137,7 +113,7 @@ st.markdown(
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     .viewerBadge_container__1QSob { display: none !important; }
 
-    /* 6. THE STICKY HEADER BACKGROUND */
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -153,7 +129,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 7. BRANDING */
+    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -180,7 +156,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 8. NAVIGATION BAR STYLING */
+    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -208,7 +184,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 9. UNIVERSAL BUTTON STYLING */
+    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -242,11 +218,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 10. CARDS & CONTAINERS */
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 11. MOBILE RESPONSIVENESS */
+    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -748,22 +724,14 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG WITH DIRECT HTML REDIRECT BUTTON
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
-    
-    # --- DIRECT HTML BUTTON FOR REDIRECT ---
-    # This bypasses Python execution logic and acts as a standard web link
-    st.markdown(
-        """
-        <a href="https://yieldmappro.com/app" target="_top" class="custom-auth-btn">
-            OK, Go to Login
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
+    if st.button("OK, Go to Login"):
+        # *** TRIGGER REDIRECT TO CUSTOM DOMAIN HERE ***
+        js_redirect("https://yieldmappro.com/app")
 
 # LOGIN LOGIC
 if not st.session_state.user:
@@ -784,7 +752,7 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            # --- DIRECT REDIRECT ON LOGIN ---
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
                             js_redirect("https://yieldmappro.com/app")
                             
                         except Exception as e:
@@ -1367,7 +1335,7 @@ elif page == "IQ Center":
             """
         )
 
-# INJECT THE TITAN BAR OVERLAY
+# NEW: INJECT THE TITAN BAR DIV (PHYSICAL COVER UP FOR EMBED MODE)
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
