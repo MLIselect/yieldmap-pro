@@ -12,7 +12,7 @@ import math
 import random
 import string
 import time
-import streamlit.components.v1 as components # NEW: For JS Injection
+import streamlit.components.v1 as components
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
@@ -72,30 +72,39 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. WILDCARD HIDING (THE FIX) */
-    
-    /* Hide Header/Decoration */
+    /* 3. THE "WHITE TAPE" COVER-UP (NEW FIX) */
+    /* This creates a white bar at the bottom that sits ON TOP of Streamlit's footer */
+    .footer-cover {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50px; /* Tall enough to hide badge/footer */
+        background-color: #ffffff; /* Matches app background */
+        z-index: 2147483647; /* Maximum Z-Index possible */
+        pointer-events: auto; /* Blocks clicks to buttons underneath */
+    }
+
+    /* 4. AGGRESSIVE CSS HIDING (BACKUP) */
     header { visibility: hidden !important; }
+    footer { visibility: hidden !important; display: none !important; }
+    #MainMenu { display: none !important; }
+    
     [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     
-    /* Hide Footer (Bottom Left "Built with Streamlit") */
-    footer { display: none !important; visibility: hidden !important; }
-    [data-testid="stFooter"] { display: none !important; }
+    /* Target the specific "Viewer Badge" in bottom right */
+    .viewerBadge_container__1QSob { display: none !important; }
+    ._profileContainer_gzau3_53 { display: none !important; }
     
-    /* Hide Viewer Badge/Fullscreen (Bottom Right) - WILDCARD SELECTOR */
-    /* This selects ANY class that contains 'viewerBadge' */
-    [class*="viewerBadge"] { display: none !important; }
-    
-    /* Hide Toolbar/Deploy Button */
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    .stDeployButton { display: none !important; }
-    
-    /* Hide Sidebar */
-    [data-testid="stSidebar"] { display: none !important; }
+    /* Target Fullscreen Button */
+    button[title="View fullscreen"] { display: none !important; }
+    [data-testid="StyledFullScreenButton"] { display: none !important; }
 
-    /* 4. THE STICKY HEADER BACKGROUND */
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -111,7 +120,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 5. BRANDING */
+    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -138,7 +147,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 6. NAVIGATION BAR STYLING */
+    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -166,7 +175,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 7. UNIVERSAL BUTTON STYLING */
+    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -200,11 +209,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 8. CARDS & CONTAINERS */
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 9. MOBILE RESPONSIVENESS */
+    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -221,6 +230,9 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# NEW: INJECT THE WHITE TAPE DIV
+st.markdown('<div class="footer-cover"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
