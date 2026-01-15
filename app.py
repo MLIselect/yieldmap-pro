@@ -45,6 +45,8 @@ supabase = init_connection()
 
 # --- HELPER: JAVASCRIPT REDIRECT ---
 def js_redirect(url):
+    # Forces the browser to navigate to the new URL
+    # Added ?embed=true to the target to force cleaner UI
     redirect_code = f"""
     <script>
         window.top.location.href = "{url}";
@@ -728,39 +730,24 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG WITH RAW HTML BUTTON
+# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+def switch_to_login_callback():
+    st.session_state.auth_mode = 'login'
+    # Clear signup keys just in case
+    for key in list(st.session_state.keys()):
+        if key.startswith("signup_"):
+            del st.session_state[key]
+
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use Raw HTML button to trigger refresh via JS ===
-    # This bypasses Streamlit Python logic entirely and forces a browser reload
-    st.markdown(
-        """
-        <div style="display: flex; justify-content: center; margin-top: 20px;">
-            <button onclick="window.parent.location.reload();" 
-            style="
-                background-color: #1e3a8a;
-                color: white;
-                border: none;
-                padding: 10px 24px;
-                text-align: center;
-                text-decoration: none;
-                display: inline-block;
-                font-size: 16px;
-                border-radius: 8px;
-                cursor: pointer;
-                width: 100%;
-                font-family: 'Inter', sans-serif;
-                font-weight: 600;
-            ">
-            OK, Go to Login
-            </button>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # === THE FIX: Use native Streamlit button logic ===
+    if st.button("OK, Go to Login", type="primary"):
+        st.session_state.auth_mode = 'login'
+        st.rerun()
 
 # LOGIN LOGIC
 if not st.session_state.user:
@@ -780,10 +767,8 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            
                             # *** NEW: REDIRECT ON LOGIN SUCCESS ***
                             js_redirect("https://yieldmappro.com/app?embed=true")
-                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1364,7 +1349,7 @@ elif page == "IQ Center":
             """
         )
 
-# INJECT THE TITAN BAR OVERLAY
+# INJECT THE TITAN BAR OVERLAY (Bottom of page execution)
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 render_footer()
