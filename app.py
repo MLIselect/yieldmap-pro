@@ -13,11 +13,9 @@ import random
 import string
 import time
 import tempfile
-import sys
-from contextlib import contextmanager
-
-# === CRITICAL FIX: Matplotlib Agg Backend & Stdout Suppression ===
 import matplotlib
+
+# === CRITICAL FIX: Use Agg backend & Pure OO Interface (No Pyplot) ===
 matplotlib.use('Agg') 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -27,17 +25,6 @@ import streamlit.components.v1 as components
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
-
-# --- UTILITY: Suppress Stdout (The "None" Killer) ---
-@contextmanager
-def suppress_stdout():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:  
-            yield
-        finally:
-            sys.stdout = old_stdout
 
 # ==========================================
 # 1. PRO CONFIGURATION
@@ -92,45 +79,59 @@ if "code" in st.query_params:
 st.markdown(
     """
     <style>
+    /* 1. GLOBAL RESET & FONTS */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        color: #1e293b;
+        color: #1e293b; /* Slate 800 */
     }
+
+    /* 2. LAYOUT & SPACING */
     .block-container {
         padding-top: 7rem;
         padding-bottom: 5rem;
     }
+
+    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
         height: 50px; 
-        background-color: #ffffff;
+        background-color: #ffffff; /* Matches app background */
         z-index: 2147483647; 
         pointer-events: auto;
     }
+
+    /* 4. AGGRESSIVE HIDING */
     header { visibility: hidden !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { display: none !important; }
+    
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
+    
+    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
     [data-testid="manage-app-button"] { display: none !important; }
     .stAppDeployButton { display: none !important; }
     [data-testid="stMainMenu"] { display: none !important; }
+    
+    /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     .viewerBadge_container__1QSob { display: none !important; }
+
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 80px;
-        background-color: #1e3a8a;
+        background-color: #1e3a8a; /* Deep Corporate Blue */
         z-index: 100000;
         display: flex;
         align-items: center;
@@ -138,6 +139,8 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border-bottom: none;
     }
+
+    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -163,6 +166,8 @@ st.markdown(
         margin-top: 4px;
         cursor: default;
     }
+
+    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -189,6 +194,8 @@ st.markdown(
     div[role="radiogroup"] label:hover p { color: #ffffff !important; }
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
+
+    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -221,8 +228,12 @@ st.markdown(
     }
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
+
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
+
+    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -244,7 +255,7 @@ st.markdown(
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. REFERENCE DATA
+# 4. REFERENCE DATA (STATE MAP)
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
@@ -261,7 +272,7 @@ STATE_MAP = {
 }
 
 # ==========================================
-# 5. DATA & HELPER FUNCTIONS (MOVED TO TOP)
+# 5. DATA UTILITIES
 # ==========================================
 @st.cache_data
 def load_data():
@@ -303,6 +314,9 @@ def get_vacancy_rate(zip_code):
     except: pass 
     return 5.0
 
+# ==========================================
+# 6. MATH ENGINES
+# ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
         loan_amount = price * (1 - (down_payment_pct/100))
@@ -381,7 +395,7 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- PDF GENERATOR CLASS (DEFINED BEFORE USE) ---
+# --- PDF GENERATOR CLASS ---
 class ProPDF(FPDF):
     def header(self):
         self.set_fill_color(30, 58, 138)
@@ -463,26 +477,33 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
+    # FIX: Pure OO Matplotlib - No pyplot means no Streamlit ghosts
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         canvas = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
+        
         ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
         ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        
         ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
         ax.set_xlabel("Year")
         ax.set_ylabel("Value ($)")
         ax.legend()
         ax.grid(True, alpha=0.3)
+        
         fig.tight_layout()
         fig.savefig(tmpfile.name, dpi=100)
+        
         return tmpfile.name
 
-def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
+# NameError Fix: Rename function definition to match caller
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
     pdf.add_page()
+    
     # PAGE 1
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 58, 138)
@@ -493,6 +514,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
     pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
     pdf.ln(5)
+    
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
@@ -503,6 +525,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
         pdf.add_insight_box(insight, is_good=True)
+
     y_kpi = pdf.get_y() + 5
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
@@ -513,6 +536,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
         dscr = f"{dscr_val:.2f}x"
     pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
     pdf.set_y(y_kpi + 35)
+
     pdf.check_space(30)
     pdf.chapter_title("Scorecard & Strategy")
     pdf.set_font('Helvetica', '', 10)
@@ -522,6 +546,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.set_text_color(22, 101, 52)
     pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
     pdf.ln(10)
+
     pdf.check_space(50)
     pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
@@ -531,6 +556,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
     pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
     pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
+
     pdf.check_space(120)
     pdf.chapter_title("Pro Forma Monthly Operating Statement")
     pdf.section_header("Income")
@@ -554,6 +580,7 @@ def generate_pro_report_bytes(client, address, row, unit, price, rent, v_rate, y
     pdf.set_font('Helvetica', 'B', 12)
     pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
     pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
+
     # --- PAGE 2 ---
     pdf.add_page()
     pdf.chapter_title("Long-Term Wealth Projections")
@@ -799,6 +826,7 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
+                            
                             st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
@@ -1111,8 +1139,10 @@ if page == "Pro Analyzer":
 
     st.divider()
     
-    # --- MOVED CALCULATION LOGIC & STD OUT SUPPRESSION TO FIX GHOST TEXT ---
+    # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
+    # Wrap in spinner to hide processing visual delay
     with st.spinner("Processing..."):
+        # Use suppress_stdout context to capture any rouge prints from libraries
         with suppress_stdout():
             proj = calculate_projections(
                 price,
