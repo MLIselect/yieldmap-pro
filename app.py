@@ -316,18 +316,17 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES (UPDATED FOR SAFETY)
+# 6. MATH ENGINES
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
         loan_amount = price * (1 - (down_payment_pct/100))
         if loan_amount <= 0: return 0
-        if term_years <= 0: return loan_amount # Avoid division by zero
+        if term_years <= 0: return loan_amount 
         
         monthly_rate = (interest_rate / 100) / 12
         num_payments = term_years * 12
         
-        # Handle 0% interest
         if monthly_rate == 0: 
             return loan_amount / num_payments
             
@@ -364,7 +363,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (ENHANCED & FIXED)
+# 7. MULTI-PAGE PDF GENERATOR (DYNAMIC BOX FIX)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -426,7 +425,7 @@ class ProPDF(FPDF):
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
-        self.set_x(10) # FIX: Hard reset X before row
+        self.set_x(10) # Hard reset X
         self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
         self.set_fill_color(240, 249, 255)
@@ -437,35 +436,40 @@ class ProPDF(FPDF):
     def add_insight_box(self, text, is_good=True):
         self.set_fill_color(240, 253, 244) if is_good else self.set_fill_color(254, 242, 242)
         self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
-        self.rect(10, self.get_y(), 190, 15, 'DF')
-        self.set_xy(12, self.get_y()+4)
+        
+        # === FIX: DYNAMIC HEIGHT CALCULATION ===
+        # Calculate how many lines this text will take
         self.set_font('Helvetica', 'B', 10)
+        # 185 is usable width approx
+        text_width = self.get_string_width("ANALYST INSIGHT: " + text)
+        
+        # Standard height 15, double height 24 if text wraps
+        box_height = 24 if text_width > 180 else 15
+        
+        self.rect(10, self.get_y(), 190, box_height, 'DF')
+        self.set_xy(12, self.get_y()+4)
+        
         self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
-        self.cell(0, 6, "ANALYST INSIGHT: " + text, 0, 1, 'L')
-        self.ln(8)
+        # Use MultiCell to handle wrapping cleanly
+        self.multi_cell(186, 6, "ANALYST INSIGHT: " + text, 0, 'L')
+        
+        # Move cursor below box based on new height
+        self.ln(box_height - 6) # Adjust spacing
 
 def generate_chart_image(proj_df):
-    # FIX: Use Object-Oriented Matplotlib to avoid Streamlit Magic "None" print
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-        fig, ax = plt.subplots(figsize=(7, 4)) # OO Interface
-        
-        # Plotting on 'ax' instead of 'plt'
+        fig, ax = plt.subplots(figsize=(7, 4))
         ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
         ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
-        
         ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
         ax.set_xlabel("Year")
         ax.set_ylabel("Value ($)")
         ax.legend()
         ax.grid(True, alpha=0.3)
-        
         fig.tight_layout()
         fig.savefig(tmpfile.name, dpi=100)
-        
-        # Explicitly close the specific figure object
         plt.close(fig) 
-        
         return tmpfile.name
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
@@ -498,7 +502,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         pdf.add_insight_box(insight, is_good=True)
 
     # 2. KPI GRID
-    y_kpi = pdf.get_y()
+    y_kpi = pdf.get_y() + 5
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
@@ -519,7 +523,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') # Added MAO Here
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -577,7 +581,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
-    # FIX: Reduce width slightly to prevent wrap
     pdf.cell(18, 8, "Year", 1, 0, 'C', True)
     pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
     pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
@@ -610,7 +613,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
                 pdf.set_font('Helvetica', '', 9)
             
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
-            pdf.set_x(10) # FIX: Hard reset X
+            pdf.set_x(10) # Hard reset X
             pdf.cell(18, 8, str(yr), 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
