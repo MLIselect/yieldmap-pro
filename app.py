@@ -12,7 +12,6 @@ import math
 import random
 import string
 import time
-import streamlit.components.v1 as components
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
@@ -72,51 +71,70 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. DOOMSDAY HIDING (ELEMENT DESTRUCTION) */
-    
-    /* Hide the footer container */
-    footer, .stFooter {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0px !important;
-        width: 0px !important;
-        pointer-events: none !important;
-        position: absolute !important;
-        bottom: -9999px !important;
-    }
-    
-    /* Hide header/menu/toolbar */
-    header, [data-testid="stHeader"], [data-testid="stToolbar"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    
-    /* Hide Fullscreen Button (Bottom Right) */
-    [data-testid="StyledFullScreenButton"], button[title="View fullscreen"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-    }
-    
-    /* Hide Viewer Badge (If inside iframe) */
-    .viewerBadge_container__1QSob, ._profileContainer_gzau3_53 {
-        display: none !important;
-        visibility: hidden !important;
+    /* 3. THE "TITAN BAR" (The Ultimate Cover-Up) */
+    /* This sits on top of the footer area to physically block it */
+    .titan-bar {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100vw; /* Viewport Width - spans entire screen */
+        height: 40px;
+        background-color: #ffffff; /* Matches background */
+        z-index: 9999999; /* Higher than anything Streamlit generates */
+        pointer-events: all; /* Blocks clicks on links underneath */
     }
 
-    /* 4. THE "WHITE TAPE" (Visual Cover Up) */
-    /* A white bar fixed to the bottom to cover anything that resists hiding */
-    .white-tape {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100vw;
-        height: 40px;
-        background-color: white;
-        z-index: 999999999; /* Highest priority */
-        pointer-events: none;
+    /* 4. AGGRESSIVE HIDING */
+    /* Hide the default header */
+    header { visibility: hidden !important; }
+    
+    /* Hide the default footer */
+    footer { 
+        visibility: hidden !important; 
+        display: none !important; 
+        height: 0px !important; 
     }
+    
+    /* Hide the hamburger menu */
+    #MainMenu { 
+        visibility: hidden !important; 
+        display: none !important; 
+    }
+    
+    /* Hide decoration bar */
+    [data-testid="stDecoration"] { 
+        visibility: hidden !important; 
+        display: none !important; 
+        height: 0px !important; 
+    }
+    
+    /* Hide status widget */
+    [data-testid="stStatusWidget"] { 
+        visibility: hidden !important; 
+        display: none !important; 
+    }
+    
+    /* Hide toolbar (top right) */
+    [data-testid="stToolbar"] { 
+        visibility: hidden !important; 
+        display: none !important; 
+    }
+    
+    /* Hide sidebar completely */
+    [data-testid="stSidebar"] { 
+        display: none !important; 
+    }
+    
+    /* Hide specific footer container */
+    [data-testid="stFooter"] { 
+        display: none !important; 
+    }
+    
+    /* Hide Viewer Badge */
+    .viewerBadge_container__1QSob { display: none !important; }
+    
+    /* Hide Fullscreen Button */
+    button[title="View fullscreen"] { display: none !important; }
 
     /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -245,8 +263,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# NEW: INJECT THE WHITE TAPE DIV (PHYSICAL COVER UP)
-st.markdown('<div class="white-tape"></div>', unsafe_allow_html=True)
+# NEW: INJECT THE TITAN BAR DIV
+st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -578,51 +596,18 @@ def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     )
     return fig
 
-# NEW: JS INJECTION TO FORCE HIDE STREAMLIT FOOTER & TOOLBAR (ACTIVE HUNTER)
-js_code = """
-<script>
-    // CONTINUOUSLY MONITOR AND DESTROY STREAMLIT ELEMENTS
-    setInterval(function() {
-        // 1. Hide Footer
-        var footer = document.querySelector('footer');
-        if (footer) { 
-            footer.remove(); 
-        }
-        
-        // 2. Hide Top Decoration
-        var decoration = document.querySelector('[data-testid="stDecoration"]');
-        if (decoration) { 
-            decoration.remove(); 
-        }
-        
-        // 3. Hide Toolbar (Top Right)
-        var toolbar = document.querySelector('[data-testid="stToolbar"]');
-        if (toolbar) { 
-            toolbar.remove(); 
-        }
-
-        // 4. Hide Viewer Badge (Bottom Right)
-        var badges = document.querySelectorAll('.viewerBadge_container__1QSob');
-        badges.forEach(function(badge) {
-            badge.remove();
-        });
-
-        // 5. Hide Fullscreen Button (Bottom Right)
-        var fsButtons = document.querySelectorAll('button[title="View fullscreen"]');
-        fsButtons.forEach(function(btn) {
-            btn.remove();
-        });
-        
-        // 6. Backup for Fullscreen Button
-        var styledFs = document.querySelectorAll('[data-testid="StyledFullScreenButton"]');
-        styledFs.forEach(function(btn) {
-            btn.remove();
-        });
-
-    }, 50); // Run every 50ms
-</script>
-"""
-components.html(js_code, height=0)
+def render_footer():
+    st.divider()
+    st.markdown(
+        """
+        <div style="text-align: center; font-size: 12px; color: #64748b;">
+            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
+            <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
