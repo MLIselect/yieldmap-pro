@@ -71,21 +71,44 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING (NUCLEAR OPTION) */
-    header { visibility: hidden !important; }
-    footer { visibility: hidden !important; display: none !important; }
+    /* 3. NUCLEAR HIDING OF STREAMLIT BRANDING (UPDATED FOR 9.7) */
+    
+    /* Force Hide the Header/Menu */
+    header { visibility: hidden !important; height: 0px !important; }
     #MainMenu { visibility: hidden !important; display: none !important; }
+    [data-testid="stDecoration"] { visibility: hidden !important; height: 0px !important; }
     
-    [data-testid="stDecoration"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stHeader"] { display: none !important; }
+    /* Force Hide the Footer ("Built with Streamlit") */
+    footer { 
+        visibility: hidden !important; 
+        display: none !important; 
+        height: 0px !important; 
+        opacity: 0 !important;
+        bottom: -500px !important; /* Push it off screen if it tries to show */
+    }
     
-    /* Target the specific "Viewer Badge" in bottom right */
-    .viewerBadge_container__1QSob { display: none !important; }
-    ._profileContainer_gzau3_53 { display: none !important; }
+    /* Specific Target for the "Viewer Badge" (Bottom Right User Icon) */
+    .viewerBadge_container__1QSob { 
+        display: none !important; 
+        visibility: hidden !important; 
+    }
     
+    /* Specific Target for the "Fullscreen" Button (Bottom Right Arrows) */
+    [data-testid="StyledFullScreenButton"] {
+        display: none !important; 
+        visibility: hidden !important;
+    }
+    button[title="View fullscreen"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Hide the Status Widget (Running Man) */
+    [data-testid="stStatusWidget"] { 
+        visibility: hidden !important; 
+        display: none !important; 
+    }
+
     /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
