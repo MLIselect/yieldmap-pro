@@ -12,6 +12,7 @@ import math
 import random
 import string
 import time
+import streamlit.components.v1 as components
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
@@ -54,8 +55,10 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS
+# 3. VISUAL UPGRADE: CUSTOM CSS & JS INJECTION
 # ==========================================
+
+# A. CSS OVERRIDES
 st.markdown(
     """
     <style>
@@ -71,72 +74,35 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (The Ultimate Cover-Up) */
-    /* This sits on top of the footer area to physically block it */
+    /* 3. AGGRESSIVE HIDING */
+    header { visibility: hidden !important; }
+    footer { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+    #MainMenu { display: none !important; }
+    
+    [data-testid="stDecoration"] { display: none !important; height: 0px !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    
+    /* Viewer Badge & Fullscreen Hiding */
+    .viewerBadge_container__1QSob { display: none !important; visibility: hidden !important; }
+    button[title="View fullscreen"] { display: none !important; }
+    [data-testid="StyledFullScreenButton"] { display: none !important; }
+
+    /* 4. THE TITAN BAR (Overlay) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
-        width: 100vw; /* Viewport Width - spans entire screen */
-        height: 40px;
-        background-color: #ffffff; /* Matches background */
-        z-index: 9999999; /* Higher than anything Streamlit generates */
-        pointer-events: all; /* Blocks clicks on links underneath */
+        width: 100vw;
+        height: 50px;
+        background-color: #ffffff;
+        z-index: 2147483647; /* Max Z-Index */
+        pointer-events: none;
     }
 
-    /* 4. AGGRESSIVE HIDING */
-    /* Hide the default header */
-    header { visibility: hidden !important; }
-    
-    /* Hide the default footer */
-    footer { 
-        visibility: hidden !important; 
-        display: none !important; 
-        height: 0px !important; 
-    }
-    
-    /* Hide the hamburger menu */
-    #MainMenu { 
-        visibility: hidden !important; 
-        display: none !important; 
-    }
-    
-    /* Hide decoration bar */
-    [data-testid="stDecoration"] { 
-        visibility: hidden !important; 
-        display: none !important; 
-        height: 0px !important; 
-    }
-    
-    /* Hide status widget */
-    [data-testid="stStatusWidget"] { 
-        visibility: hidden !important; 
-        display: none !important; 
-    }
-    
-    /* Hide toolbar (top right) */
-    [data-testid="stToolbar"] { 
-        visibility: hidden !important; 
-        display: none !important; 
-    }
-    
-    /* Hide sidebar completely */
-    [data-testid="stSidebar"] { 
-        display: none !important; 
-    }
-    
-    /* Hide specific footer container */
-    [data-testid="stFooter"] { 
-        display: none !important; 
-    }
-    
-    /* Hide Viewer Badge */
-    .viewerBadge_container__1QSob { display: none !important; }
-    
-    /* Hide Fullscreen Button */
-    button[title="View fullscreen"] { display: none !important; }
-
-    /* 5. THE STICKY HEADER BACKGROUND */
+    /* 5. HEADER STYLING */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -263,7 +229,42 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# NEW: INJECT THE TITAN BAR DIV
+# B. JS MUTATION OBSERVER (THE ACTIVE HUNTER)
+js_cleaner = """
+<script>
+    // This observer actively watches the DOM for new elements and deletes them
+    const observer = new MutationObserver((mutations) => {
+        
+        // 1. Delete Footer
+        const footer = document.querySelector('footer');
+        if(footer) footer.remove();
+
+        // 2. Delete Viewer Badge (Generic Class Search)
+        const badges = document.querySelectorAll('[class*="viewerBadge"]');
+        badges.forEach(el => el.remove());
+
+        // 3. Delete Toolbar
+        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if(toolbar) toolbar.remove();
+
+        // 4. Delete Decoration
+        const decor = document.querySelector('[data-testid="stDecoration"]');
+        if(decor) decor.remove();
+
+        // 5. Delete Fullscreen Buttons
+        const fsBtns = document.querySelectorAll('button[title="View fullscreen"]');
+        fsBtns.forEach(el => el.remove());
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+</script>
+"""
+components.html(js_cleaner, height=0)
+
+# C. TITAN BAR OVERLAY
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
