@@ -15,7 +15,7 @@ import time
 import tempfile
 import matplotlib
 
-# === CRITICAL FIX: Set Backend BEFORE importing pyplot to stop "None" ghosts ===
+# === CRITICAL FIX: Set Backend BEFORE importing pyplot ===
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 
@@ -316,17 +316,18 @@ def get_vacancy_rate(zip_code):
     return 5.0
 
 # ==========================================
-# 6. MATH ENGINES
+# 6. MATH ENGINES (UPDATED FOR SAFETY)
 # ==========================================
 def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
     try:
         loan_amount = price * (1 - (down_payment_pct/100))
         if loan_amount <= 0: return 0
-        if term_years <= 0: return loan_amount 
+        if term_years <= 0: return loan_amount # Avoid division by zero
         
         monthly_rate = (interest_rate / 100) / 12
         num_payments = term_years * 12
         
+        # Handle 0% interest
         if monthly_rate == 0: 
             return loan_amount / num_payments
             
@@ -363,7 +364,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT & SPACING)
+# 7. MULTI-PAGE PDF GENERATOR (ENHANCED & FIXED)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -425,8 +426,7 @@ class ProPDF(FPDF):
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
-        # HARD RESET X to ensure perfect alignment
-        self.set_x(10)
+        self.set_x(10) # FIX: Hard reset X before row
         self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
         self.set_fill_color(240, 249, 255)
@@ -445,20 +445,27 @@ class ProPDF(FPDF):
         self.ln(8)
 
 def generate_chart_image(proj_df):
+    # FIX: Use Object-Oriented Matplotlib to avoid Streamlit Magic "None" print
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-        plt.figure(figsize=(7, 4))
-        plt.style.use('bmh')
-        plt.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
-        plt.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
-        plt.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
-        plt.title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
-        plt.xlabel("Year")
-        plt.ylabel("Value ($)")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.savefig(tmpfile.name, dpi=100)
-        plt.close()
+        fig, ax = plt.subplots(figsize=(7, 4)) # OO Interface
+        
+        # Plotting on 'ax' instead of 'plt'
+        ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
+        ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
+        ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        
+        ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Value ($)")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        fig.tight_layout()
+        fig.savefig(tmpfile.name, dpi=100)
+        
+        # Explicitly close the specific figure object
+        plt.close(fig) 
+        
         return tmpfile.name
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
@@ -512,7 +519,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C')
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -570,7 +577,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
-    # Reduced width (2mm) to prevent wrap
+    # FIX: Reduce width slightly to prevent wrap
     pdf.cell(18, 8, "Year", 1, 0, 'C', True)
     pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
     pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
@@ -603,7 +610,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
                 pdf.set_font('Helvetica', '', 9)
             
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
-            pdf.set_x(10) # Hard reset X
+            pdf.set_x(10) # FIX: Hard reset X
             pdf.cell(18, 8, str(yr), 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
@@ -820,21 +827,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
-def switch_to_login_callback():
-    st.session_state.auth_mode = 'login'
-    # Clear signup keys just in case
-    for key in list(st.session_state.keys()):
-        if key.startswith("signup_"):
-            del st.session_state[key]
-
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+# NEW: SUCCESS DIALOG
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === THE FIX: Use native Streamlit button logic ===
+    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
@@ -857,7 +856,6 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            
                             st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
@@ -1169,7 +1167,54 @@ if page == "Pro Analyzer":
         st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})
 
     st.divider()
+    
+    # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
+    proj = calculate_projections(
+        price,
+        rent_in,
+        exp,
+        debt,
+        down_payment,
+        interest_rate,
+        loan_term_years,
+        rent_growth,
+        appreciation
+    )
+    
+    # Generate PDF bytes here (Cleanly separated from UI)
+    pdf_bytes = generate_pro_report(
+        client_name,
+        prop_address,
+        row,
+        beds,
+        price,
+        rent_in,
+        user_vacancy,
+        0,
+        coc,
+        cf / 12,
+        d_grade,
+        n_grade,
+        down_payment,
+        interest_rate,
+        taxes_yr,
+        insurance_yr,
+        maint,
+        mort,
+        limit,
+        ua_input,
+        maint_capex,
+        prop_mgmt_pct,
+        loan_term_years,
+        initial_repairs,
+        proj,
+        rent_growth,
+        appreciation,
+        closing_costs,
+        mao
+    ).encode('latin-1')
 
+    # --- UI LAYOUT WITH BUTTONS ---
     e1, e2, e3 = st.columns(3)
 
     with e1:
@@ -1191,51 +1236,10 @@ if page == "Pro Analyzer":
                 st.error(f"Error saving: {e}")
 
     with e2:
-        proj = calculate_projections(
-            price,
-            rent_in,
-            exp,
-            debt,
-            down_payment,
-            interest_rate,
-            loan_term_years,
-            rent_growth,
-            appreciation
-        )
-        pdf = generate_pro_report(
-            client_name,
-            prop_address,
-            row,
-            beds,
-            price,
-            rent_in,
-            user_vacancy,
-            0,
-            coc,
-            cf / 12,
-            d_grade,
-            n_grade,
-            down_payment,
-            interest_rate,
-            taxes_yr,
-            insurance_yr,
-            maint,
-            mort,
-            limit,
-            ua_input,
-            maint_capex,
-            prop_mgmt_pct,
-            loan_term_years,
-            initial_repairs,
-            proj,
-            rent_growth,
-            appreciation,
-            closing_costs,
-            mao
-        )
+        # Just the button here, no logic inside to prevent ghost text
         st.download_button(
             "Download Report",
-            data=pdf.encode('latin-1'),
+            data=pdf_bytes,
             file_name="Report.pdf",
             use_container_width=True
         )
