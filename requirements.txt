@@ -10,3 +10,4 @@ captcha
 supabase
 pgeocode
 openpyxl
+matplotlib
