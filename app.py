@@ -72,18 +72,53 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. CSS BACKUP HIDING */
-    header { visibility: hidden !important; }
-    footer { visibility: hidden !important; display: none !important; }
+    /* 3. DOOMSDAY HIDING (ELEMENT DESTRUCTION) */
     
-    /* Hide specific Streamlit IDs */
-    [data-testid="stDecoration"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stHeader"] { display: none !important; }
+    /* Hide the footer container */
+    footer, .stFooter {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0px !important;
+        width: 0px !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        bottom: -9999px !important;
+    }
     
-    /* 4. THE STICKY HEADER BACKGROUND */
+    /* Hide header/menu/toolbar */
+    header, [data-testid="stHeader"], [data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Hide Fullscreen Button (Bottom Right) */
+    [data-testid="StyledFullScreenButton"], button[title="View fullscreen"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+    
+    /* Hide Viewer Badge (If inside iframe) */
+    .viewerBadge_container__1QSob, ._profileContainer_gzau3_53 {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 4. THE "WHITE TAPE" (Visual Cover Up) */
+    /* A white bar fixed to the bottom to cover anything that resists hiding */
+    .white-tape {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        height: 40px;
+        background-color: white;
+        z-index: 999999999; /* Highest priority */
+        pointer-events: none;
+    }
+
+    /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -99,7 +134,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 5. BRANDING */
+    /* 6. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -126,7 +161,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 6. NAVIGATION BAR STYLING */
+    /* 7. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -154,7 +189,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 7. UNIVERSAL BUTTON STYLING */
+    /* 8. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -188,11 +223,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 8. CARDS & CONTAINERS */
+    /* 9. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 9. MOBILE RESPONSIVENESS */
+    /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -209,6 +244,9 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# NEW: INJECT THE WHITE TAPE DIV (PHYSICAL COVER UP)
+st.markdown('<div class="white-tape"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -548,44 +586,37 @@ js_code = """
         // 1. Hide Footer
         var footer = document.querySelector('footer');
         if (footer) { 
-            footer.style.display = 'none'; 
-            footer.style.visibility = 'hidden';
+            footer.remove(); 
         }
         
         // 2. Hide Top Decoration
         var decoration = document.querySelector('[data-testid="stDecoration"]');
         if (decoration) { 
-            decoration.style.display = 'none'; 
-            decoration.style.visibility = 'hidden';
+            decoration.remove(); 
         }
         
         // 3. Hide Toolbar (Top Right)
         var toolbar = document.querySelector('[data-testid="stToolbar"]');
         if (toolbar) { 
-            toolbar.style.display = 'none'; 
-            toolbar.style.visibility = 'hidden';
+            toolbar.remove(); 
         }
 
-        // 4. Hide Viewer Badge (Bottom Right) - WILDCARD MATCH
-        // This finds any element with a class name containing 'viewerBadge'
-        var badges = document.querySelectorAll('[class*="viewerBadge"]');
+        // 4. Hide Viewer Badge (Bottom Right)
+        var badges = document.querySelectorAll('.viewerBadge_container__1QSob');
         badges.forEach(function(badge) {
-            badge.style.display = 'none';
-            badge.style.visibility = 'hidden';
+            badge.remove();
         });
 
-        // 5. Hide Fullscreen Button (Bottom Right) - WILDCARD MATCH
+        // 5. Hide Fullscreen Button (Bottom Right)
         var fsButtons = document.querySelectorAll('button[title="View fullscreen"]');
         fsButtons.forEach(function(btn) {
-            btn.style.display = 'none';
-            btn.style.visibility = 'hidden';
+            btn.remove();
         });
         
         // 6. Backup for Fullscreen Button
         var styledFs = document.querySelectorAll('[data-testid="StyledFullScreenButton"]');
         styledFs.forEach(function(btn) {
-            btn.style.display = 'none';
-            btn.style.visibility = 'hidden';
+            btn.remove();
         });
 
     }, 50); // Run every 50ms
