@@ -14,10 +14,10 @@ import string
 import time
 import tempfile
 import matplotlib
-
-# === CRITICAL FIX: Set Backend BEFORE importing pyplot to stop ghosts ===
+# === CRITICAL FIX: Use Agg backend ===
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure # Importing Figure to bypass pyplot tracking
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -50,7 +50,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT ---
+# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -363,7 +363,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (FIXED LAYOUT)
+# 7. MULTI-PAGE PDF GENERATOR (GHOST TEXT FIX & LAYOUT)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -446,19 +446,25 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
+    # === GHOST TEXT FIX: Using raw Figure() instead of pyplot.subplots() ===
+    # This prevents Streamlit's magic mode from intercepting the chart object and printing "None"
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-        fig, ax = plt.subplots(figsize=(7, 4))
+        fig = Figure(figsize=(7, 4))
+        ax = fig.subplots()
+        
         ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
         ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
         ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        
         ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
         ax.set_xlabel("Year")
         ax.set_ylabel("Value ($)")
         ax.legend()
         ax.grid(True, alpha=0.3)
+        
         fig.tight_layout()
         fig.savefig(tmpfile.name, dpi=100)
-        plt.close(fig) 
+        
         return tmpfile.name
 
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
@@ -466,11 +472,12 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    # PAGE 1
+    # --- PAGE 1: EXECUTIVE SUMMARY ---
     pdf.set_font('Helvetica', 'B', 16)
     pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
     pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
+    
     pdf.set_font('Helvetica', '', 10)
     pdf.set_text_color(80, 80, 80)
     pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
@@ -492,11 +499,13 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
+    
     dscr = "N/A"
     if loan_pmt > 0:
         dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
         dscr = f"{dscr_val:.2f}x"
     pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
+    
     pdf.set_y(y_kpi + 35)
 
     pdf.check_space(30)
@@ -506,7 +515,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C')
     pdf.ln(10)
 
     pdf.check_space(50)
@@ -525,14 +534,17 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
     pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
     pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
+    
     pdf.section_header("Operating Expenses")
     pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
     pdf.add_row("Insurance", f"(${ins/12:,.2f})")
     maint_monthly = maint_cost / 12
     pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
     pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
+    
     noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
     pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
+    
     pdf.check_space(30) 
     pdf.section_header("Debt Service")
     pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
@@ -550,6 +562,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
+    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -614,7 +627,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
-
+    
     return pdf.output(dest='S')
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
@@ -650,7 +663,7 @@ def render_footer():
         <div style="text-align: center; font-size: 12px; color: #64748b;">
             <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
             <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. HUD FMRs are baselines; Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult your local PHA for overrides. Always verify data.</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -794,13 +807,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
+    # === THE FIX: Use native Streamlit button logic ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
