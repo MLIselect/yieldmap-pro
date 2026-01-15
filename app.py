@@ -14,15 +14,16 @@ import string
 import time
 import tempfile
 import matplotlib
+
+# === CRITICAL FIX: Set Backend BEFORE importing pyplot to stop "None" ghosts ===
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
+
 import streamlit.components.v1 as components
 # NEW: Import Captcha
 from captcha.image import ImageCaptcha
 # NEW: Import Supabase Client
 from supabase import create_client, Client
-
-# Set Matplotlib Backend to non-interactive (Crucial for Streamlit)
-matplotlib.use('Agg')
 
 # ==========================================
 # 1. PRO CONFIGURATION
@@ -49,7 +50,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- HELPER: JAVASCRIPT REDIRECT ---
+# --- HELPER: JAVASCRIPT REDIRECT (Only for Email Links) ---
 def js_redirect(url):
     redirect_code = f"""
     <script>
@@ -66,6 +67,8 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         st.query_params.clear()
+        
+        # Redirect to main app URL with embed mode enabled to clean UI
         js_redirect("https://yieldmappro.com/app?embed=true")
         st.stop()
     except Exception as e:
@@ -361,7 +364,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     return pd.DataFrame(data)
 
 # ==========================================
-# 7. MULTI-PAGE PDF GENERATOR (ABSOLUTE POSITIONING FIX)
+# 7. MULTI-PAGE PDF GENERATOR (ENHANCED & FIXED)
 # ==========================================
 class ProPDF(FPDF):
     def header(self):
@@ -407,24 +410,19 @@ class ProPDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
 
     def kpi_box(self, label, value, x, y):
-        # Explicitly drawing boxes using absolute coordinates
         self.set_fill_color(248, 250, 252)
         self.set_draw_color(200, 200, 200)
         self.rect(x, y, 45, 25, 'DF')
-        
-        # Label Position
         self.set_xy(x, y + 5)
         self.set_font('Helvetica', '', 9)
         self.set_text_color(100, 100, 100)
         self.cell(45, 5, label, 0, 0, 'C')
-        
-        # Value Position
         self.set_xy(x, y + 13)
         self.set_font('Helvetica', 'B', 14)
         if "-" in str(value):
-            self.set_text_color(220, 38, 38) # Red for negative
+            self.set_text_color(220, 38, 38)
         else:
-            self.set_text_color(30, 58, 138) # Blue for positive
+            self.set_text_color(30, 58, 138)
         self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
@@ -491,7 +489,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
         pdf.add_insight_box(insight, is_good=True)
 
-    # 2. KPI GRID (ABSOLUTE POSITIONING)
+    # 2. KPI GRID
     y_kpi = pdf.get_y()
     pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
@@ -513,7 +511,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C')
+    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') # Added MAO Here
     pdf.ln(10)
 
     # 4. CAPITAL REQUIREMENTS
@@ -689,6 +687,7 @@ if 'user' not in st.session_state:
 if 'ua_value' not in st.session_state:
     st.session_state.ua_value = 150
 if 'captcha_text' not in st.session_state:
+    # UPDATED CAPTCHA CHARACTERS TO REMOVE AMBIGUITY (No 0, O, I, 1)
     st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
 # NEW: AUTH PAGE STATE HANDLER
 if 'auth_mode' not in st.session_state:
@@ -818,13 +817,13 @@ For questions regarding your data or to request account deletion, please contact
 support@yieldmappro.com
     """)
 
-# NEW: SUCCESS DIALOG
+# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
 @st.dialog("Account Created Successfully")
 def show_success_modal():
     st.write("Your account has been created.")
     st.write("Please check your email to confirm your address.")
     
-    # === REVERTED TO NATIVE STREAMLIT BUTTON ===
+    # === THE FIX: Use native Streamlit button logic ===
     if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
         st.session_state.auth_mode = 'login'
         st.rerun()
@@ -847,7 +846,10 @@ if not st.session_state.user:
                             # FIX: Store the USER object
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
-                            st.rerun()
+                            
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
