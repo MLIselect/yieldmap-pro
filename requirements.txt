@@ -1,11 +1,12 @@
 streamlit
 pandas
 plotly
-fpdf
-openpyxl
-requests
-pgeocode
 folium
 streamlit-folium
+fpdf
+requests
+matplotlib
 captcha
 supabase
+pgeocode
+openpyxl
