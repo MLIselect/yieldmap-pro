@@ -71,19 +71,21 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING */
+    /* 3. AGGRESSIVE HIDING OF STREAMLIT BRANDING (NUCLEAR OPTION) */
     header { visibility: hidden !important; }
+    footer { visibility: hidden !important; display: none !important; }
+    #MainMenu { visibility: hidden !important; display: none !important; }
+    
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
     
-    /* HIDE FOOTER & VIEWER BADGE COMPLETELY */
-    footer { display: none !important; }
-    #MainMenu { display: none !important; }
-    [data-testid="stFooter"] { display: none !important; }
+    /* Target the specific "Viewer Badge" in bottom right */
     .viewerBadge_container__1QSob { display: none !important; }
     ._profileContainer_gzau3_53 { display: none !important; }
-
+    
     /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
@@ -693,14 +695,11 @@ support@yieldmappro.com
     """)
 
 # NEW: SUCCESS DIALOG
-@st.dialog("Account Created! 📧")
+@st.dialog("Account Created Successfully")
 def show_success_modal():
-    st.success("Registration successful.")
-    st.markdown("**Action Required:** Please check your email inbox to verify your email address.")
-    st.caption("You will not be able to log in until you click the link in that email.")
-    
+    st.write("Your account has been created.")
+    st.write("Please check your email to confirm your address.")
     if st.button("OK, Go to Login"):
-        # Explicitly switch state AND rerun
         st.session_state.auth_mode = 'login'
         st.rerun()
 
@@ -812,7 +811,6 @@ page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], hor
 if page == "Pro Analyzer":
     # === WELCOME HEADER ===
     try:
-        # Now this will work because st.session_state.user is the User object
         user_name = st.session_state.user.user_metadata.get('first_name', '')
         if not user_name:
             user_name = "Investor"
