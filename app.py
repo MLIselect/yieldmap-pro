@@ -255,7 +255,7 @@ st.markdown(
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. REFERENCE DATA (STATE MAP)
+# 4. REFERENCE DATA
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
@@ -477,28 +477,28 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # FIX: Pure OO Matplotlib - No pyplot means no Streamlit ghosts
+    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib & Explicit Assignment ===
+    # Using dummy variable '_' to catch return values prevents Streamlit from printing them
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        canvas = FigureCanvasAgg(fig)
+        _ = FigureCanvasAgg(fig) 
         ax = fig.add_subplot(111)
         
-        ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
-        ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
-        ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
+        _ = ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
+        _ = ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
         
-        ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Value ($)")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        _ = ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
+        _ = ax.set_xlabel("Year")
+        _ = ax.set_ylabel("Value ($)")
+        _ = ax.legend()
+        _ = ax.grid(True, alpha=0.3)
         
-        fig.tight_layout()
-        fig.savefig(tmpfile.name, dpi=100)
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
         
         return tmpfile.name
 
-# NameError Fix: Rename function definition to match caller
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
@@ -588,6 +588,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
+    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -598,6 +599,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
+    
     snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
     cumulative_cf = 0
     for index, r in projections_df.iterrows():
@@ -623,6 +625,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
+
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
@@ -642,6 +645,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
     pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
+    
     pdf.ln(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
@@ -649,6 +653,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
+
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
@@ -827,7 +832,9 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            st.rerun()
+                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                            js_redirect("https://yieldmappro.com/app?embed=true")
+                            
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
@@ -1139,55 +1146,53 @@ if page == "Pro Analyzer":
 
     st.divider()
     
-    # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
-    # Wrap in spinner to hide processing visual delay
+    # --- MOVED CALCULATION LOGIC & STD OUT SUPPRESSION TO FIX GHOST TEXT ---
     with st.spinner("Processing..."):
-        # Use suppress_stdout context to capture any rouge prints from libraries
-        with suppress_stdout():
-            proj = calculate_projections(
-                price,
-                rent_in,
-                exp,
-                debt,
-                down_payment,
-                interest_rate,
-                loan_term_years,
-                rent_growth,
-                appreciation
-            )
-            
-            # Generate PDF bytes here (Cleanly separated from UI)
-            pdf_bytes = generate_pro_report(
-                client_name,
-                prop_address,
-                row,
-                beds,
-                price,
-                rent_in,
-                user_vacancy,
-                0,
-                coc,
-                cf / 12,
-                d_grade,
-                n_grade,
-                down_payment,
-                interest_rate,
-                taxes_yr,
-                insurance_yr,
-                maint,
-                mort,
-                limit,
-                ua_input,
-                maint_capex,
-                prop_mgmt_pct,
-                loan_term_years,
-                initial_repairs,
-                proj,
-                rent_growth,
-                appreciation,
-                closing_costs,
-                mao
-            )
+        # Explicit assignment to prevent ghost text
+        proj = calculate_projections(
+            price,
+            rent_in,
+            exp,
+            debt,
+            down_payment,
+            interest_rate,
+            loan_term_years,
+            rent_growth,
+            appreciation
+        )
+        
+        # Generate PDF bytes here (Cleanly separated from UI)
+        pdf_bytes = generate_pro_report(
+            client_name,
+            prop_address,
+            row,
+            beds,
+            price,
+            rent_in,
+            user_vacancy,
+            0,
+            coc,
+            cf / 12,
+            d_grade,
+            n_grade,
+            down_payment,
+            interest_rate,
+            taxes_yr,
+            insurance_yr,
+            maint,
+            mort,
+            limit,
+            ua_input,
+            maint_capex,
+            prop_mgmt_pct,
+            loan_term_years,
+            initial_repairs,
+            proj,
+            rent_growth,
+            appreciation,
+            closing_costs,
+            mao
+        )
 
     # --- UI LAYOUT WITH BUTTONS ---
     e1, e2, e3 = st.columns(3)
