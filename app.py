@@ -324,9 +324,13 @@ def calculate_mortgage(price, down_payment_pct, interest_rate, term_years=30):
         loan_amount = price * (1 - (down_payment_pct/100))
         if loan_amount <= 0: return 0
         if term_years <= 0: return loan_amount 
+        
         monthly_rate = (interest_rate / 100) / 12
         num_payments = term_years * 12
-        if monthly_rate == 0: return loan_amount / num_payments
+        
+        if monthly_rate == 0: 
+            return loan_amount / num_payments
+            
         return loan_amount * (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
     except: return 0
 
@@ -471,10 +475,7 @@ class ProPDF(FPDF):
         self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
         self.set_font('Helvetica', 'B', 10)
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
-        
-        # === FIX: Box height adjusted to 20mm if text wraps ===
         box_height = 20 if text_width > 180 else 15
-        
         self.rect(10, self.get_y(), 190, box_height, 'DF')
         self.set_xy(12, self.get_y()+4)
         self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
@@ -482,7 +483,6 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -1001,7 +1001,7 @@ if page == "Pro Analyzer":
                     [loc.latitude, loc.longitude],
                     icon=folium.Icon(color="blue", icon="home", prefix='fa')
                 ).add_to(m)
-                st_folium(m, height=350, use_container_width=True)
+                _ = st_folium(m, height=350, use_container_width=True)  # Suppress return with _
     except:
         pass
 
@@ -1125,8 +1125,7 @@ if page == "Pro Analyzer":
     st.divider()
     g1, g2 = st.columns(2)
     with g1:
-        st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True, config={'staticPlot': True})
-
+        _ = st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True, config={'staticPlot': True})  # Suppress with _
     with g2:
         years = list(range(1, 6))
         equity_vals = []
@@ -1145,8 +1144,8 @@ if page == "Pro Analyzer":
             margin=dict(l=20, r=20, t=10, b=10),
             paper_bgcolor="rgba(0,0,0,0)"
         )
-        st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})
-
+        _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
+    
     st.divider()
     
     # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
@@ -1316,11 +1315,11 @@ elif page == "My Portfolio":
         with c1:
             fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
             fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
-            st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})
+            _ = st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})  # Suppress with _ (for portfolio charts too)
         with c2:
             fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
             fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
-            st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})
+            _ = st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})  # Suppress with _
 
 elif page == "IQ Center":
     # ==========================================
