@@ -1,6 +1,7 @@
 # === CRITICAL: Set Matplotlib Backend FIRST ===
 import matplotlib
 matplotlib.use('Agg') 
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
@@ -470,7 +471,10 @@ class ProPDF(FPDF):
         self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
         self.set_font('Helvetica', 'B', 10)
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
+        
+        # === FIX: Box height tripled to ensure text fit ===
         box_height = 20 if text_width > 180 else 15
+        
         self.rect(10, self.get_y(), 190, box_height, 'DF')
         self.set_xy(12, self.get_y()+4)
         self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
@@ -478,7 +482,7 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
+    # === GHOST TEXT FIX: Explicit Assignment to _ for all Matplotlib calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -537,7 +541,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
     _ = pdf.set_y(y_kpi + 35)
 
-    # === CRITICAL ASSIGNMENTS ===
     _ = pdf.check_space(30)
     _ = pdf.chapter_title("Scorecard & Strategy")
     _ = pdf.set_font('Helvetica', '', 10)
