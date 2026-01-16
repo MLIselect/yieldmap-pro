@@ -480,7 +480,7 @@ def generate_chart_image(proj_df):
     # === GHOST TEXT FIX: Explicit Assignment to _ for all Matplotlib calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        _ = FigureCanvasAgg(fig)
+        _ = FigureCanvasAgg(fig) 
         ax = fig.add_subplot(111)
         
         _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
@@ -498,7 +498,7 @@ def generate_chart_image(proj_df):
         
         return tmpfile.name
 
-# REMOVED CACHE DECORATOR TO PREVENT NONE RETURN ISSUES
+# NameError Fix: Rename function definition to match caller
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
@@ -588,6 +588,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
+    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -623,6 +624,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
+
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
@@ -827,9 +829,7 @@ if not st.session_state.user:
                             response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                             st.session_state.user = response.user 
                             
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Login failed: {e}")
                 
