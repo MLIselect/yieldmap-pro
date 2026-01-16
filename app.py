@@ -477,11 +477,10 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib & Explicit Assignment ===
-    # Using dummy variable '_' to catch return values prevents Streamlit from printing them
+    # === GHOST TEXT FIX: Explicit Assignment to _ for all Matplotlib calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        _ = FigureCanvasAgg(fig) 
+        _ = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
         
         _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
@@ -499,6 +498,7 @@ def generate_chart_image(proj_df):
         
         return tmpfile.name
 
+# REMOVED CACHE DECORATOR TO PREVENT NONE RETURN ISSUES
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
     pdf.alias_nb_pages()
@@ -588,7 +588,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     pdf.ln(95)
     os.remove(chart_path)
-    
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 9)
@@ -599,7 +598,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Helvetica', '', 9)
-    
     snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
     cumulative_cf = 0
     for index, r in projections_df.iterrows():
@@ -625,7 +623,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
-
     pdf.ln(10)
     pdf.check_space(50)
     pdf.chapter_title("Sensitivity Analysis (What-If)")
@@ -645,7 +642,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
     pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
-    
     pdf.ln(10)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
@@ -653,7 +649,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
     pdf.set_text_color(220, 38, 38)
     pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
-
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
