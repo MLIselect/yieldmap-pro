@@ -22,7 +22,6 @@ import time
 import tempfile
 import sys
 import numpy as np
-import numpy_financial as npf # Required for IRR
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -388,13 +387,39 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
     return pd.DataFrame(data)
 
+# --- REPLACED NUMPY_FINANCIAL WITH MANUAL IRR FUNCTION ---
 def calculate_irr(initial_investment, cash_flows):
+    """
+    Calculates Internal Rate of Return (IRR) using Newton-Raphson approximation.
+    Replaces numpy_financial.irr
+    """
+    # Create the full cash flow list: [-Investment, Year1, Year2, ... Year30]
+    values = [-initial_investment] + cash_flows
+    
+    # Check if we have valid inputs
+    if not values: return 0.0
+
+    # Newton-Raphson method
     try:
-        # Initial investment is negative cash flow at Year 0
-        flows = [-initial_investment] + cash_flows
-        return npf.irr(flows) * 100
+        guess = 0.1 # Initial guess 10%
+        for _ in range(100): # Max 100 iterations
+            npv = 0
+            d_npv = 0
+            for t, val in enumerate(values):
+                npv += val / ((1 + guess) ** t)
+                d_npv -= t * val / ((1 + guess) ** (t + 1))
+            
+            if d_npv == 0:
+                return 0 # Avoid division by zero
+            
+            new_guess = guess - npv / d_npv
+            if abs(new_guess - guess) < 1e-6: # Convergence
+                return new_guess * 100
+            guess = new_guess
+            
+        return guess * 100 # Return best guess if max iterations reached
     except:
-        return 0.0
+        return 0.0 # Fail safe
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
@@ -555,7 +580,7 @@ class ProPDF(FPDF):
         _ = self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
+    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
