@@ -21,7 +21,6 @@ import string
 import time
 import tempfile
 import sys
-import numpy as np
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -428,19 +427,44 @@ def render_footer():
 
 # --- PDF GENERATOR CLASS ---
 class ProPDF(FPDF):
+    def __init__(self, user_logo=None):
+        super().__init__()
+        self.user_logo = user_logo
+
     def header(self):
-        _ = self.set_fill_color(30, 58, 138)
-        _ = self.rect(0, 0, 210, 30, 'F')
-        _ = self.set_font('Helvetica', 'B', 24)
-        _ = self.set_text_color(255, 255, 255)
-        _ = self.set_xy(10, 8)
-        _ = self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
+        # LOGO LOGIC (White Label)
+        if self.user_logo:
+            # We must use a temp file because FPDF loads from path
+            try:
+                # Assuming user_logo is a file-like object from Streamlit or a path
+                # If it's the temp path string passed from main function:
+                _ = self.image(self.user_logo, 10, 8, 30) # Custom Logo
+            except:
+                pass # Fallback if image fails
+        else:
+            # Default YieldMap Header
+            _ = self.set_fill_color(30, 58, 138)
+            _ = self.rect(0, 0, 210, 30, 'F')
+            _ = self.set_font('Helvetica', 'B', 24)
+            _ = self.set_text_color(255, 255, 255)
+            _ = self.set_xy(10, 8)
+            _ = self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
+
         _ = self.set_font('Helvetica', '', 12)
-        _ = self.set_text_color(147, 197, 253)
+        if self.user_logo:
+             _ = self.set_text_color(100, 100, 100) # Darker text if white bg
+        else:
+             _ = self.set_text_color(147, 197, 253) # Lighter text if blue bg
+             
         _ = self.set_xy(10, 18)
         _ = self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
         _ = self.set_font('Helvetica', 'B', 10)
-        _ = self.set_text_color(255, 255, 255)
+        
+        if self.user_logo:
+             _ = self.set_text_color(50, 50, 50)
+        else:
+             _ = self.set_text_color(255, 255, 255)
+             
         _ = self.set_xy(160, 10)
         _ = self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
         _ = self.ln(25)
@@ -581,8 +605,9 @@ def generate_sensitivity_chart(base_cf, rent_up, rent_down, rate_up):
 
 # === CRITICAL FIX: CACHE THE PDF GENERATION TO ISOLATE IT ===
 @st.cache_data(show_spinner=False)
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes):
-    pdf = ProPDF()
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, logo_path=None):
+    # Pass logo path to class
+    pdf = ProPDF(user_logo=logo_path)
     _ = pdf.alias_nb_pages()
     _ = pdf.add_page()
     
@@ -777,9 +802,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
     
     _ = pdf.ln(5)
+    # INCREASED BUFFER HERE TO 85mm
     sens_path = generate_sensitivity_chart(cf_base, cf_rent_up, cf_rent_down, cf_rate_up)
     _ = pdf.image(sens_path, x=10, y=pdf.get_y(), w=190)
-    _ = pdf.ln(70)
+    _ = pdf.ln(85) 
     _ = os.remove(sens_path)
     
     _ = pdf.ln(10)
@@ -790,6 +816,26 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.set_text_color(220, 38, 38)
     _ = pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
     
+    # === NEW: LEGAL DISCLAIMER ===
+    _ = pdf.ln(10)
+    _ = pdf.set_draw_color(100, 100, 100)
+    _ = pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    _ = pdf.ln(2)
+    _ = pdf.set_font('Helvetica', 'B', 8)
+    _ = pdf.set_text_color(80, 80, 80)
+    _ = pdf.cell(0, 5, "LEGAL & FINANCIAL DISCLAIMER", 0, 1, 'C')
+    _ = pdf.set_font('Helvetica', '', 7)
+    _ = pdf.set_text_color(100, 100, 100)
+    disclaimer_text = (
+        "This report is for educational and informational purposes only. "
+        "YieldMap Pro is an analytical tool and does not constitute financial, legal, tax, or real estate investment advice. "
+        "All calculations, projections, and grades are estimates based on user inputs and historical data. "
+        "Actual results will vary. You should conduct your own independent due diligence and consult with qualified "
+        "professionals (CPA, Attorney, Financial Advisor) before making any investment decisions. "
+        "YieldMap Pro is not responsible for any financial losses or damages resulting from the use of this report."
+    )
+    _ = pdf.multi_cell(0, 4, disclaimer_text, 0, 'C')
+
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
@@ -1083,6 +1129,16 @@ if page == "Pro Analyzer":
         
         # New: Report Notes Field
         report_notes = st.text_area("Report Notes (Optional)", placeholder="Add custom notes for the PDF cover page...", height=68)
+        
+        # New: Logo Upload (White Label)
+        logo_file = st.file_uploader("Upload Your Logo (Optional)", type=['png', 'jpg', 'jpeg'], help="Customize the PDF report with your branding.")
+        
+        # Handle logo temp file
+        logo_path = None
+        if logo_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(logo_file.name)[1]) as tmp:
+                tmp.write(logo_file.getbuffer())
+                logo_path = tmp.name
 
         col_input1, col_input2, col_input3 = st.columns(3)
 
@@ -1235,29 +1291,14 @@ if page == "Pro Analyzer":
     break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
     
     # 1.20x DSCR Price Calculation
-    # Target NOI for 1.20x = Debt * 1.20
-    # BUT debt depends on price. So we reverse engineer.
-    # DSCR = NOI / Debt
-    # Debt = Loan * (rate_factor)
-    # Loan = Price * LTV
-    # So Debt = Price * LTV * RateFactor
-    # NOI / (Price * LTV * RateFactor) = 1.2
-    # Price = NOI / (1.2 * LTV * RateFactor)
     monthly_rate = (interest_rate / 100) / 12
     num_payments = loan_term_years * 12
     if monthly_rate > 0:
         mortgage_constant = (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
         annual_debt_constant = mortgage_constant * 12
         ltv = 1 - (down_payment/100)
-        
-        # Max Debt Service Allowed for NOI
-        # We assume NOI stays roughly same (ignoring tax adjustment for price for simplicity in this quick calc)
         target_max_debt = noi / 1.20 
-        
-        # Target Loan Amount
         target_loan = target_max_debt / annual_debt_constant
-        
-        # Target Price
         price_120_dscr = target_loan / ltv
     else:
         price_120_dscr = 0
@@ -1382,7 +1423,8 @@ if page == "Pro Analyzer":
             mao,
             break_even_occupancy,
             price_120_dscr,
-            report_notes
+            report_notes,
+            logo_path
         )
 
     # --- UI LAYOUT WITH BUTTONS ---
