@@ -391,7 +391,7 @@ def render_footer():
         <div style="text-align: center; font-size: 12px; color: #64748b;">
             <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
             <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
-            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
+            <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. HUD FMRs are baselines; Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult your local PHA for overrides. Always verify data.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -482,7 +482,7 @@ class ProPDF(FPDF):
         self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
+    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -523,23 +523,23 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
-        pdf.add_insight_box(insight, is_good=False)
+        _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
         insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:.0f}/mo in passive income."
-        pdf.add_insight_box(insight, is_good=True)
+        _ = pdf.add_insight_box(insight, is_good=True)
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
-        pdf.add_insight_box(insight, is_good=True)
+        _ = pdf.add_insight_box(insight, is_good=True)
 
     y_kpi = pdf.get_y() + 5
-    pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
-    pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
+    _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
+    _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     dscr = "N/A"
     if loan_pmt > 0:
         dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
         dscr = f"{dscr_val:.2f}x"
-    pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
+    _ = pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
     _ = pdf.set_y(y_kpi + 35)
 
     _ = pdf.check_space(30)
@@ -1149,7 +1149,7 @@ if page == "Pro Analyzer":
     
     st.divider()
     
-    # --- UI LAYOUT WITH BUTTONS ---
+    # --- MOVED CALCULATION LOGIC INSIDE COLUMN & ASSIGNED EVERY RETURN VALUE ---
     e1, e2, e3 = st.columns(3)
 
     with e1:
@@ -1170,7 +1170,6 @@ if page == "Pro Analyzer":
             except Exception as e:
                 st.error(f"Error saving: {e}")
                 
-    # --- MOVED LOGIC INSIDE COLUMN & ASSIGNED EVERY RETURN VALUE ---
     with e2:
         # Calculate projection DF first
         proj = calculate_projections(
