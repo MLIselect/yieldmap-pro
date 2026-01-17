@@ -257,7 +257,7 @@ st.markdown(
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. REFERENCE DATA (STATE MAP)
+# 4. REFERENCE DATA
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
@@ -1193,7 +1193,7 @@ if page == "Pro Analyzer":
                     [loc.latitude, loc.longitude],
                     icon=folium.Icon(color="blue", icon="home", prefix='fa')
                 ).add_to(m)
-                _ = st_folium(m, height=350, use_container_width=True)  # Suppress return with _
+                _ = st_folium(m, height=350, use_container_width=True, returned_objects=[])  # Suppress return with _ and empty list
     except:
         pass
 
@@ -1370,7 +1370,7 @@ if page == "Pro Analyzer":
     expense_values = [taxes_yr/12, insurance_yr/12, maint/12, pm/12, vac_loss/12] # all monthly
     fig_pie = go.Figure(data=[go.Pie(labels=expense_labels, values=expense_values, hole=.4)])
     fig_pie.update_layout(title_text="Monthly Expense Breakdown", height=350, margin=dict(l=20, r=20, t=40, b=20))
-    _ = st.plotly_chart(fig_pie, use_container_width=True)
+    _ = st.plotly_chart(fig_pie, use_container_width=True, config={'staticPlot': True}) # Static plot for pie chart
 
     st.divider()
     
