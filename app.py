@@ -468,7 +468,8 @@ def render_footer():
 # --- EXCEL GENERATOR FUNCTION ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
-    # Create the filename safely here (optional, used outside)
+    
+    # Create filename for display/logic (optional inside function)
     safe_address = address.split(',')[0].strip() if address else "Property"
     
     # Use default engine (openpyxl usually) to avoid xlsxwriter dependency
@@ -486,7 +487,7 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
             ],
             "Value": [
                 address, market, unit, client,
-                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.0f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
+                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.2f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
                 metrics_dict['n_grade'], metrics_dict['d_grade'], f"${metrics_dict['mao']:,.0f}",
                 f"${metrics_dict['down_amt']:,.0f}", f"${metrics_dict['closing_amt']:,.0f}", f"${metrics_dict['repairs']:,.0f}", f"${metrics_dict['total_cash']:,.0f}",
                 f"{metrics_dict['breakeven']:.1f}%", f"${metrics_dict['dscr_price']:,.0f}", f"{metrics_dict['irr']:.2f}%",
@@ -503,12 +504,7 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         }
         pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
         
-        # 2. PRO FORMA SHEET (FORMULAS)
-        # Note: We can't easily write formulas with default engine without xlsxwriter, 
-        # so we export values. Advanced users can add formulas in Excel.
-        # However, to be helpful, we will include a column explaining the math.
-        
-        # Ensure 'Rent' key matches input dict case (Title Case in main)
+        # 2. PRO FORMA SHEET
         rent_val = inputs_dict.get('Rent', 0)
         
         pro_forma_data = {
@@ -529,7 +525,6 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         pd.DataFrame(pro_forma_data).to_excel(writer, sheet_name='Pro Forma', index=False)
         
         # 3. PROJECTIONS SHEET (FULL 30 YEARS)
-        # Reorder columns for logical flow
         proj_export = projections_df[['Year', 'Cash Flow', 'Cumulative CF', 'Loan Balance', 'Total Equity', 'Total Wealth Created']]
         proj_export.to_excel(writer, sheet_name='Projections', index=False)
         
@@ -541,7 +536,6 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         pd.DataFrame(sens_data).to_excel(writer, sheet_name='Sensitivity', index=False)
         
         # 5. INPUTS SHEET (AUDIT TRAIL)
-        # Add units to keys for clarity
         clean_inputs = {
             "Price ($)": inputs_dict['Price'],
             "Rent ($)": inputs_dict['Rent'],
@@ -836,6 +830,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
+    # Fixed variable name here (int_rate -> interest_rate)
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
@@ -1555,6 +1550,13 @@ def main():
             _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
         
         st.divider()
+        
+        # OER and Break-Even Preview in App
+        o1, o2 = st.columns(2)
+        o1.metric("Op Expense Ratio (OER)", f"{oer:.1f}%", help="Operating Expenses / Effective Gross Income")
+        o2.metric("Break-Even Occupancy", f"{break_even_occupancy:.1f}%", help="Occupancy % needed to cover all expenses and debt")
+
+        st.divider()
 
         # Create Pie Chart (Donut) - STATIC (staticPlot=True)
         expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
@@ -1587,11 +1589,11 @@ def main():
 
             # Generate Excel Data
             inputs_dict = {
-                "Price": price, "Rent": rent_in, "Vacancy": user_vacancy, "Down Payment": down_payment,
-                "Interest Rate": interest_rate, "Term": loan_term_years, "Repairs": initial_repairs,
-                "Appreciation": appreciation, "Rent Growth": rent_growth, "Taxes": taxes_yr,
-                "Insurance": insurance_yr, "Maintenance": maint_capex, "Mgmt": prop_mgmt_pct,
-                "Closing Costs": closing_costs
+                "Price ($)": price, "Rent ($)": rent_in, "Vacancy (%)": user_vacancy, "Down Payment (%)": down_payment,
+                "Interest Rate (%)": interest_rate, "Term (Yrs)": loan_term_years, "Repairs ($)": initial_repairs,
+                "Appreciation (%)": appreciation, "Rent Growth (%)": rent_growth, "Taxes ($/yr)": taxes_yr,
+                "Insurance ($/yr)": insurance_yr, "Maintenance (%)": maint_capex, "Mgmt (%)": prop_mgmt_pct,
+                "Closing Costs (%)": closing_costs
             }
             metrics_dict = {
                 "coc": coc, "cf": cf/12, "cap": cap_rate, "oer": oer, "n_grade": n_grade,
@@ -1647,7 +1649,10 @@ def main():
                         "grade": d_grade
                     }
                     supabase.table("portfolios").insert(deal_data).execute()
-                    st.success("Saved to Portfolio!")
+                    
+                    # Set success message
+                    st.success("Deal Saved to Portfolio! You can now download the files below.")
+                    
                 except Exception as e:
                     st.error(f"Error saving: {e}")
 
@@ -1655,7 +1660,7 @@ def main():
             st.download_button(
                 "Download Report (PDF)",
                 data=pdf_bytes,
-                file_name=f"Report_{selected_zip}.pdf",
+                file_name=f"YieldMap_{prop_address}_{datetime.now().date()}.pdf",
                 mime="application/pdf",
                 use_container_width=True
             )
@@ -1664,7 +1669,7 @@ def main():
             st.download_button(
                 "Export Data (Excel)",
                 data=excel_bytes,
-                file_name=f"Data_{selected_zip}.xlsx",
+                file_name=f"YieldMap_{prop_address}_{datetime.now().date()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
