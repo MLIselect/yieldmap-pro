@@ -22,7 +22,8 @@ import time
 import tempfile
 import sys
 import numpy as np
-# REMOVED numpy_financial import to prevent crash
+# REMOVED numpy_financial to use custom function instead
+import io # Required for Excel buffer
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -461,6 +462,74 @@ def render_footer():
         unsafe_allow_html=True
     )
 
+# --- EXCEL GENERATOR FUNCTION ---
+def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        
+        # Styles
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1e3a8a', 'font_color': '#ffffff', 'border': 1})
+        money_fmt = workbook.add_format({'num_format': '$#,##0'})
+        pct_fmt = workbook.add_format({'num_format': '0.0%'})
+        
+        # 1. SUMMARY SHEET
+        summary_data = {
+            "Metric": [
+                "Property Address", "Market Area", "Unit Type", "Prepared For", 
+                "Cash-on-Cash Return", "Monthly Cash Flow", "Cap Rate", "Op Expense Ratio",
+                "Neighborhood Rating", "Deal Performance", "Max Allowable Offer",
+                "Down Payment", "Closing Costs", "Repairs", "Total Cash Required", "Break-Even Occupancy", "1.20x DSCR Price", "IRR (30yr)"
+            ],
+            "Value": [
+                address, market, unit, client,
+                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.0f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
+                metrics_dict['n_grade'], metrics_dict['d_grade'], f"${metrics_dict['mao']:,.0f}",
+                f"${metrics_dict['down_amt']:,.0f}", f"${metrics_dict['closing_amt']:,.0f}", f"${metrics_dict['repairs']:,.0f}", f"${metrics_dict['total_cash']:,.0f}",
+                f"{metrics_dict['breakeven']:.1f}%", f"${metrics_dict['dscr_price']:,.0f}", f"{metrics_dict['irr']:.2f}%"
+            ]
+        }
+        pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
+        
+        # 2. PRO FORMA SHEET
+        pro_forma_data = {
+            "Category": ["Gross Market Rent", "Vacancy Loss", "Effective Gross Income", 
+                         "Property Taxes", "Insurance", "Maintenance", "Property Mgmt", 
+                         "Net Operating Income (NOI)", "Mortgage Payment", "Net Cash Flow"],
+            "Monthly": [
+                inputs_dict['rent'], -expenses_dict['Vacancy'], inputs_dict['rent'] - expenses_dict['Vacancy'],
+                -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
+                metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
+            ],
+            "Annual": [
+                inputs_dict['rent']*12, -expenses_dict['Vacancy']*12, (inputs_dict['rent'] - expenses_dict['Vacancy'])*12,
+                -expenses_dict['Taxes']*12, -expenses_dict['Insurance']*12, -expenses_dict['Maintenance']*12, -expenses_dict['Mgmt']*12,
+                metrics_dict['noi']*12, -metrics_dict['mort']*12, metrics_dict['cf']*12
+            ]
+        }
+        pd.DataFrame(pro_forma_data).to_excel(writer, sheet_name='Pro Forma', index=False)
+        
+        # 3. PROJECTIONS SHEET
+        projections_df.to_excel(writer, sheet_name='Projections', index=False)
+        
+        # 4. SENSITIVITY SHEET
+        sens_data = {
+            "Scenario": ["Base Case", "Rent +10%", "Rent -10%", "Interest Rate -1%"],
+            "Monthly Cash Flow": [sensitivities['base'], sensitivities['rent_up'], sensitivities['rent_down'], sensitivities['rate_down']]
+        }
+        pd.DataFrame(sens_data).to_excel(writer, sheet_name='Sensitivity', index=False)
+        
+        # 5. INPUTS SHEET
+        inputs_data = {"Parameter": list(inputs_dict.keys()), "Value": list(inputs_dict.values())}
+        pd.DataFrame(inputs_data).to_excel(writer, sheet_name='Inputs', index=False)
+        
+        # Formatting Columns
+        for sheet in writer.sheets:
+            writer.sheets[sheet].set_column('A:A', 30)
+            writer.sheets[sheet].set_column('B:C', 20)
+
+    return output.getvalue()
+
 # --- PDF GENERATOR CLASS ---
 class ProPDF(FPDF):
     def __init__(self, user_logo=None):
@@ -722,6 +791,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
+    # Fixed variable name here (int_rate -> interest_rate)
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
@@ -734,7 +804,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(255, 255, 255) 
+        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
@@ -1441,6 +1511,13 @@ def main():
             _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
         
         st.divider()
+        
+        # OER and Break-Even Preview in App
+        o1, o2 = st.columns(2)
+        o1.metric("Op Expense Ratio (OER)", f"{oer:.1f}%", help="Operating Expenses / Effective Gross Income")
+        o2.metric("Break-Even Occupancy", f"{break_even_occupancy:.1f}%", help="Occupancy % needed to cover all expenses and debt")
+
+        st.divider()
 
         # Create Pie Chart (Donut) - INTERACTIVE (No staticPlot=True)
         expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
@@ -1471,43 +1548,49 @@ def main():
             # CALCULATE IRR
             irr_val = calculate_irr(invest, proj['Cash Flow'].tolist())
 
-            # Generate PDF bytes here (Cleanly separated from UI)
+            # Generate Excel Data
+            inputs_dict = {
+                "Price": price, "Rent": rent_in, "Vacancy": user_vacancy, "Down Payment": down_payment,
+                "Interest Rate": interest_rate, "Term": loan_term_years, "Repairs": initial_repairs,
+                "Appreciation": appreciation, "Rent Growth": rent_growth, "Taxes": taxes_yr,
+                "Insurance": insurance_yr, "Maintenance": maint_capex, "Mgmt": prop_mgmt_pct,
+                "Closing Costs": closing_costs
+            }
+            metrics_dict = {
+                "coc": coc, "cf": cf/12, "cap": cap_rate, "oer": oer, "n_grade": n_grade,
+                "d_grade": d_grade, "mao": mao, "down_amt": price*down_payment/100,
+                "closing_amt": price*closing_costs/100, "repairs": initial_repairs, "total_cash": invest,
+                "breakeven": break_even_occupancy, "dscr_price": price_120_dscr, "irr": irr_val,
+                "noi": noi/12, "mort": debt/12
+            }
+            expenses_dict = {
+                "Vacancy": vac_loss/12, "Taxes": taxes_yr/12, "Insurance": insurance_yr/12,
+                "Maintenance": maint/12, "Mgmt": pm/12
+            }
+            # Sensitivity Data for Excel
+            def fast_cf_excel(r, i):
+                m = calculate_mortgage(price, down_payment, i, loan_term_years)
+                e = (taxes_yr/12) + (insurance_yr/12) + (r * (maint_capex/100)) + (r * (prop_mgmt_pct/100)) + (r * (user_vacancy/100))
+                return (r - e - m)
+            sensitivities = {
+                "base": cf/12,
+                "rent_up": fast_cf_excel(rent_in*1.1, interest_rate),
+                "rent_down": fast_cf_excel(rent_in*0.9, interest_rate),
+                "rate_down": fast_cf_excel(rent_in, interest_rate-1)
+            }
+            
+            # Generate Files
             pdf_bytes = generate_pro_report(
-                client_name,
-                prop_address,
-                row,
-                beds,
-                price,
-                rent_in,
-                user_vacancy,
-                cap_rate,
-                coc,
-                cf / 12,
-                d_grade,
-                n_grade,
-                down_payment,
-                interest_rate,
-                taxes_yr,
-                insurance_yr,
-                maint,
-                mort,
-                limit,
-                ua_input,
-                maint_capex,
-                prop_mgmt_pct,
-                loan_term_years,
-                initial_repairs,
-                proj,
-                rent_growth,
-                appreciation,
-                closing_costs,
-                mao,
-                break_even_occupancy,
-                price_120_dscr,
-                report_notes,
-                oer,
-                irr_val,
-                logo_path
+                client_name, prop_address, row, beds, price, rent_in, user_vacancy, cap_rate, coc, 
+                cf / 12, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, 
+                maint, mort, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, 
+                initial_repairs, proj, rent_growth, appreciation, closing_costs, mao, 
+                break_even_occupancy, price_120_dscr, report_notes, oer, irr_val, logo_path
+            )
+            
+            excel_bytes = generate_excel(
+                prop_address, market_area_name, beds, client_name, 
+                metrics_dict, inputs_dict, proj, expenses_dict, sensitivities
             )
 
         # --- UI LAYOUT WITH BUTTONS ---
@@ -1533,17 +1616,19 @@ def main():
 
         with e2:
             st.download_button(
-                "Download Report",
+                "Download Report (PDF)",
                 data=pdf_bytes,
-                file_name="Report.pdf",
+                file_name=f"Report_{selected_zip}.pdf",
+                mime="application/pdf",
                 use_container_width=True
             )
 
         with e3:
             st.download_button(
-                "Export Data",
-                data=row.to_frame().T.to_csv().encode('utf-8'),
-                file_name=f"Data_{selected_zip}.csv",
+                "Export Data (Excel)",
+                data=excel_bytes,
+                file_name=f"Data_{selected_zip}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
