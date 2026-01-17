@@ -555,7 +555,7 @@ class ProPDF(FPDF):
         _ = self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
+    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -1100,7 +1100,7 @@ def main():
                     if st.button("Already have an account? Log In"):
                         st.session_state.auth_mode = 'login'
                         st.rerun()
-        st.stop()
+        return
 
     # ==========================================
     # 10. MAIN APP (AFTER LOGIN)
@@ -1609,119 +1609,119 @@ def main():
                 fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
                 _ = st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})  # Suppress with _
 
-elif page == "IQ Center":
-    # ==========================================
-    # TAB 3: IQ CENTER
-    # ==========================================
-    st.header("YieldMap IQ Center: Expert Knowledge Base")
-    st.markdown("---")
+    elif page == "IQ Center":
+        # ==========================================
+        # TAB 3: IQ CENTER
+        # ==========================================
+        st.header("YieldMap IQ Center: Expert Knowledge Base")
+        st.markdown("---")
 
-    st.subheader("1. Pro Metrics Explained")
-    st.markdown(
-        """
-        * **Cash-on-Cash Return (CoC):** The most important metric for investors. It measures the annual net cash flow divided by your total cash investment (Down payment + Closing costs). A CoC of 12% is generally considered excellent.
-        * **Net Monthly Cashflow:** The actual money left in your bank account each month after paying the Mortgage, Taxes, Insurance, Maintenance (Reserves), and Vacancy losses.
-        * **Operating Expense Ratio (OER):** The percentage of your gross income that goes to operating expenses (excluding mortgage).
-        """
-    )
-    st.markdown("---")
-
-    st.subheader("2. Strategic Investment Grading")
-    col_iq1, col_iq2 = st.columns(2)
-
-    with col_iq1:
-        st.markdown("#### Neighborhood Grades (Risk Profile)")
-        st.caption("Based on FY 2026 Rent Ceilings (Income Proxy).")
+        st.subheader("1. Pro Metrics Explained")
         st.markdown(
             """
-            * **Grade A (Prime / >$2500 Rent):** High appreciation, lower yield. Best for long-term hold.
-            * **Grade B (Strong / $1800-$2500):** Balanced performance.
-            * **Grade C (Stable / $1200-$1800):** The "Sweet Spot" for Section 8. High demand, solid yield.
-            * **Grade D (Working / <$1200):** High cash flow potential but requires intensive management.
+            * **Cash-on-Cash Return (CoC):** The most important metric for investors. It measures the annual net cash flow divided by your total cash investment (Down payment + Closing costs). A CoC of 12% is generally considered excellent.
+            * **Net Monthly Cashflow:** The actual money left in your bank account each month after paying the Mortgage, Taxes, Insurance, Maintenance (Reserves), and Vacancy losses.
+            * **Operating Expense Ratio (OER):** The percentage of your gross income that goes to operating expenses (excluding mortgage).
             """
         )
+        st.markdown("---")
 
-    with col_iq2:
-        st.markdown("#### Deal Grades (Performance Index)")
-        st.caption("Calculated using Cash-on-Cash Return.")
-        st.markdown(
-            """
-            * **Grade A+ (Unicorn):** CoC > 12%. Immediate Buy.
-            * **Grade B (Core Asset):** CoC 8-12%. Solid portfolio builder.
-            * **Grade C (Average):** CoC < 8%. Average market return.
-            * **Grade D (Distressed):** Negative cash flow or high risk.
-            """
-        )
+        st.subheader("2. Strategic Investment Grading")
+        col_iq1, col_iq2 = st.columns(2)
 
-    st.markdown("---")
+        with col_iq1:
+            st.markdown("#### Neighborhood Grades (Risk Profile)")
+            st.caption("Based on FY 2026 Rent Ceilings (Income Proxy).")
+            st.markdown(
+                """
+                * **Grade A (Prime / >$2500 Rent):** High appreciation, lower yield. Best for long-term hold.
+                * **Grade B (Strong / $1800-$2500):** Balanced performance.
+                * **Grade C (Stable / $1200-$1800):** The "Sweet Spot" for Section 8. High demand, solid yield.
+                * **Grade D (Working / <$1200):** High cash flow potential but requires intensive management.
+                """
+            )
 
-    st.subheader("3. HUD & Utility Math Explained")
-    col_iq3, col_iq4 = st.columns(2)
+        with col_iq2:
+            st.markdown("#### Deal Grades (Performance Index)")
+            st.caption("Calculated using Cash-on-Cash Return.")
+            st.markdown(
+                """
+                * **Grade A+ (Unicorn):** CoC > 12%. Immediate Buy.
+                * **Grade B (Core Asset):** CoC 8-12%. Solid portfolio builder.
+                * **Grade C (Average):** CoC < 8%. Average market return.
+                * **Grade D (Distressed):** Negative cash flow or high risk.
+                """
+            )
 
-    with col_iq3:
-        st.markdown("#### The 'Gross Rent' Trap")
-        st.write("Many investors mistake the HUD FMR for their check amount. **HUD FMR includes utilities.**")
-        st.info("**Net Contract Rent = HUD FMR - Utility Allowance**")
-        st.markdown("If you miss this calculation, you could lose $150-$300/month in cash flow.")
+        st.markdown("---")
 
-        st.markdown("#### The 90-110% Rule (Voucher Standards)")
-        st.warning("Did you know? The HUD FMR is just a baseline.")
-        st.write("Local Housing Authorities (PHAs) can set their payments anywhere between **90% and 110%** of the HUD FMR. Some 'Opportunity Zones' pay up to 120%. Always call your local office to confirm their specific %.")
+        st.subheader("3. HUD & Utility Math Explained")
+        col_iq3, col_iq4 = st.columns(2)
 
-    with col_iq4:
-        st.markdown("#### Utility Presets Guide")
-        st.markdown(
-            """
-            * **Low ($120):** Modern Apartments, Gas Heat, Landlord pays Water/Sewer.
-            * **Mid ($180):** Row Homes/Townhomes. Tenant pays Electric & Gas.
-            * **High ($250):** Older Detached Homes, Oil/Electric Heat, Poor Insulation.
-            """
-        )
-        st.caption("*Always download the specific UA Schedule from the local Housing Authority.*")
+        with col_iq3:
+            st.markdown("#### The 'Gross Rent' Trap")
+            st.write("Many investors mistake the HUD FMR for their check amount. **HUD FMR includes utilities.**")
+            st.info("**Net Contract Rent = HUD FMR - Utility Allowance**")
+            st.markdown("If you miss this calculation, you could lose $150-$300/month in cash flow.")
 
-    st.markdown("---")
+            st.markdown("#### The 90-110% Rule (Voucher Standards)")
+            st.warning("Did you know? The HUD FMR is just a baseline.")
+            st.write("Local Housing Authorities (PHAs) can set their payments anywhere between **90% and 110%** of the HUD FMR. Some 'Opportunity Zones' pay up to 120%. Always call your local office to confirm their specific %.")
 
-    st.subheader("4. Inspections & The 'Auto-Fail' List")
-    st.write("Before you get paid, you must pass the HQS (Housing Quality Standards) Inspection. Here are the top failure items:")
+        with col_iq4:
+            st.markdown("#### Utility Presets Guide")
+            st.markdown(
+                """
+                * **Low ($120):** Modern Apartments, Gas Heat, Landlord pays Water/Sewer.
+                * **Mid ($180):** Row Homes/Townhomes. Tenant pays Electric & Gas.
+                * **High ($250):** Older Detached Homes, Oil/Electric Heat, Poor Insulation.
+                """
+            )
+            st.caption("*Always download the specific UA Schedule from the local Housing Authority.*")
 
-    with st.expander("The Top 5 Inspection Failures (Check these first!)", expanded=True):
-        st.markdown(
-            """
-            1.  **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
-            2.  **Window Locks:** Every single window that is accessible from the outside (1st floor) must have a working lock.
-            3.  **Water Heater TPR Valve:** The discharge pipe on the water heater must be copper/metal and end within 6 inches of the floor.
-            4.  **Smoke & Carbon Detectors:** Must be present on every floor and in every bedroom.
-            5.  **Trip Hazards:** Torn carpet, uneven concrete, or loose floorboards will fail.
-            """
-        )
+        st.markdown("---")
 
-    st.markdown("#### The 'Golden' Lease-Up Timeline")
-    st.info("1. **Find Tenant** -> 2. **Submit RFTA (Request for Tenancy Approval)** -> 3. **Rent Determination** -> 4. **Inspection** -> 5. **Lease Sign** -> 6. **First Payment (can take 30-60 days)**")
+        st.subheader("4. Inspections & The 'Auto-Fail' List")
+        st.write("Before you get paid, you must pass the HQS (Housing Quality Standards) Inspection. Here are the top failure items:")
 
-    st.markdown("---")
+        with st.expander("The Top 5 Inspection Failures (Check these first!)", expanded=True):
+            st.markdown(
+                """
+                1.  **Peeling Paint:** If the home was built before 1978, *any* chipping or peeling paint (interior or exterior) is an automatic fail due to lead risk.
+                2.  **Window Locks:** Every single window that is accessible from the outside (1st floor) must have a working lock.
+                3.  **Water Heater TPR Valve:** The discharge pipe on the water heater must be copper/metal and end within 6 inches of the floor.
+                4.  **Smoke & Carbon Detectors:** Must be present on every floor and in every bedroom.
+                5.  **Trip Hazards:** Torn carpet, uneven concrete, or loose floorboards will fail.
+                """
+            )
 
-    col_iq5, col_iq6 = st.columns(2)
-    with col_iq5:
-        st.subheader("5. The YieldMap Score")
-        st.write("Our 100-point risk index is weighted as follows:")
-        st.progress(40)
-        st.caption("40% - HUD Rent Safety (Is the rent legal?)")
-        st.progress(30)
-        st.caption("30% - Gross Yield (Is the return high?)")
-        st.progress(30)
-        st.caption("30% - Absorption (Can we find a tenant?)")
+        st.markdown("#### The 'Golden' Lease-Up Timeline")
+        st.info("1. **Find Tenant** -> 2. **Submit RFTA (Request for Tenancy Approval)** -> 3. **Rent Determination** -> 4. **Inspection** -> 5. **Lease Sign** -> 6. **First Payment (can take 30-60 days)**")
 
-    with col_iq6:
-        st.subheader("6. Glossary of Terms")
-        st.markdown(
-            """
-            * **FMR (Fair Market Rent):** HUD's gross rent limit for a county/zip.
-            * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
-            * **HAP Contract:** The contract between you and the PHA (Housing Authority).
-            * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
-            * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
-            """
-        )
+        st.markdown("---")
+
+        col_iq5, col_iq6 = st.columns(2)
+        with col_iq5:
+            st.subheader("5. The YieldMap Score")
+            st.write("Our 100-point risk index is weighted as follows:")
+            st.progress(40)
+            st.caption("40% - HUD Rent Safety (Is the rent legal?)")
+            st.progress(30)
+            st.caption("30% - Gross Yield (Is the return high?)")
+            st.progress(30)
+            st.caption("30% - Absorption (Can we find a tenant?)")
+
+        with col_iq6:
+            st.subheader("6. Glossary of Terms")
+            st.markdown(
+                """
+                * **FMR (Fair Market Rent):** HUD's gross rent limit for a county/zip.
+                * **VPS (Voucher Payment Standard):** The actual amount the local PHA decides to pay (usually 90-110% of FMR).
+                * **HAP Contract:** The contract between you and the PHA (Housing Authority).
+                * **RFTA:** Request for Tenancy Approval (The 'packet' the tenant gives you).
+                * **BRRRR:** Buy, Rehab, Rent, Refinance, Repeat. A strategy to pull capital out of a deal to buy the next one.
+                """
+            )
 
     # INJECT THE TITAN BAR OVERLAY
     st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
