@@ -22,7 +22,6 @@ import time
 import tempfile
 import sys
 import numpy as np
-# REMOVED numpy_financial to use custom function instead
 import io # Required for Excel buffer
 
 import streamlit.components.v1 as components
@@ -380,7 +379,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
         data.append({
             "Year": year, 
-            "Cash Flow": cashflow,
+            "Cash Flow": cashflow, 
             "Cumulative CF": cumulative_cf,
             "Loan Balance": max(0, loan_balance), 
             "Total Equity": property_value - max(0, loan_balance),
@@ -466,10 +465,9 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- EXCEL GENERATOR FUNCTION (STABLE - NO XLSXWRITER) ---
+# --- EXCEL GENERATOR FUNCTION ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
-    
     # Create the filename safely here (optional, used outside)
     safe_address = address.split(',')[0].strip() if address else "Property"
     
@@ -488,10 +486,10 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
             ],
             "Value": [
                 address, market, unit, client,
-                metrics_dict['coc'], metrics_dict['cf'], metrics_dict['cap'], metrics_dict['oer'],
-                metrics_dict['n_grade'], metrics_dict['d_grade'], metrics_dict['mao'],
-                metrics_dict['down_amt'], metrics_dict['closing_amt'], metrics_dict['repairs'], metrics_dict['total_cash'],
-                metrics_dict['breakeven'], metrics_dict['dscr_price'], metrics_dict['irr'],
+                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.0f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
+                metrics_dict['n_grade'], metrics_dict['d_grade'], f"${metrics_dict['mao']:,.0f}",
+                f"${metrics_dict['down_amt']:,.0f}", f"${metrics_dict['closing_amt']:,.0f}", f"${metrics_dict['repairs']:,.0f}", f"${metrics_dict['total_cash']:,.0f}",
+                f"{metrics_dict['breakeven']:.1f}%", f"${metrics_dict['dscr_price']:,.0f}", f"{metrics_dict['irr']:.2f}%",
                 "Calculated based on user inputs and federal data sources."
             ],
             "Notes": [
@@ -838,7 +836,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
-    # Fixed variable name here (int_rate -> interest_rate)
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
@@ -851,7 +848,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(255, 255, 255) 
+        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
