@@ -21,6 +21,7 @@ import string
 import time
 import tempfile
 import sys
+import numpy as np
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -257,7 +258,7 @@ st.markdown(
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. REFERENCE DATA
+# 4. REFERENCE DATA (STATE MAP)
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
@@ -342,20 +343,48 @@ def calculate_max_offer(net_rent, target_coc, repairs, closing_costs_pct, down_p
         test_price += step
     return 0
 
-def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation):
+def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct, interest_rate, term_years, rent_growth, appreciation, vacancy_rate):
     data = []
-    current_rent = rent * 12; current_expenses = total_expenses_yr
+    # Gross rent starts here
+    current_rent = rent * 12
+    # Expenses usually grow, mortgage stays flat (unless ARM, but assuming fixed)
+    current_expenses = total_expenses_yr
     loan_balance = price * (1 - down_pct/100)
+    
     for year in range(1, 31):
-        noi = current_rent - current_expenses; cashflow = noi - mortgage_yr
+        # 1. Apply Vacancy to Gross Rent
+        effective_gross_income = current_rent * (1 - vacancy_rate/100)
+        
+        # 2. NOI
+        noi = effective_gross_income - current_expenses
+        
+        # 3. Cash Flow
+        cashflow = noi - mortgage_yr
+        
+        # 4. Loan Paydown
         if loan_balance > 0:
             interest_payment = loan_balance * (interest_rate/100)
             principal_payment = mortgage_yr - interest_payment
-            if principal_payment > loan_balance: principal_payment = loan_balance
+            if principal_payment > loan_balance: 
+                principal_payment = loan_balance # Pay off remaining
+            if principal_payment < 0:
+                 principal_payment = 0 # Negative amortization protection
             loan_balance -= principal_payment
+        
+        # 5. Property Value
         property_value = price * ((1 + appreciation/100)**year)
-        data.append({"Year": year, "Cash Flow": cashflow, "Loan Balance": loan_balance, "Total Equity": property_value - loan_balance})
-        current_rent *= (1 + rent_growth/100); current_expenses *= (1 + rent_growth/100)
+        
+        data.append({
+            "Year": year, 
+            "Cash Flow": cashflow, 
+            "Loan Balance": max(0, loan_balance), 
+            "Total Equity": property_value - max(0, loan_balance)
+        })
+        
+        # Grow Rent & Expenses for next year
+        current_rent *= (1 + rent_growth/100)
+        current_expenses *= (1 + rent_growth/100) # Simple expense growth assumption
+        
     return pd.DataFrame(data)
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
@@ -462,7 +491,14 @@ class ProPDF(FPDF):
         _ = self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
         _ = self.set_fill_color(240, 249, 255)
-        _ = self.set_text_color(0, 0, 0)
+        
+        # Conditional Red Text for Negatives
+        if "-" in str(col2) or "(" in str(col2):
+            _ = self.set_text_color(220, 38, 38) # Red
+            _ = self.set_font('Helvetica', 'B', 10) # Bold
+        else:
+            _ = self.set_text_color(0, 0, 0) # Black
+            
         _ = self.cell(140, 7, col1, 1, 0, 'L', fill)
         _ = self.cell(50, 7, col2, 1, 1, 'R', fill)
         
@@ -485,7 +521,7 @@ class ProPDF(FPDF):
         _ = self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
+    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -506,14 +542,51 @@ def generate_chart_image(proj_df):
         
         return tmpfile.name
 
+def generate_pie_chart(expenses):
+    # Matplotlib Pie Chart for PDF
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+        fig = Figure(figsize=(5, 4))
+        _ = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
+        
+        labels = list(expenses.keys())
+        values = list(expenses.values())
+        
+        _ = ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'])
+        _ = ax.set_title("Monthly Expense Breakdown", fontsize=12, fontweight='bold')
+        
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
+        return tmpfile.name
+
+def generate_sensitivity_chart(base_cf, rent_up, rent_down, rate_up):
+    # Matplotlib Bar Chart for Sensitivity
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+        fig = Figure(figsize=(6, 3))
+        _ = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
+        
+        scenarios = ['Base Case', 'Rent +10%', 'Rent -10%', 'Rate +1%']
+        values = [base_cf, rent_up, rent_down, rate_up]
+        colors = ['#2563eb' if v >= 0 else '#ef4444' for v in values]
+        
+        _ = ax.bar(scenarios, values, color=colors)
+        _ = ax.axhline(0, color='black', linewidth=0.8)
+        _ = ax.set_title("Cash Flow Sensitivity ($/mo)", fontsize=10, fontweight='bold')
+        _ = ax.grid(axis='y', alpha=0.3)
+        
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
+        return tmpfile.name
+
 # === CRITICAL FIX: CACHE THE PDF GENERATION TO ISOLATE IT ===
 @st.cache_data(show_spinner=False)
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes):
     pdf = ProPDF()
     _ = pdf.alias_nb_pages()
     _ = pdf.add_page()
     
-    # PAGE 1
+    # PAGE 1: EXECUTIVE SUMMARY
     _ = pdf.set_font('Helvetica', 'B', 16)
     _ = pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
@@ -523,6 +596,14 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
     _ = pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
     _ = pdf.ln(5)
+
+    # USER NOTES (If any)
+    if report_notes:
+        _ = pdf.set_fill_color(255, 255, 240) # Light yellow
+        _ = pdf.set_text_color(50, 50, 50)
+        _ = pdf.set_font('Helvetica', 'I', 9)
+        _ = pdf.multi_cell(0, 6, f"Notes: {report_notes}", 1, 'L', True)
+        _ = pdf.ln(5)
     
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
@@ -588,15 +669,42 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.set_text_color(255, 255, 255)
     _ = pdf.set_font('Helvetica', 'B', 12)
     _ = pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
-    _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
+    
+    # Conditional formatting for final cashflow
+    if net_cashflow < 0:
+        _ = pdf.set_text_color(220, 38, 38) 
+        _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
+    else:
+        _ = pdf.set_text_color(255, 255, 255) 
+        _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
-    # --- PAGE 2 ---
+    # --- PAGE 2: BREAK-EVEN & CHARTS ---
     _ = pdf.add_page()
+    _ = pdf.chapter_title("Break-Even & Risk Analysis")
+    _ = pdf.add_row("Break-Even Occupancy", f"{break_even_occ:.1f}%")
+    _ = pdf.add_row("Price for 1.20x DSCR", f"${price_120_dscr:,.0f}")
+    
+    _ = pdf.ln(10)
+    _ = pdf.chapter_title("Expense Breakdown")
+    
+    expenses_dict = {
+        "Taxes": taxes/12,
+        "Insurance": ins/12,
+        "Maintenance": maint_monthly,
+        "Mgmt": rent * (pm_pct/100),
+        "Vacancy": rent * (v_rate/100)
+    }
+    pie_path = generate_pie_chart(expenses_dict)
+    _ = pdf.image(pie_path, x=60, y=pdf.get_y(), w=90)
+    _ = pdf.ln(95)
+    _ = os.remove(pie_path)
+
     _ = pdf.chapter_title("Long-Term Wealth Projections")
     chart_path = generate_chart_image(projections_df)
     _ = pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
     _ = pdf.ln(95)
     _ = os.remove(chart_path)
+    
     _ = pdf.set_fill_color(30, 58, 138)
     _ = pdf.set_text_color(255, 255, 255)
     _ = pdf.set_font('Helvetica', 'B', 9)
@@ -629,7 +737,18 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
             _ = pdf.set_x(10)
             _ = pdf.cell(18, 8, str(yr), 1, 0, 'C')
-            _ = pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
+            
+            # Format negative CF in red
+            cf_val = r['Cash Flow']
+            cf_str = f"${cf_val:,.0f}"
+            if cf_val < 0:
+                _ = pdf.set_text_color(220, 38, 38)
+                cf_str = f"(${abs(cf_val):,.0f})"
+            else:
+                _ = pdf.set_text_color(50, 50, 50)
+            _ = pdf.cell(38, 8, cf_str, 1, 0, 'C')
+            
+            _ = pdf.set_text_color(50, 50, 50) # Reset
             _ = pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
             _ = pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
             _ = pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
@@ -637,6 +756,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.ln(10)
     _ = pdf.check_space(50)
     _ = pdf.chapter_title("Sensitivity Analysis (What-If)")
+    
     rent_up = rent * 1.10
     rent_down = rent * 0.90
     rate_up = interest_rate + 1.0
@@ -649,10 +769,18 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     cf_rent_up = fast_cf(rent_up, interest_rate)
     cf_rent_down = fast_cf(rent_down, interest_rate)
     cf_rate_down = fast_cf(rent, rate_down)
+    cf_rate_up = fast_cf(rent, rate_up)
+    
     _ = pdf.add_row("Base Case", f"${cf_base:,.0f}/mo")
     _ = pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
     _ = pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
     _ = pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
+    
+    _ = pdf.ln(5)
+    sens_path = generate_sensitivity_chart(cf_base, cf_rent_up, cf_rent_down, cf_rate_up)
+    _ = pdf.image(sens_path, x=10, y=pdf.get_y(), w=190)
+    _ = pdf.ln(70)
+    _ = os.remove(sens_path)
     
     _ = pdf.ln(10)
     _ = pdf.set_font('Helvetica', 'B', 10)
@@ -952,6 +1080,9 @@ if page == "Pro Analyzer":
             client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
         with c_addr:
             prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
+        
+        # New: Report Notes Field
+        report_notes = st.text_area("Report Notes (Optional)", placeholder="Add custom notes for the PDF cover page...", height=68)
 
         col_input1, col_input2, col_input3 = st.columns(3)
 
@@ -1094,6 +1225,43 @@ if page == "Pro Analyzer":
     coc = 0
     if invest > 0:
         coc = (cf / invest * 100)
+        
+    # Corrected Cap Rate: NOI / Purchase Price
+    cap_rate = (noi / price) * 100 if price > 0 else 0
+
+    # Break-Even Occupancy Calculation
+    # Breakeven % = (Operating Expenses + Debt Service) / Gross Potential Rent
+    total_annual_costs = exp + debt
+    break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
+    
+    # 1.20x DSCR Price Calculation
+    # Target NOI for 1.20x = Debt * 1.20
+    # BUT debt depends on price. So we reverse engineer.
+    # DSCR = NOI / Debt
+    # Debt = Loan * (rate_factor)
+    # Loan = Price * LTV
+    # So Debt = Price * LTV * RateFactor
+    # NOI / (Price * LTV * RateFactor) = 1.2
+    # Price = NOI / (1.2 * LTV * RateFactor)
+    monthly_rate = (interest_rate / 100) / 12
+    num_payments = loan_term_years * 12
+    if monthly_rate > 0:
+        mortgage_constant = (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
+        annual_debt_constant = mortgage_constant * 12
+        ltv = 1 - (down_payment/100)
+        
+        # Max Debt Service Allowed for NOI
+        # We assume NOI stays roughly same (ignoring tax adjustment for price for simplicity in this quick calc)
+        target_max_debt = noi / 1.20 
+        
+        # Target Loan Amount
+        target_loan = target_max_debt / annual_debt_constant
+        
+        # Target Price
+        price_120_dscr = target_loan / ltv
+    else:
+        price_120_dscr = 0
+
 
     n_grade = "C"
     if limit >= 2500:
@@ -1177,7 +1345,8 @@ if page == "Pro Analyzer":
             interest_rate,
             loan_term_years,
             rent_growth,
-            appreciation
+            appreciation,
+            user_vacancy
         )
         
         # Generate PDF bytes here (Cleanly separated from UI)
@@ -1189,7 +1358,7 @@ if page == "Pro Analyzer":
             price,
             rent_in,
             user_vacancy,
-            0,
+            cap_rate,
             coc,
             cf / 12,
             d_grade,
@@ -1210,7 +1379,10 @@ if page == "Pro Analyzer":
             rent_growth,
             appreciation,
             closing_costs,
-            mao
+            mao,
+            break_even_occupancy,
+            price_120_dscr,
+            report_notes
         )
 
     # --- UI LAYOUT WITH BUTTONS ---
