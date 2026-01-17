@@ -22,6 +22,7 @@ import time
 import tempfile
 import sys
 import numpy as np
+import numpy_financial as npf # Required for IRR
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -721,7 +722,8 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
-    _ = pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
+    # === FIXED VARIABLE NAME HERE ===
+    _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
     _ = pdf.set_text_color(255, 255, 255)
@@ -819,15 +821,15 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     rent_up = rent * 1.10
     rent_down = rent * 0.90
-    rate_up = interest_rate + 1.0
-    rate_down = interest_rate - 1.0
+    rate_up = int_rate + 1.0
+    rate_down = int_rate - 1.0
     def fast_cf(r, i):
         m = calculate_mortgage(price, down_pct, i, term_years)
         e = (taxes/12) + (ins/12) + (r * (maint_pct/100)) + (r * (pm_pct/100)) + (r * (v_rate/100))
         return (r - e - m)
     cf_base = net_cashflow
-    cf_rent_up = fast_cf(rent_up, interest_rate)
-    cf_rent_down = fast_cf(rent_down, interest_rate)
+    cf_rent_up = fast_cf(rent_up, int_rate)
+    cf_rent_down = fast_cf(rent_down, int_rate)
     cf_rate_down = fast_cf(rent, rate_down)
     cf_rate_up = fast_cf(rent, rate_up)
     
@@ -1302,10 +1304,10 @@ def main():
                     closing_costs = st.number_input("Closing %", value=3.0, min_value=0.0, max_value=10.0, step=0.5, help="Closing costs percentage")
                     target_coc_input = st.number_input("Target CoC", value=12.0, min_value=0.0, max_value=100.0, step=0.5, help="Desired Cash-on-Cash Return")
                     
-                # New: Rent Sensitivity Slider (Live)
+                # New: Rent Sensitivity Input (Text Box)
                 st.markdown("---")
-                st.markdown("##### ⚡ Quick Sensitivity Check")
-                rent_sens_pct = st.slider("Adjust Rent (%)", -20, 20, 0, step=1, help="Instantly see how rent changes affect Cash Flow (Estimated)")
+                st.markdown("##### Adjust Rent Percentage")
+                rent_sens_pct = st.number_input("Adjust Rent (%)", value=0.0, step=1.0, help="Enter a percentage (e.g. 5.5, -2) to see instant cash flow impact.")
                 
                 # Live Calc for Sensitivity
                 sens_rent = rent_in * (1 + rent_sens_pct/100)
