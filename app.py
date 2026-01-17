@@ -1,6 +1,7 @@
 # === CRITICAL: Set Matplotlib Backend FIRST ===
 import matplotlib
 matplotlib.use('Agg') 
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
@@ -396,215 +397,213 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- PDF GENERATOR CLASS ---
+# --- PDF GENERATOR CLASS (FULLY SILENCED) ---
 class ProPDF(FPDF):
     def header(self):
-        self.set_fill_color(30, 58, 138)
-        self.rect(0, 0, 210, 30, 'F')
-        self.set_font('Helvetica', 'B', 24)
-        self.set_text_color(255, 255, 255)
-        self.set_xy(10, 8)
-        self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
-        self.set_font('Helvetica', '', 12)
-        self.set_text_color(147, 197, 253)
-        self.set_xy(10, 18)
-        self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
-        self.set_font('Helvetica', 'B', 10)
-        self.set_text_color(255, 255, 255)
-        self.set_xy(160, 10)
-        self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
-        self.ln(25)
+        _ = self.set_fill_color(30, 58, 138)
+        _ = self.rect(0, 0, 210, 30, 'F')
+        _ = self.set_font('Helvetica', 'B', 24)
+        _ = self.set_text_color(255, 255, 255)
+        _ = self.set_xy(10, 8)
+        _ = self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
+        _ = self.set_font('Helvetica', '', 12)
+        _ = self.set_text_color(147, 197, 253)
+        _ = self.set_xy(10, 18)
+        _ = self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
+        _ = self.set_font('Helvetica', 'B', 10)
+        _ = self.set_text_color(255, 255, 255)
+        _ = self.set_xy(160, 10)
+        _ = self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
+        _ = self.ln(25)
 
     def footer(self):
-        self.set_y(-15)
-        self.set_font('Helvetica', 'I', 8)
-        self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+        _ = self.set_y(-15)
+        _ = self.set_font('Helvetica', 'I', 8)
+        _ = self.set_text_color(128, 128, 128)
+        _ = self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
 
     def check_space(self, height_needed):
         if self.get_y() + height_needed > 270:
-            self.add_page()
+            _ = self.add_page()
 
     def chapter_title(self, title):
-        self.ln(5)
-        self.set_font('Helvetica', 'B', 14)
-        self.set_text_color(30, 58, 138)
-        self.cell(0, 8, title, 0, 1, 'L')
-        self.set_draw_color(200, 200, 200)
-        self.line(10, self.get_y(), 200, self.get_y())
-        self.ln(4)
+        _ = self.ln(5)
+        _ = self.set_font('Helvetica', 'B', 14)
+        _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(0, 8, title, 0, 1, 'L')
+        _ = self.set_draw_color(200, 200, 200)
+        _ = self.line(10, self.get_y(), 200, self.get_y())
+        _ = self.ln(4)
 
     def section_header(self, title):
-        self.ln(3)
-        self.set_font('Helvetica', 'B', 11)
-        self.set_text_color(50, 50, 50)
-        self.cell(0, 6, title, 0, 1, 'L')
+        _ = self.ln(3)
+        _ = self.set_font('Helvetica', 'B', 11)
+        _ = self.set_text_color(50, 50, 50)
+        _ = self.cell(0, 6, title, 0, 1, 'L')
 
     def kpi_box(self, label, value, x, y):
-        self.set_fill_color(248, 250, 252)
-        self.set_draw_color(200, 200, 200)
-        self.rect(x, y, 45, 25, 'DF')
-        self.set_xy(x, y + 5)
-        self.set_font('Helvetica', '', 9)
-        self.set_text_color(100, 100, 100)
-        self.cell(45, 5, label, 0, 0, 'C')
-        self.set_xy(x, y + 13)
-        self.set_font('Helvetica', 'B', 14)
+        _ = self.set_fill_color(248, 250, 252)
+        _ = self.set_draw_color(200, 200, 200)
+        _ = self.rect(x, y, 45, 25, 'DF')
+        _ = self.set_xy(x, y + 5)
+        _ = self.set_font('Helvetica', '', 9)
+        _ = self.set_text_color(100, 100, 100)
+        _ = self.cell(45, 5, label, 0, 0, 'C')
+        _ = self.set_xy(x, y + 13)
+        _ = self.set_font('Helvetica', 'B', 14)
         if "-" in str(value):
-            self.set_text_color(220, 38, 38)
+            _ = self.set_text_color(220, 38, 38)
         else:
-            self.set_text_color(30, 58, 138)
-        self.cell(45, 8, str(value), 0, 0, 'C')
+            _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
-        self.set_x(10)
-        self.set_font('Helvetica', 'B' if is_total else '', 10)
+        _ = self.set_x(10)
+        _ = self.set_font('Helvetica', 'B' if is_total else '', 10)
         fill = True if is_total else False
-        self.set_fill_color(240, 249, 255)
-        self.set_text_color(0, 0, 0)
-        self.cell(140, 7, col1, 1, 0, 'L', fill)
-        self.cell(50, 7, col2, 1, 1, 'R', fill)
+        _ = self.set_fill_color(240, 249, 255)
+        _ = self.set_text_color(0, 0, 0)
+        _ = self.cell(140, 7, col1, 1, 0, 'L', fill)
+        _ = self.cell(50, 7, col2, 1, 1, 'R', fill)
         
     def add_insight_box(self, text, is_good=True):
-        self.set_fill_color(240, 253, 244) if is_good else self.set_fill_color(254, 242, 242)
-        self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
-        self.set_font('Helvetica', 'B', 10)
+        _ = self.set_fill_color(240, 253, 244) if is_good else self.set_fill_color(254, 242, 242)
+        _ = self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
+        _ = self.set_font('Helvetica', 'B', 10)
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
-        
-        # === FIX: Box height tripled to ensure text fit ===
         box_height = 20 if text_width > 180 else 15
-        
-        self.rect(10, self.get_y(), 190, box_height, 'DF')
-        self.set_xy(12, self.get_y()+4)
-        self.set_text_color(22, 101, 52) if is_good else self.set_text_color(153, 27, 27)
-        self.multi_cell(186, 6, "ANALYST INSIGHT: " + text, 0, 'L')
-        self.ln(box_height - 6)
+        _ = self.rect(10, self.get_y(), 190, box_height, 'DF')
+        _ = self.set_xy(12, self.get_y()+4)
+        if is_good:
+            _ = self.set_text_color(22, 101, 52)
+        else:
+            _ = self.set_text_color(153, 27, 27)
+        _ = self.multi_cell(186, 6, "ANALYST INSIGHT: " + text, 0, 'L')
+        _ = self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
+    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
-        canvas = FigureCanvasAgg(fig)
+        _ = FigureCanvasAgg(fig)
         ax = fig.add_subplot(111)
         
-        ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
-        ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
-        ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
+        _ = ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
+        _ = ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
         
-        ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Value ($)")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        _ = ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
+        _ = ax.set_xlabel("Year")
+        _ = ax.set_ylabel("Value ($)")
+        _ = ax.legend()
+        _ = ax.grid(True, alpha=0.3)
         
-        fig.tight_layout()
-        fig.savefig(tmpfile.name, dpi=100)
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
         
         return tmpfile.name
 
 # === CRITICAL FIX: CACHE THE PDF GENERATION TO ISOLATE IT ===
-# Using cache prevents Streamlit from "watching" execution of this function
 @st.cache_data(show_spinner=False)
 def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao):
     pdf = ProPDF()
-    pdf.alias_nb_pages()
-    pdf.add_page()
+    _ = pdf.alias_nb_pages()
+    _ = pdf.add_page()
     
     # PAGE 1
-    pdf.set_font('Helvetica', 'B', 16)
-    pdf.set_text_color(30, 58, 138)
+    _ = pdf.set_font('Helvetica', 'B', 16)
+    _ = pdf.set_text_color(30, 58, 138)
     area_name = row.get('area_name', 'Unknown')
-    pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
-    pdf.set_font('Helvetica', '', 10)
-    pdf.set_text_color(80, 80, 80)
-    pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
-    pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
-    pdf.ln(5)
+    _ = pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
+    _ = pdf.set_font('Helvetica', '', 10)
+    _ = pdf.set_text_color(80, 80, 80)
+    _ = pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
+    _ = pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
+    _ = pdf.ln(5)
     
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
-        pdf.add_insight_box(insight, is_good=False)
+        _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
         insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:.0f}/mo in passive income."
-        pdf.add_insight_box(insight, is_good=True)
+        _ = pdf.add_insight_box(insight, is_good=True)
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
-        pdf.add_insight_box(insight, is_good=True)
+        _ = pdf.add_insight_box(insight, is_good=True)
 
     y_kpi = pdf.get_y() + 5
-    pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
-    pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
+    _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
+    _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     dscr = "N/A"
     if loan_pmt > 0:
         dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
         dscr = f"{dscr_val:.2f}x"
-    pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
-    pdf.set_y(y_kpi + 35)
+    _ = pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
+    _ = pdf.set_y(y_kpi + 35)
 
-    pdf.check_space(30)
-    pdf.chapter_title("Scorecard & Strategy")
-    pdf.set_font('Helvetica', '', 10)
-    pdf.cell(65, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
-    pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(22, 101, 52)
-    pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
-    pdf.ln(10)
+    _ = pdf.check_space(30)
+    _ = pdf.chapter_title("Scorecard & Strategy")
+    _ = pdf.set_font('Helvetica', '', 10)
+    _ = pdf.cell(65, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
+    _ = pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
+    _ = pdf.set_font('Helvetica', 'B', 10)
+    _ = pdf.set_text_color(22, 101, 52)
+    _ = pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
+    _ = pdf.ln(10)
 
-    pdf.check_space(50)
-    pdf.chapter_title("Capital Requirements (Cash to Close)")
+    _ = pdf.check_space(50)
+    _ = pdf.chapter_title("Capital Requirements (Cash to Close)")
     down_amt = price * (down_pct / 100)
     closing_amt = price * (closing_costs / 100)
     total_cash = down_amt + closing_amt + repairs
-    pdf.add_row(f"Down Payment ({down_pct}%)", f"${down_amt:,.0f}")
-    pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
-    pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
-    pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
+    _ = pdf.add_row(f"Down Payment ({down_pct}%)", f"${down_amt:,.0f}")
+    _ = pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
+    _ = pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
+    _ = pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
 
-    pdf.check_space(120)
-    pdf.chapter_title("Pro Forma Monthly Operating Statement")
-    pdf.section_header("Income")
-    pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
-    pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
-    pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
-    pdf.section_header("Operating Expenses")
-    pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
-    pdf.add_row("Insurance", f"(${ins/12:,.2f})")
+    _ = pdf.check_space(120)
+    _ = pdf.chapter_title("Pro Forma Monthly Operating Statement")
+    _ = pdf.section_header("Income")
+    _ = pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
+    _ = pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
+    _ = pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
+    _ = pdf.section_header("Operating Expenses")
+    _ = pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
+    _ = pdf.add_row("Insurance", f"(${ins/12:,.2f})")
     maint_monthly = maint_cost / 12
-    pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
-    pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
+    _ = pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
+    _ = pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
     noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
-    pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
-    pdf.check_space(30) 
-    pdf.section_header("Debt Service")
-    pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
-    pdf.ln(2)
-    pdf.set_fill_color(30, 58, 138)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font('Helvetica', 'B', 12)
-    pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
-    pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
+    _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
+    _ = pdf.check_space(30) 
+    _ = pdf.section_header("Debt Service")
+    _ = pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
+    _ = pdf.ln(2)
+    _ = pdf.set_fill_color(30, 58, 138)
+    _ = pdf.set_text_color(255, 255, 255)
+    _ = pdf.set_font('Helvetica', 'B', 12)
+    _ = pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
+    _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2 ---
-    pdf.add_page()
-    pdf.chapter_title("Long-Term Wealth Projections")
+    _ = pdf.add_page()
+    _ = pdf.chapter_title("Long-Term Wealth Projections")
     chart_path = generate_chart_image(projections_df)
-    pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
-    pdf.ln(95)
-    os.remove(chart_path)
-    
-    pdf.set_fill_color(30, 58, 138)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font('Helvetica', 'B', 9)
-    pdf.cell(18, 8, "Year", 1, 0, 'C', True)
-    pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
-    pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
-    pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
-    pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
-    pdf.set_text_color(50, 50, 50)
-    pdf.set_font('Helvetica', '', 9)
+    _ = pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
+    _ = pdf.ln(95)
+    _ = os.remove(chart_path)
+    _ = pdf.set_fill_color(30, 58, 138)
+    _ = pdf.set_text_color(255, 255, 255)
+    _ = pdf.set_font('Helvetica', 'B', 9)
+    _ = pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+    _ = pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
+    _ = pdf.set_text_color(50, 50, 50)
+    _ = pdf.set_font('Helvetica', '', 9)
     
     snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
     cumulative_cf = 0
@@ -613,28 +612,28 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         cumulative_cf += r['Cash Flow']
         if yr in snapshot_years:
             if pdf.get_y() > 260:
-                pdf.add_page()
-                pdf.set_fill_color(30, 58, 138)
-                pdf.set_text_color(255, 255, 255)
-                pdf.set_font('Helvetica', 'B', 9)
-                pdf.cell(18, 8, "Year", 1, 0, 'C', True)
-                pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
-                pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
-                pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
-                pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
-                pdf.set_text_color(50, 50, 50)
-                pdf.set_font('Helvetica', '', 9)
+                _ = pdf.add_page()
+                _ = pdf.set_fill_color(30, 58, 138)
+                _ = pdf.set_text_color(255, 255, 255)
+                _ = pdf.set_font('Helvetica', 'B', 9)
+                _ = pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+                _ = pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
+                _ = pdf.set_text_color(50, 50, 50)
+                _ = pdf.set_font('Helvetica', '', 9)
             total_wealth = r['Total Equity'] + cumulative_cf - total_cash
-            pdf.set_x(10)
-            pdf.cell(18, 8, str(yr), 1, 0, 'C')
-            pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
-            pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
-            pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
-            pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
+            _ = pdf.set_x(10)
+            _ = pdf.cell(18, 8, str(yr), 1, 0, 'C')
+            _ = pdf.cell(38, 8, f"${r['Cash Flow']:,.0f}", 1, 0, 'C')
+            _ = pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
+            _ = pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
+            _ = pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
 
-    pdf.ln(10)
-    pdf.check_space(50)
-    pdf.chapter_title("Sensitivity Analysis (What-If)")
+    _ = pdf.ln(10)
+    _ = pdf.check_space(50)
+    _ = pdf.chapter_title("Sensitivity Analysis (What-If)")
     rent_up = rent * 1.10
     rent_down = rent * 0.90
     rate_up = interest_rate + 1.0
@@ -647,18 +646,18 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     cf_rent_up = fast_cf(rent_up, interest_rate)
     cf_rent_down = fast_cf(rent_down, interest_rate)
     cf_rate_down = fast_cf(rent, rate_down)
-    pdf.add_row("Base Case", f"${cf_base:,.0f}/mo")
-    pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
-    pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
-    pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
+    _ = pdf.add_row("Base Case", f"${cf_base:,.0f}/mo")
+    _ = pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
+    _ = pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
+    _ = pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
     
-    pdf.ln(10)
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
-    pdf.set_font('Helvetica', 'I', 8)
-    pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
-    pdf.set_text_color(220, 38, 38)
-    pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
+    _ = pdf.ln(10)
+    _ = pdf.set_font('Helvetica', 'B', 10)
+    _ = pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
+    _ = pdf.set_font('Helvetica', 'I', 8)
+    _ = pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
+    _ = pdf.set_text_color(220, 38, 38)
+    _ = pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
     
     return pdf.output(dest='S').encode('latin-1')
 
@@ -1151,8 +1150,7 @@ if page == "Pro Analyzer":
     
     st.divider()
     
-    # --- MOVED CALCULATION LOGIC & STD OUT SUPPRESSION TO FIX GHOST TEXT ---
-    # Wrap in spinner to hide processing visual delay
+    # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
     with st.spinner("Processing..."):
         # Explicit assignment to prevent ghost text
         proj = calculate_projections(
