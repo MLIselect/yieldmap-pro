@@ -22,7 +22,7 @@ import time
 import tempfile
 import sys
 import numpy as np
-import numpy_financial as npf # Required for IRR
+# REMOVED numpy_financial import to prevent crash
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -722,7 +722,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
-    # === FIXED VARIABLE NAME HERE ===
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
