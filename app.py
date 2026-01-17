@@ -21,6 +21,8 @@ import string
 import time
 import tempfile
 import sys
+import numpy as np
+import numpy_financial as npf # Required for IRR
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -257,7 +259,7 @@ st.markdown(
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 4. REFERENCE DATA
+# 4. REFERENCE DATA (STATE MAP)
 # ==========================================
 STATE_MAP = {
     "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
@@ -385,6 +387,14 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         current_expenses *= (1 + rent_growth/100) # Simple expense growth assumption
         
     return pd.DataFrame(data)
+
+def calculate_irr(initial_investment, cash_flows):
+    try:
+        # Initial investment is negative cash flow at Year 0
+        flows = [-initial_investment] + cash_flows
+        return npf.irr(flows) * 100
+    except:
+        return 0.0
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
@@ -545,7 +555,7 @@ class ProPDF(FPDF):
         _ = self.ln(box_height - 6)
 
 def generate_chart_image(proj_df):
-    # === GHOST TEXT FIX: Pure Object-Oriented Matplotlib ===
+    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
         fig = Figure(figsize=(7, 4))
         _ = FigureCanvasAgg(fig)
@@ -605,7 +615,7 @@ def generate_sensitivity_chart(base_cf, rent_up, rent_down, rate_up):
 
 # === CRITICAL FIX: CACHE THE PDF GENERATION TO ISOLATE IT ===
 @st.cache_data(show_spinner=False)
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, logo_path=None):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, oer, irr, logo_path=None):
     # Pass logo path to class
     pdf = ProPDF(user_logo=logo_path)
     _ = pdf.alias_nb_pages()
@@ -645,11 +655,9 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
     _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
-    dscr = "N/A"
-    if loan_pmt > 0:
-        dscr_val = ((rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + (maint_cost/12) + rent*(pm_pct/100))) / loan_pmt
-        dscr = f"{dscr_val:.2f}x"
-    _ = pdf.kpi_box("DSCR Ratio", dscr, 160, y_kpi)
+    
+    # NEW: OER BOX
+    _ = pdf.kpi_box("Op Expense Ratio", f"{oer:.1f}%", 160, y_kpi)
     _ = pdf.set_y(y_kpi + 35)
 
     _ = pdf.check_space(30)
@@ -708,6 +716,8 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.chapter_title("Break-Even & Risk Analysis")
     _ = pdf.add_row("Break-Even Occupancy", f"{break_even_occ:.1f}%")
     _ = pdf.add_row("Price for 1.20x DSCR", f"${price_120_dscr:,.0f}")
+    # NEW: IRR ROW
+    _ = pdf.add_row("30-Year Internal Rate of Return (IRR)", f"{irr:.2f}%")
     
     _ = pdf.ln(10)
     _ = pdf.chapter_title("Expense Breakdown")
@@ -855,702 +865,749 @@ if 'auth_mode' not in st.session_state:
 # ==========================================
 # 9. AUTHENTICATION & HEADER
 # ==========================================
-st.markdown(
-    """
-    <div class="fixed-header">
-        <div class="brand-container">
-            <div class="brand-title">YieldMap Pro</div>
-            <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
+# WRAP EVERYTHING IN MAIN() TO PREVENT GLOBAL SCOPE LEAKS
+def main():
+    st.markdown(
+        """
+        <div class="fixed-header">
+            <div class="brand-container">
+                <div class="brand-title">YieldMap Pro</div>
+                <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
+            </div>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        """,
+        unsafe_allow_html=True
+    )
 
-# DIALOG FUNCTION FOR TERMS
-@st.dialog("Terms of Service")
-def show_terms():
-    st.markdown("""
-### Terms of Use
-**Last Updated: December 30, 2025**
+    # DIALOG FUNCTION FOR TERMS
+    @st.dialog("Terms of Service")
+    def show_terms():
+        st.markdown("""
+    ### Terms of Use
+    **Last Updated: December 30, 2025**
 
-**Introduction**
-YieldMap Pro is provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. These Terms of Use govern your access to and use of our website, services, and tools. By using YieldMap Pro, you agree to these terms.
+    **Introduction**
+    YieldMap Pro is provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. These Terms of Use govern your access to and use of our website, services, and tools. By using YieldMap Pro, you agree to these terms.
 
-**1. Acceptance of Terms**
-By accessing YieldMap Pro, you agree to be bound by these Terms of Use. This agreement governs your use of our underwriting dashboard, data exports, and audit reports.
+    **1. Acceptance of Terms**
+    By accessing YieldMap Pro, you agree to be bound by these Terms of Use. This agreement governs your use of our underwriting dashboard, data exports, and audit reports.
 
-**2. No Professional Advice**
-YieldMap Pro is an analytical tool for informational purposes only. We do not provide financial, legal, tax, or real estate investment advice.
-All deal grades (A-F), ROI percentages, and cash flow projections are estimates based on your manual inputs and historical government data. You should perform your own independent due diligence before making any financial commitments.
+    **2. No Professional Advice**
+    YieldMap Pro is an analytical tool for informational purposes only. We do not provide financial, legal, tax, or real estate investment advice.
+    All deal grades (A-F), ROI percentages, and cash flow projections are estimates based on your manual inputs and historical government data. You should perform your own independent due diligence before making any financial commitments.
 
-**3. Data Accuracy & HUD Compliance**
-While we use official federal data sources (HUD User API and US Census), local Housing Authorities (PHAs) have the final authority to set voucher payment standards. YieldMap Pro does not guarantee that a specific PHA will approve the exact contract rent calculated by our tool.
+    **3. Data Accuracy & HUD Compliance**
+    While we use official federal data sources (HUD User API and US Census), local Housing Authorities (PHAs) have the final authority to set voucher payment standards. YieldMap Pro does not guarantee that a specific PHA will approve the exact contract rent calculated by our tool.
 
-**4. Usage Restrictions**
-You are granted a non-exclusive license to use this tool for professional underwriting. You agree not to:
-* Scrape data from our interface for use in competing products.
-* Attempt to reverse-engineer our proprietary Asset Rating logic.
-* Redistribute "Investor Pro" features or PDF reports without a valid subscription.
+    **4. Usage Restrictions**
+    You are granted a non-exclusive license to use this tool for professional underwriting. You agree not to:
+    * Scrape data from our interface for use in competing products.
+    * Attempt to reverse-engineer our proprietary Asset Rating logic.
+    * Redistribute "Investor Pro" features or PDF reports without a valid subscription.
 
-**Intellectual Property**
-All content, features, and functionality (including software, algorithms, and data integrations) are owned by YieldMap Pro or its licensors and protected by intellectual property laws. You may not copy, modify, or distribute any part without written permission.
+    **Intellectual Property**
+    All content, features, and functionality (including software, algorithms, and data integrations) are owned by YieldMap Pro or its licensors and protected by intellectual property laws. You may not copy, modify, or distribute any part without written permission.
 
-**5. Limitation of Liability**
-YieldMap Pro shall not be liable for any financial losses, investment failures, or damages arising from your reliance on our projections. All calculations are provided "as-is" without warranty of any kind.
+    **5. Limitation of Liability**
+    YieldMap Pro shall not be liable for any financial losses, investment failures, or damages arising from your reliance on our projections. All calculations are provided "as-is" without warranty of any kind.
 
-**Indemnification**
-You agree to indemnify and hold harmless YieldMap Pro, its affiliates, and employees from any claims, damages, or expenses arising from your misuse of the service or violation of these terms.
+    **Indemnification**
+    You agree to indemnify and hold harmless YieldMap Pro, its affiliates, and employees from any claims, damages, or expenses arising from your misuse of the service or violation of these terms.
 
-**6. Subscription & Cancellation**
-Investor Pro subscriptions are billed monthly. You may cancel at any time via your dashboard. Fees already paid are non-refundable for the current billing cycle.
+    **6. Subscription & Cancellation**
+    Investor Pro subscriptions are billed monthly. You may cancel at any time via your dashboard. Fees already paid are non-refundable for the current billing cycle.
 
-**Dispute Resolution**
-Any disputes arising from these terms will be resolved through binding arbitration in [Your Location, e.g., California], under the rules of [e.g., AAA]. You waive the right to class actions.
+    **Dispute Resolution**
+    Any disputes arising from these terms will be resolved through binding arbitration in [Your Location, e.g., California], under the rules of [e.g., AAA]. You waive the right to class actions.
 
-**Governing Law**
-These terms are governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+    **Governing Law**
+    These terms are governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
 
-**Changes to Terms**
-We may update these terms periodically. We will notify you via email or site notice for material changes. Continued use constitutes acceptance.
-    """)
+    **Changes to Terms**
+    We may update these terms periodically. We will notify you via email or site notice for material changes. Continued use constitutes acceptance.
+        """)
 
-# DIALOG FUNCTION FOR PRIVACY
-@st.dialog("Privacy Policy")
-def show_privacy():
-    st.markdown("""
-### Privacy Policy
-**Last Updated: December 30, 2025**
+    # DIALOG FUNCTION FOR PRIVACY
+    @st.dialog("Privacy Policy")
+    def show_privacy():
+        st.markdown("""
+    ### Privacy Policy
+    **Last Updated: December 30, 2025**
 
-**Introduction**
-YieldMap Pro is a Section 8 deal analysis tool provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services. By using YieldMap Pro, you agree to the practices described here.
+    **Introduction**
+    YieldMap Pro is a Section 8 deal analysis tool provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services. By using YieldMap Pro, you agree to the practices described here.
 
-**1. Data Philosophy**
-At YieldMap Pro, we believe your investment strategy is your own business. Unlike mainstream listing scrapers, we prioritize a "Privacy-First" underwriting environment. We do not sell your deal data to third-party brokers or lenders.
+    **1. Data Philosophy**
+    At YieldMap Pro, we believe your investment strategy is your own business. Unlike mainstream listing scrapers, we prioritize a "Privacy-First" underwriting environment. We do not sell your deal data to third-party brokers or lenders.
 
-**2. Information We Collect**
-* **Account Information:** Email addresses provided during Pro registration are used solely for account management and support.
-* **Usage Data:** We use basic analytics to monitor tool performance and ensure federal API connection stability.
-* **Underwriting Data:** Input values like "Target Contract Rent" or "Interest Rate" are processed in-session. We do not permanently store specific property addresses on our public-tier servers.
+    **2. Information We Collect**
+    * **Account Information:** Email addresses provided during Pro registration are used solely for account management and support.
+    * **Usage Data:** We use basic analytics to monitor tool performance and ensure federal API connection stability.
+    * **Underwriting Data:** Input values like "Target Contract Rent" or "Interest Rate" are processed in-session. We do not permanently store specific property addresses on our public-tier servers.
 
-**How We Use Your Information**
-* To provide and improve our services, such as generating reports and analyzing deals.
-* For internal analytics to enhance tool performance and user experience.
-* To communicate with you about updates, support, or account-related matters.
-* To comply with legal obligations, such as responding to subpoenas.
+    **How We Use Your Information**
+    * To provide and improve our services, such as generating reports and analyzing deals.
+    * For internal analytics to enhance tool performance and user experience.
+    * To communicate with you about updates, support, or account-related matters.
+    * To comply with legal obligations, such as responding to subpoenas.
 
-**Data Sharing and Disclosure**
-We do not sell or rent your personal information. We may share data with:
-* Service providers (e.g., hosting, analytics) under strict confidentiality agreements.
-* Government APIs (HUD, Census) as described, but only anonymized queries.
-* Legal authorities if required by law.
-We do not engage in targeted advertising or share data for marketing purposes.
+    **Data Sharing and Disclosure**
+    We do not sell or rent your personal information. We may share data with:
+    * Service providers (e.g., hosting, analytics) under strict confidentiality agreements.
+    * Government APIs (HUD, Census) as described, but only anonymized queries.
+    * Legal authorities if required by law.
+    We do not engage in targeted advertising or share data for marketing purposes.
 
-**Cookies and Tracking Technologies**
-We use essential cookies for session management and basic analytics (e.g., via Google Analytics). These help us understand usage patterns without identifying individuals. You can manage cookies via your browser settings, but disabling them may limit functionality.
+    **Cookies and Tracking Technologies**
+    We use essential cookies for session management and basic analytics (e.g., via Google Analytics). These help us understand usage patterns without identifying individuals. You can manage cookies via your browser settings, but disabling them may limit functionality.
 
-**3. Federal API Integrations**
-YieldMap Pro connects directly to the **HUD User API** and **US Census Bureau ACS Survey**. When you query a ZIP code, your request is sent to these government servers to fetch the most recent FY 2026 data. These requests are anonymized.
+    **3. Federal API Integrations**
+    YieldMap Pro connects directly to the **HUD User API** and **US Census Bureau ACS Survey**. When you query a ZIP code, your request is sent to these government servers to fetch the most recent FY 2026 data. These requests are anonymized.
 
-**4. Security**
-We use industry-standard SSL encryption for all data transmissions. Your "Lender-Ready PDF Reports" are generated locally in your browser session to ensure your deal numbers remain private until you choose to export them.
+    **4. Security**
+    We use industry-standard SSL encryption for all data transmissions. Your "Lender-Ready PDF Reports" are generated locally in your browser session to ensure your deal numbers remain private until you choose to export them.
 
-**Your Rights**
-Depending on your location, you may have rights under laws like CCPA (California) or GDPR (EU):
-* Access, correct, or delete your personal data.
-* Opt-out of data sharing (though we don't sell data).
-* Request information on data processing.
-To exercise these rights, email support@yieldmappro.com. We respond within 30-45 days, as required by law.
+    **Your Rights**
+    Depending on your location, you may have rights under laws like CCPA (California) or GDPR (EU):
+    * Access, correct, or delete your personal data.
+    * Opt-out of data sharing (though we don't sell data).
+    * Request information on data processing.
+    To exercise these rights, email support@yieldmappro.com. We respond within 30-45 days, as required by law.
 
-**Children's Privacy**
-YieldMap Pro is not intended for users under 18. We do not knowingly collect data from children. If we learn of such collection, we will delete it promptly.
+    **Children's Privacy**
+    YieldMap Pro is not intended for users under 18. We do not knowingly collect data from children. If we learn of such collection, we will delete it promptly.
 
-**Changes to This Policy**
-We may update this policy to reflect changes in our practices or laws. We will notify users via email or site notice for material changes. Continued use after updates constitutes acceptance.
+    **Changes to This Policy**
+    We may update this policy to reflect changes in our practices or laws. We will notify users via email or site notice for material changes. Continued use after updates constitutes acceptance.
 
-**Governing Law**
-This policy is governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+    **Governing Law**
+    This policy is governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
 
-**5. Contact Us**
-For questions regarding your data or to request account deletion, please contact us at:
-support@yieldmappro.com
-    """)
+    **5. Contact Us**
+    For questions regarding your data or to request account deletion, please contact us at:
+    support@yieldmappro.com
+        """)
 
-# --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
-def switch_to_login_callback():
-    st.session_state.auth_mode = 'login'
-    # Clear signup keys just in case
-    for key in list(st.session_state.keys()):
-        if key.startswith("signup_"):
-            del st.session_state[key]
-
-# NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
-@st.dialog("Account Created Successfully")
-def show_success_modal():
-    st.write("Your account has been created.")
-    st.write("Please check your email to confirm your address.")
-    
-    # === THE FIX: Use native Streamlit button logic ===
-    if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
+    # --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+    def switch_to_login_callback():
         st.session_state.auth_mode = 'login'
-        st.rerun()
+        # Clear signup keys just in case
+        for key in list(st.session_state.keys()):
+            if key.startswith("signup_"):
+                del st.session_state[key]
 
-# LOGIN LOGIC
-if not st.session_state.user:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1,1,1])
-    with c2:
-        # LOG IN FORM
-        if st.session_state.auth_mode == 'login':
-            with st.container(border=True):
-                st.markdown("### Welcome Back")
-                with st.form("login_form"):
-                    email = st.text_input("Email", key="login_email")
-                    password = st.text_input("Password", type="password", key="login_pass")
-                    submitted = st.form_submit_button("Log In", type="primary")
-                    if submitted:
-                        try:
-                            # FIX: Store the USER object
-                            response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                            st.session_state.user = response.user 
-                            
-                            # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                            js_redirect("https://yieldmappro.com/app?embed=true")
-                            
-                        except Exception as e:
-                            st.error(f"Login failed: {e}")
-                
-                st.markdown("---")
-                if st.button("Don't have an account? Create one"):
-                    st.session_state.auth_mode = 'signup'
-                    st.rerun()
-
-        # SIGN UP FORM
-        else:
-            with st.container(border=True):
-                st.markdown("### New Account")
-                new_email = st.text_input("Email", key="signup_email")
-                new_password = st.text_input("Password", type="password", key="signup_pass")
-                confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_pass")
-                
-                first_name = st.text_input("First Name", key="signup_fname")
-                role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
-                
-                # CAPTCHA
-                image = ImageCaptcha(width=280, height=90)
-                data = image.generate(st.session_state.captcha_text)
-                st.image(data)
-                captcha_input = st.text_input("Enter the code above:", key="captcha_input")
-                
-                # TERMS
-                st.markdown("---")
-                c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
-                with c_check:
-                    tos_agreed = st.checkbox("", label_visibility="collapsed")
-                with c_terms:
-                    if st.button("📄 Read Terms", use_container_width=True):
-                        show_terms()
-                with c_priv:
-                    if st.button("🔒 Read Privacy", use_container_width=True):
-                        show_privacy()
-                
-                st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
-
-                if st.button("Create Account", type="primary"):
-                    if not tos_agreed:
-                        st.error("⚠️ You must agree to the Terms of Service.")
-                    elif len(new_password) < 6:
-                        st.error("⚠️ Password must be at least 6 characters.")
-                    elif new_password != confirm_password:
-                        st.error("⚠️ Passwords do not match.")
-                    elif captcha_input.upper() == st.session_state.captcha_text:
-                        try:
-                            response = supabase.auth.sign_up({
-                                "email": new_email, 
-                                "password": new_password,
-                                "options": {
-                                    "data": {
-                                        "first_name": str(first_name),
-                                        "role": str(role)
-                                    }
-                                }
-                            })
-                            show_success_modal()
-                        except Exception as e:
-                            st.error(f"Registration failed: {str(e)}")
-                    else:
-                        st.error("❌ Incorrect CAPTCHA code.")
-                        time.sleep(1.5)
-                        st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
-                        st.rerun()
-                
-                st.markdown("---")
-                if st.button("Already have an account? Log In"):
-                    st.session_state.auth_mode = 'login'
-                    st.rerun()
-    st.stop()
-
-# ==========================================
-# 10. MAIN APP (AFTER LOGIN)
-# ==========================================
-with st.spinner("Loading Market Data..."):
-    df = load_data()
-
-if df.empty:
-    st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
-    st.stop()
-
-# --- NAVIGATION ---
-page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], horizontal=True, label_visibility="collapsed")
-
-if page == "Pro Analyzer":
-    # === WELCOME HEADER ===
-    try:
-        user_name = st.session_state.user.user_metadata.get('first_name', '')
-        if not user_name:
-            user_name = "Investor"
-    except:
-        user_name = "Investor"
-    
-    st.markdown(f"### Welcome, {user_name}")
-    st.caption("Ready to find your next deal?")
-    st.markdown("---")
-
-    # ==========================================
-    # TAB 1: PRO ANALYZER
-    # ==========================================
-    with st.container(border=True):
-        st.markdown("#### 1. Property Details")
-        c_client, c_addr = st.columns(2)
-        with c_client:
-            client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
-        with c_addr:
-            prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
+    # NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+    @st.dialog("Account Created Successfully")
+    def show_success_modal():
+        st.write("Your account has been created.")
+        st.write("Please check your email to confirm your address.")
         
-        # New: Report Notes Field
-        report_notes = st.text_area("Report Notes (Optional)", placeholder="Add custom notes for the PDF cover page...", height=68)
-        
-        # New: Logo Upload (White Label)
-        logo_file = st.file_uploader("Upload Your Logo (Optional)", type=['png', 'jpg', 'jpeg'], help="Customize the PDF report with your branding.")
-        
-        # Handle logo temp file
-        logo_path = None
-        if logo_file:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(logo_file.name)[1]) as tmp:
-                tmp.write(logo_file.getbuffer())
-                logo_path = tmp.name
+        # === THE FIX: Use native Streamlit button logic ===
+        if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
+            st.session_state.auth_mode = 'login'
+            st.rerun()
 
-        col_input1, col_input2, col_input3 = st.columns(3)
-
-        with col_input1:
-            state_list = sorted([s for s in df['state'].unique() if s != 'Other'])
-            selected_state = st.selectbox("1. Select State", state_list, help="Filter markets by US State.")
-
-        with col_input2:
-            zip_list = sorted(df[df['state'] == selected_state]['zip_code'].unique())
-            selected_zip = st.selectbox("2. Select ZIP Code", zip_list, help="Select the exact ZIP code from Zillow/Redfin.")
-
-        with col_input3:
-            beds = st.selectbox(
-                "3. Unit Asset Class",
-                ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"],
-                index=2,
-                help="Select bedroom count."
-            )
-
-    row = df[df['zip_code'] == selected_zip].iloc[0]
-    market_area_name = row.get('area_name', 'Unknown Area')
-
-    st.markdown("---")
-    st.markdown(f"#### {market_area_name} ({selected_zip})")
-
-    # SMART LINKS (No Emojis, Styled Links)
-    c_link1, c_link2, c_link3 = st.columns(3)
-    
-    beds_url_str = beds.split('-')[0]
-    zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds_url_str}_beds/"
-    rentometer_url = "https://www.rentometer.com/"
-    pha_url = "https://www.hud.gov/program_offices/public_indian_housing/pha/contacts"
-
-    with c_link1:
-        st.link_button("View Zillow Comps", zillow_url, use_container_width=True)
-    with c_link2:
-        st.link_button("Check Rentometer", rentometer_url, use_container_width=True)
-    with c_link3:
-        st.link_button("Find Local PHA", pha_url, use_container_width=True)
-
-    try:
-        import pgeocode
-        import folium
-        from streamlit_folium import st_folium
-        nomi = pgeocode.Nominatim('us')
-        loc = nomi.query_postal_code(selected_zip)
-
-        if not math.isnan(loc.latitude):
-            if not math.isnan(loc.longitude):
-                m = folium.Map(location=[loc.latitude, loc.longitude], zoom_start=13)
-                folium.Marker(
-                    [loc.latitude, loc.longitude],
-                    icon=folium.Icon(color="blue", icon="home", prefix='fa')
-                ).add_to(m)
-                _ = st_folium(m, height=350, use_container_width=True, returned_objects=[])  # Suppress return with _ and empty list
-    except:
-        pass
-
-    st.markdown("---")
-    limit = row[beds]
-
-    # --- UA SECTION: Presets + Number Input ---
-    with st.container(border=True):
-        st.markdown(f"#### Utility Allowance Deduction")
-        
-        # PRESET BUTTONS
-        col_presets = st.columns(3)
-        with col_presets[0]:
-            if st.button("Low ($120)"):
-                st.session_state.ua_value = 120
-        with col_presets[1]:
-            if st.button("Mid ($180)"):
-                st.session_state.ua_value = 180
-        with col_presets[2]:
-            if st.button("High ($250)"):
-                st.session_state.ua_value = 250
-        
-        # DIRECT INPUT
-        ua_input = st.number_input(
-            "Enter Deduction Amount ($)",
-            min_value=0,
-            max_value=1000,
-            value=st.session_state.ua_value,
-            step=10,
-            help="Consult local PHA for exact utility allowance schedule."
-        )
-        st.session_state.ua_value = ua_input
-
-        target_rent = limit - ua_input
-        st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Contract Rent:** ${target_rent:,.0f}")
-
-    with st.container(border=True):
-        st.markdown("#### Acquisition")
-        c1, c2 = st.columns(2)
-        with c1:
-            price = st.number_input("Price", value=250000)
+    # LOGIN LOGIC
+    if not st.session_state.user:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1,1,1])
         with c2:
-            rent_in = st.number_input("Rent", value=int(target_rent))
+            # LOG IN FORM
+            if st.session_state.auth_mode == 'login':
+                with st.container(border=True):
+                    st.markdown("### Welcome Back")
+                    with st.form("login_form"):
+                        email = st.text_input("Email", key="login_email")
+                        password = st.text_input("Password", type="password", key="login_pass")
+                        submitted = st.form_submit_button("Log In", type="primary")
+                        if submitted:
+                            try:
+                                # FIX: Store the USER object
+                                response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                                st.session_state.user = response.user 
+                                
+                                # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                                js_redirect("https://yieldmappro.com/app?embed=true")
+                                
+                            except Exception as e:
+                                st.error(f"Login failed: {e}")
+                    
+                    st.markdown("---")
+                    if st.button("Don't have an account? Create one"):
+                        st.session_state.auth_mode = 'signup'
+                        st.rerun()
 
-        api_vacancy = get_vacancy_rate(selected_zip)
-        is_unlocked = True # Since user is logged in, features are unlocked
+            # SIGN UP FORM
+            else:
+                with st.container(border=True):
+                    st.markdown("### New Account")
+                    new_email = st.text_input("Email", key="signup_email")
+                    new_password = st.text_input("Password", type="password", key="signup_pass")
+                    confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_pass")
+                    
+                    first_name = st.text_input("First Name", key="signup_fname")
+                    role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
+                    
+                    # CAPTCHA
+                    image = ImageCaptcha(width=280, height=90)
+                    data = image.generate(st.session_state.captcha_text)
+                    st.image(data)
+                    captcha_input = st.text_input("Enter the code above:", key="captcha_input")
+                    
+                    # TERMS
+                    st.markdown("---")
+                    c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
+                    with c_check:
+                        tos_agreed = st.checkbox("", label_visibility="collapsed")
+                    with c_terms:
+                        if st.button("📄 Read Terms", use_container_width=True):
+                            show_terms()
+                    with c_priv:
+                        if st.button("🔒 Read Privacy", use_container_width=True):
+                            show_privacy()
+                    
+                    st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
 
-        # ADVANCED CONFIG (SECTION STYLE, NO EMOJI)
+                    if st.button("Create Account", type="primary"):
+                        if not tos_agreed:
+                            st.error("⚠️ You must agree to the Terms of Service.")
+                        elif len(new_password) < 6:
+                            st.error("⚠️ Password must be at least 6 characters.")
+                        elif new_password != confirm_password:
+                            st.error("⚠️ Passwords do not match.")
+                        elif captcha_input.upper() == st.session_state.captcha_text:
+                            try:
+                                response = supabase.auth.sign_up({
+                                    "email": new_email, 
+                                    "password": new_password,
+                                    "options": {
+                                        "data": {
+                                            "first_name": str(first_name),
+                                            "role": str(role)
+                                        }
+                                    }
+                                })
+                                show_success_modal()
+                            except Exception as e:
+                                st.error(f"Registration failed: {str(e)}")
+                        else:
+                            st.error("❌ Incorrect CAPTCHA code.")
+                            time.sleep(1.5)
+                            st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                            st.rerun()
+                    
+                    st.markdown("---")
+                    if st.button("Already have an account? Log In"):
+                        st.session_state.auth_mode = 'login'
+                        st.rerun()
+        st.stop()
+
+    # ==========================================
+    # 10. MAIN APP (AFTER LOGIN)
+    # ==========================================
+    with st.spinner("Loading Market Data..."):
+        df = load_data()
+
+    if df.empty:
+        st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
+        st.stop()
+
+    # --- NAVIGATION ---
+    page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], horizontal=True, label_visibility="collapsed")
+
+    if page == "Pro Analyzer":
+        # === WELCOME HEADER ===
+        try:
+            user_name = st.session_state.user.user_metadata.get('first_name', '')
+            if not user_name:
+                user_name = "Investor"
+        except:
+            user_name = "Investor"
+        
+        st.markdown(f"### Welcome, {user_name}")
+        st.caption("Ready to find your next deal?")
+        st.markdown("---")
+
+        # ==========================================
+        # TAB 1: PRO ANALYZER
+        # ==========================================
         with st.container(border=True):
-            st.markdown("##### Financial Assumptions")
+            st.markdown("#### 1. Property Details")
+            c_client, c_addr = st.columns(2)
+            with c_client:
+                client_name = st.text_input("Prepared For", placeholder="e.g. Acme Properties LLC")
+            with c_addr:
+                prop_address = st.text_input("Property Address", placeholder="e.g. 123 Main St, Rome, GA")
             
+            # New: Report Notes Field
+            report_notes = st.text_area("Report Notes (Optional)", placeholder="Add custom notes for the PDF cover page...", height=68)
+            
+            # New: Logo Upload (White Label)
+            logo_file = st.file_uploader("Upload Your Logo (Optional)", type=['png', 'jpg', 'jpeg'], help="Customize the PDF report with your branding.")
+            
+            # Handle logo temp file
+            logo_path = None
+            if logo_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(logo_file.name)[1]) as tmp:
+                    tmp.write(logo_file.getbuffer())
+                    logo_path = tmp.name
+
+            col_input1, col_input2, col_input3 = st.columns(3)
+
+            with col_input1:
+                state_list = sorted([s for s in df['state'].unique() if s != 'Other'])
+                selected_state = st.selectbox("1. Select State", state_list, help="Filter markets by US State.")
+
+            with col_input2:
+                zip_list = sorted(df[df['state'] == selected_state]['zip_code'].unique())
+                selected_zip = st.selectbox("2. Select ZIP Code", zip_list, help="Select the exact ZIP code from Zillow/Redfin.")
+
+            with col_input3:
+                beds = st.selectbox(
+                    "3. Unit Asset Class",
+                    ["Studio", "1-Bedroom", "2-Bedroom", "3-Bedroom", "4-Bedroom"],
+                    index=2,
+                    help="Select bedroom count."
+                )
+
+        row = df[df['zip_code'] == selected_zip].iloc[0]
+        market_area_name = row.get('area_name', 'Unknown Area')
+
+        st.markdown("---")
+        st.markdown(f"#### {market_area_name} ({selected_zip})")
+
+        # SMART LINKS (No Emojis, Styled Links)
+        c_link1, c_link2, c_link3 = st.columns(3)
+        
+        beds_url_str = beds.split('-')[0]
+        zillow_url = f"https://www.zillow.com/homes/for_rent/{selected_zip}_rb/{beds_url_str}_beds/"
+        rentometer_url = "https://www.rentometer.com/"
+        pha_url = "https://www.hud.gov/program_offices/public_indian_housing/pha/contacts"
+
+        with c_link1:
+            st.link_button("View Zillow Comps", zillow_url, use_container_width=True)
+        with c_link2:
+            st.link_button("Check Rentometer", rentometer_url, use_container_width=True)
+        with c_link3:
+            st.link_button("Find Local PHA", pha_url, use_container_width=True)
+
+        try:
+            import pgeocode
+            import folium
+            from streamlit_folium import st_folium
+            nomi = pgeocode.Nominatim('us')
+            loc = nomi.query_postal_code(selected_zip)
+
+            if not math.isnan(loc.latitude):
+                if not math.isnan(loc.longitude):
+                    m = folium.Map(location=[loc.latitude, loc.longitude], zoom_start=13)
+                    folium.Marker(
+                        [loc.latitude, loc.longitude],
+                        icon=folium.Icon(color="blue", icon="home", prefix='fa')
+                    ).add_to(m)
+                    _ = st_folium(m, height=350, use_container_width=True, returned_objects=[])  # Suppress return with _ and empty list
+        except:
+            pass
+
+        st.markdown("---")
+        limit = row[beds]
+
+        # --- UA SECTION: Presets + Number Input ---
+        with st.container(border=True):
+            st.markdown(f"#### Utility Allowance Deduction")
+            
+            # PRESET BUTTONS
+            col_presets = st.columns(3)
+            with col_presets[0]:
+                if st.button("Low ($120)"):
+                    st.session_state.ua_value = 120
+            with col_presets[1]:
+                if st.button("Mid ($180)"):
+                    st.session_state.ua_value = 180
+            with col_presets[2]:
+                if st.button("High ($250)"):
+                    st.session_state.ua_value = 250
+            
+            # DIRECT INPUT
+            ua_input = st.number_input(
+                "Enter Deduction Amount ($)",
+                min_value=0,
+                max_value=1000,
+                value=st.session_state.ua_value,
+                step=10,
+                help="Consult local PHA for exact utility allowance schedule."
+            )
+            st.session_state.ua_value = ua_input
+
+            target_rent = limit - ua_input
+            st.info(f"**HUD Limit:** ${limit:,.0f}\n\n**Net Contract Rent:** ${target_rent:,.0f}")
+
+        with st.container(border=True):
+            st.markdown("#### Acquisition")
             c1, c2 = st.columns(2)
             with c1:
-                user_vacancy = st.number_input("Vacancy %", value=5.0, min_value=0.0, max_value=100.0, step=0.1, help="Estimated vacancy rate (5-8% typical)")
-                down_payment = st.number_input("Down %", value=20.0, min_value=0.0, max_value=100.0, step=1.0, help="Down payment percentage")
-                interest_rate = st.number_input("Rate %", value=7.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual interest rate")
-                loan_term_years = st.number_input("Term", value=30, min_value=1, max_value=40, step=1, help="Loan term in years")
-                initial_repairs = st.number_input("Repairs", value=2000, min_value=0, step=100, help="Upfront repair costs")
-                appreciation = st.number_input("Appreciation %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual property appreciation rate")
-                rent_growth = st.number_input("Rent Growth %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual rent increase rate")
+                price = st.number_input("Price", value=250000)
             with c2:
-                # Dynamic defaults based on Price
-                default_taxes = round(price * 0.012)
-                default_ins = round(price * 0.005)
-                taxes_yr = st.number_input("Taxes ($/yr)", value=default_taxes, min_value=0, help="Annual Property Taxes (approx 1.2% of price)")
-                insurance_yr = st.number_input("Insurance ($/yr)", value=default_ins, min_value=0, help="Annual Insurance Premium (approx 0.5% of price)")
-                maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0, min_value=0.0, max_value=100.0, help="Maintenance & Capital Expenditures reserve")
-                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, min_value=0.0, max_value=100.0, step=1.0, help="Property Management fee")
-                closing_costs = st.number_input("Closing %", value=3.0, min_value=0.0, max_value=10.0, step=0.5, help="Closing costs percentage")
-                target_coc_input = st.number_input("Target CoC", value=12.0, min_value=0.0, max_value=100.0, step=0.5, help="Desired Cash-on-Cash Return")
+                rent_in = st.number_input("Rent", value=int(target_rent))
 
-    # CALCS
-    gross = rent_in * 12
-    vac_loss = gross * (user_vacancy / 100)
-    egi = gross - vac_loss
-    maint = egi * (maint_capex / 100)
-    pm = gross * (prop_mgmt_pct / 100)
-    exp = taxes_yr + insurance_yr + maint + pm
-    noi = egi - exp
-    mort = calculate_mortgage(price, down_payment, interest_rate, loan_term_years)
-    debt = mort * 12
-    cf = noi - debt
-    invest = (price * down_payment / 100) + (price * closing_costs / 100) + initial_repairs
+            api_vacancy = get_vacancy_rate(selected_zip)
+            is_unlocked = True # Since user is logged in, features are unlocked
 
-    coc = 0
-    if invest > 0:
-        coc = (cf / invest * 100)
+            # ADVANCED CONFIG (SECTION STYLE, NO EMOJI)
+            with st.container(border=True):
+                st.markdown("##### Financial Assumptions")
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    user_vacancy = st.number_input("Vacancy %", value=5.0, min_value=0.0, max_value=100.0, step=0.1, help="Estimated vacancy rate (5-8% typical)")
+                    down_payment = st.number_input("Down %", value=20.0, min_value=0.0, max_value=100.0, step=1.0, help="Down payment percentage")
+                    interest_rate = st.number_input("Rate %", value=7.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual interest rate")
+                    loan_term_years = st.number_input("Term", value=30, min_value=1, max_value=40, step=1, help="Loan term in years")
+                    initial_repairs = st.number_input("Repairs", value=2000, min_value=0, step=100, help="Upfront repair costs")
+                    appreciation = st.number_input("Appreciation %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual property appreciation rate")
+                    rent_growth = st.number_input("Rent Growth %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual rent increase rate")
+                with c2:
+                    # Dynamic defaults based on Price
+                    default_taxes = round(price * 0.012)
+                    default_ins = round(price * 0.005)
+                    taxes_yr = st.number_input("Taxes ($/yr)", value=default_taxes, min_value=0, help="Annual Property Taxes (approx 1.2% of price)")
+                    insurance_yr = st.number_input("Insurance ($/yr)", value=default_ins, min_value=0, help="Annual Insurance Premium (approx 0.5% of price)")
+                    maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0, min_value=0.0, max_value=100.0, help="Maintenance & Capital Expenditures reserve")
+                    prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, min_value=0.0, max_value=100.0, step=1.0, help="Property Management fee")
+                    closing_costs = st.number_input("Closing %", value=3.0, min_value=0.0, max_value=10.0, step=0.5, help="Closing costs percentage")
+                    target_coc_input = st.number_input("Target CoC", value=12.0, min_value=0.0, max_value=100.0, step=0.5, help="Desired Cash-on-Cash Return")
+                    
+                # New: Rent Sensitivity Slider (Live)
+                st.markdown("---")
+                st.markdown("##### ⚡ Quick Sensitivity Check")
+                rent_sens_pct = st.slider("Adjust Rent (%)", -20, 20, 0, step=1, help="Instantly see how rent changes affect Cash Flow (Estimated)")
+                
+                # Live Calc for Sensitivity
+                sens_rent = rent_in * (1 + rent_sens_pct/100)
+                sens_gross = sens_rent * 12
+                sens_vac = sens_gross * (user_vacancy/100)
+                sens_egi = sens_gross - sens_vac
+                sens_maint = sens_egi * (maint_capex/100)
+                sens_pm = sens_gross * (prop_mgmt_pct/100)
+                sens_opex = taxes_yr + insurance_yr + sens_maint + sens_pm
+                sens_noi = sens_egi - sens_opex
+                # Mortgage calc requires price/down/rate
+                sens_mort = calculate_mortgage(price, down_payment, interest_rate, loan_term_years) * 12
+                sens_cf = sens_noi - sens_mort
+                
+                # Display Sensitivity Result
+                s1, s2 = st.columns(2)
+                s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.0f}", delta=f"{sens_cf/12 - ((sens_rent*12 - sens_vac - sens_opex - sens_mort)/12):.0f}", delta_color="normal")
+
+
+        # CALCS
+        gross = rent_in * 12
+        vac_loss = gross * (user_vacancy / 100)
+        egi = gross - vac_loss
+        maint = egi * (maint_capex / 100)
+        pm = gross * (prop_mgmt_pct / 100)
+        exp = taxes_yr + insurance_yr + maint + pm
+        noi = egi - exp
+        mort = calculate_mortgage(price, down_payment, interest_rate, loan_term_years)
+        debt = mort * 12
+        cf = noi - debt
+        invest = (price * down_payment / 100) + (price * closing_costs / 100) + initial_repairs
+
+        coc = 0
+        if invest > 0:
+            coc = (cf / invest * 100)
+            
+        # Corrected Cap Rate: NOI / Purchase Price
+        cap_rate = (noi / price) * 100 if price > 0 else 0
         
-    # Corrected Cap Rate: NOI / Purchase Price
-    cap_rate = (noi / price) * 100 if price > 0 else 0
+        # OER Calculation
+        oer = (exp / egi) * 100 if egi > 0 else 0
 
-    # Break-Even Occupancy Calculation
-    # Breakeven % = (Operating Expenses + Debt Service) / Gross Potential Rent
-    total_annual_costs = exp + debt
-    break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
-    
-    # 1.20x DSCR Price Calculation
-    monthly_rate = (interest_rate / 100) / 12
-    num_payments = loan_term_years * 12
-    if monthly_rate > 0:
-        mortgage_constant = (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
-        annual_debt_constant = mortgage_constant * 12
-        ltv = 1 - (down_payment/100)
-        target_max_debt = noi / 1.20 
-        target_loan = target_max_debt / annual_debt_constant
-        price_120_dscr = target_loan / ltv
-    else:
-        price_120_dscr = 0
-
-
-    n_grade = "C"
-    if limit >= 2500:
-        n_grade = "A"
-    elif limit >= 1800:
-        n_grade = "B"
-
-    d_grade = "C"
-    if coc >= 12:
-        d_grade = "A+"
-    elif coc >= 8:
-        d_grade = "B"
-
-    st.divider()
-    st.markdown("## Asset Rating")
-
-    r1, r2, r3, r4 = st.columns(4)
-    r1.metric("Deal Grade", d_grade)
-    r2.metric("CoC Return", f"{coc:.1f}%")
-    r3.metric("Monthly CF", f"${cf / 12:,.0f}")
-    r4.metric("Cash Needed", f"${invest:,.0f}")
-
-    mao = calculate_max_offer(
-        rent_in * (1 - user_vacancy / 100),
-        target_coc_input,
-        initial_repairs,
-        closing_costs,
-        down_payment,
-        interest_rate,
-        taxes_yr,
-        insurance_yr,
-        maint / 12,
-        pm / 12
-    )
-    st.info(f"**Max Allowable Offer (MAO):** ${mao:,.0f} for {target_coc_input}% CoC")
-
-    st.divider()
-    g1, g2 = st.columns(2)
-    with g1:
-        _ = st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True, config={'staticPlot': True})  # Suppress with _
-    with g2:
-        years = list(range(1, 6))
-        equity_vals = []
-        current_bal = price * (1 - down_payment / 100)
-        for y in years:
-            paid_principal = (mort * 12) - (current_bal * interest_rate / 100)
-            if paid_principal < 0:
-                paid_principal = 0
-            current_bal -= paid_principal
-            equity = price * ((1 + appreciation / 100)**y) - current_bal
-            equity_vals.append(equity)
-        fig_eq = go.Figure()
-        fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy'))
-        fig_eq.update_layout(
-            height=180,
-            margin=dict(l=20, r=20, t=10, b=10),
-            paper_bgcolor="rgba(0,0,0,0)"
-        )
-        _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
-    
-    st.divider()
-
-    # Create Pie Chart (Donut)
-    expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
-    expense_values = [taxes_yr/12, insurance_yr/12, maint/12, pm/12, vac_loss/12] # all monthly
-    fig_pie = go.Figure(data=[go.Pie(labels=expense_labels, values=expense_values, hole=.4)])
-    fig_pie.update_layout(title_text="Monthly Expense Breakdown", height=350, margin=dict(l=20, r=20, t=40, b=20))
-    _ = st.plotly_chart(fig_pie, use_container_width=True, config={'staticPlot': True}) # Static plot for pie chart
-
-    st.divider()
-    
-    # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
-    with st.spinner("Processing..."):
-        # Explicit assignment to prevent ghost text
-        proj = calculate_projections(
-            price,
-            rent_in,
-            exp,
-            debt,
-            down_payment,
-            interest_rate,
-            loan_term_years,
-            rent_growth,
-            appreciation,
-            user_vacancy
-        )
+        # Break-Even Occupancy Calculation
+        # Breakeven % = (Operating Expenses + Debt Service) / Gross Potential Rent
+        total_annual_costs = exp + debt
+        break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
         
-        # Generate PDF bytes here (Cleanly separated from UI)
-        pdf_bytes = generate_pro_report(
-            client_name,
-            prop_address,
-            row,
-            beds,
-            price,
-            rent_in,
-            user_vacancy,
-            cap_rate,
-            coc,
-            cf / 12,
-            d_grade,
-            n_grade,
+        # 1.20x DSCR Price Calculation
+        monthly_rate = (interest_rate / 100) / 12
+        num_payments = loan_term_years * 12
+        if monthly_rate > 0:
+            mortgage_constant = (monthly_rate * (1 + monthly_rate)**num_payments) / ((1 + monthly_rate)**num_payments - 1)
+            annual_debt_constant = mortgage_constant * 12
+            ltv = 1 - (down_payment/100)
+            target_max_debt = noi / 1.20 
+            target_loan = target_max_debt / annual_debt_constant
+            price_120_dscr = target_loan / ltv
+        else:
+            price_120_dscr = 0
+
+
+        n_grade = "C"
+        if limit >= 2500:
+            n_grade = "A"
+        elif limit >= 1800:
+            n_grade = "B"
+
+        d_grade = "C"
+        if coc >= 12:
+            d_grade = "A+"
+        elif coc >= 8:
+            d_grade = "B"
+
+        st.divider()
+        st.markdown("## Asset Rating")
+
+        r1, r2, r3, r4 = st.columns(4)
+        r1.metric("Deal Grade", d_grade)
+        
+        # Color code CoC
+        coc_color = "normal" if coc > 0 else "inverse"
+        r2.metric("CoC Return", f"{coc:.1f}%", delta=None, delta_color=coc_color)
+        
+        # Format CF with color and sign
+        cf_val = cf / 12
+        cf_display = f"${cf_val:,.0f}"
+        if cf_val < 0:
+            cf_color = "inverse"
+        else:
+            cf_color = "normal"
+        r3.metric("Monthly CF", cf_display, delta=None, delta_color=cf_color)
+        
+        r4.metric("Cash Needed", f"${invest:,.0f}")
+
+        mao = calculate_max_offer(
+            rent_in * (1 - user_vacancy / 100),
+            target_coc_input,
+            initial_repairs,
+            closing_costs,
             down_payment,
             interest_rate,
             taxes_yr,
             insurance_yr,
-            maint,
-            mort,
-            limit,
-            ua_input,
-            maint_capex,
-            prop_mgmt_pct,
-            loan_term_years,
-            initial_repairs,
-            proj,
-            rent_growth,
-            appreciation,
-            closing_costs,
-            mao,
-            break_even_occupancy,
-            price_120_dscr,
-            report_notes,
-            logo_path
+            maint / 12,
+            pm / 12
         )
-
-    # --- UI LAYOUT WITH BUTTONS ---
-    e1, e2, e3 = st.columns(3)
-
-    with e1:
-        if st.button("Save Deal", type="primary", use_container_width=True):
-            try:
-                # DATABASE INSERT
-                deal_data = {
-                    "user_email": st.session_state.user.email,
-                    "address": prop_address or f"ZIP {selected_zip}",
-                    "price": price,
-                    "rent": rent_in,
-                    "coc": coc,
-                    "cashflow": cf / 12,
-                    "grade": d_grade
-                }
-                supabase.table("portfolios").insert(deal_data).execute()
-                st.success("Saved to Portfolio!")
-            except Exception as e:
-                st.error(f"Error saving: {e}")
-
-    with e2:
-        st.download_button(
-            "Download Report",
-            data=pdf_bytes,
-            file_name="Report.pdf",
-            use_container_width=True
-        )
-
-    with e3:
-        st.download_button(
-            "Export Data",
-            data=row.to_frame().T.to_csv().encode('utf-8'),
-            file_name=f"Data_{selected_zip}.csv",
-            use_container_width=True
-        )
-
-elif page == "My Portfolio":
-    # ==========================================
-    # TAB 2: PORTFOLIO (REAL DATABASE)
-    # ==========================================
-    st.header("Portfolio Command Center")
-    
-    # FETCH DATA
-    try:
-        response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.email).execute()
-        deals = response.data
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        deals = []
-
-    if not deals:
-        st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
-    else:
-        # ANALYTICS SUMMARY
-        t_cf = sum(d['cashflow'] for d in deals)
-        avg_c = sum(d['coc'] for d in deals) / len(deals)
-        t_val = sum(d['price'] for d in deals)
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
-        c2.metric("Portfolio Value", f"${t_val:,.0f}")
-        c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
-
-        # NEW: BULK EXPORT BUTTON
-        csv_export = pd.DataFrame(deals).to_csv(index=False).encode('utf-8')
-        st.download_button(
-            "Download Portfolio CSV",
-            data=csv_export,
-            file_name="My_Portfolio_YieldMap.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        st.info(f"**Max Allowable Offer (MAO):** ${mao:,.0f} for {target_coc_input}% CoC")
 
         st.divider()
-
-        # MANAGE DEALS
-        st.markdown("### Manage Deals")
-        for deal in deals:
-            with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                c1.write(f"**Price:** ${deal['price']:,.0f}")
-                c2.write(f"**CoC:** {deal['coc']:.1f}%")
-                if c3.button("Delete", key=f"del_{deal['id']}"):
-                    try:
-                        supabase.table("portfolios").delete().eq("id", deal['id']).execute()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error deleting: {e}")
-
+        g1, g2 = st.columns(2)
+        with g1:
+            _ = st.plotly_chart(create_gauge(coc, "CoC %", 0, 20), use_container_width=True, config={'staticPlot': True})  # Suppress with _
+        with g2:
+            years = list(range(1, 6))
+            equity_vals = []
+            current_bal = price * (1 - down_payment / 100)
+            for y in years:
+                paid_principal = (mort * 12) - (current_bal * interest_rate / 100)
+                if paid_principal < 0:
+                    paid_principal = 0
+                current_bal -= paid_principal
+                equity = price * ((1 + appreciation / 100)**y) - current_bal
+                equity_vals.append(equity)
+            fig_eq = go.Figure()
+            fig_eq.add_trace(go.Scatter(x=years, y=equity_vals, fill='tozeroy'))
+            fig_eq.update_layout(
+                height=180,
+                margin=dict(l=20, r=20, t=10, b=10),
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
+            _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
+        
         st.divider()
 
-        # COMPARISON
-        st.markdown("### Comparison Matrix")
-        comp_df = pd.DataFrame(deals)
-        # Rename columns to look nice
-        comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
-        comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
+        # Create Pie Chart (Donut) - INTERACTIVE (No staticPlot=True)
+        expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
+        expense_values = [taxes_yr/12, insurance_yr/12, maint/12, pm/12, vac_loss/12] # all monthly
+        fig_pie = go.Figure(data=[go.Pie(labels=expense_labels, values=expense_values, hole=.4, hoverinfo="label+percent+value")])
+        fig_pie.update_layout(title_text="Monthly Expense Breakdown", height=350, margin=dict(l=20, r=20, t=40, b=20))
+        # REMOVED staticPlot=True to make it interactive as requested
+        _ = st.plotly_chart(fig_pie, use_container_width=True)
 
-        def highlight_max(s):
-            is_max = s == s.max()
-            return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
+        st.divider()
+        
+        # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
+        with st.spinner("Processing..."):
+            # Explicit assignment to prevent ghost text
+            proj = calculate_projections(
+                price,
+                rent_in,
+                exp,
+                debt,
+                down_payment,
+                interest_rate,
+                loan_term_years,
+                rent_growth,
+                appreciation,
+                user_vacancy
+            )
+            
+            # CALCULATE IRR
+            irr_val = calculate_irr(invest, proj['Cash Flow'].tolist())
 
-        st.dataframe(
-            comp_df.style.format({
-                "Price": "${:,.0f}",
-                "Rent": "${:,.0f}",
-                "CoC": "{:.1f}%",
-                "Cashflow": "${:,.0f}"
-            }).apply(highlight_max, subset=['CoC', 'Cashflow']),
-            use_container_width=True
-        )
+            # Generate PDF bytes here (Cleanly separated from UI)
+            pdf_bytes = generate_pro_report(
+                client_name,
+                prop_address,
+                row,
+                beds,
+                price,
+                rent_in,
+                user_vacancy,
+                cap_rate,
+                coc,
+                cf / 12,
+                d_grade,
+                n_grade,
+                down_payment,
+                interest_rate,
+                taxes_yr,
+                insurance_yr,
+                maint,
+                mort,
+                limit,
+                ua_input,
+                maint_capex,
+                prop_mgmt_pct,
+                loan_term_years,
+                initial_repairs,
+                proj,
+                rent_growth,
+                appreciation,
+                closing_costs,
+                mao,
+                break_even_occupancy,
+                price_120_dscr,
+                report_notes,
+                oer,
+                irr_val,
+                logo_path
+            )
 
-        # CHARTS
-        st.markdown("### Performance Visualizer")
-        c1, c2 = st.columns(2)
-        with c1:
-            fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
-            fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
-            _ = st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})  # Suppress with _ (for portfolio charts too)
-        with c2:
-            fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
-            fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
-            _ = st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})  # Suppress with _
+        # --- UI LAYOUT WITH BUTTONS ---
+        e1, e2, e3 = st.columns(3)
+
+        with e1:
+            if st.button("Save Deal", type="primary", use_container_width=True):
+                try:
+                    # DATABASE INSERT
+                    deal_data = {
+                        "user_email": st.session_state.user.email,
+                        "address": prop_address or f"ZIP {selected_zip}",
+                        "price": price,
+                        "rent": rent_in,
+                        "coc": coc,
+                        "cashflow": cf / 12,
+                        "grade": d_grade
+                    }
+                    supabase.table("portfolios").insert(deal_data).execute()
+                    st.success("Saved to Portfolio!")
+                except Exception as e:
+                    st.error(f"Error saving: {e}")
+
+        with e2:
+            st.download_button(
+                "Download Report",
+                data=pdf_bytes,
+                file_name="Report.pdf",
+                use_container_width=True
+            )
+
+        with e3:
+            st.download_button(
+                "Export Data",
+                data=row.to_frame().T.to_csv().encode('utf-8'),
+                file_name=f"Data_{selected_zip}.csv",
+                use_container_width=True
+            )
+
+    elif page == "My Portfolio":
+        # ==========================================
+        # TAB 2: PORTFOLIO (REAL DATABASE)
+        # ==========================================
+        st.header("Portfolio Command Center")
+        
+        # FETCH DATA
+        try:
+            response = supabase.table("portfolios").select("*").eq("user_email", st.session_state.user.email).execute()
+            deals = response.data
+        except Exception as e:
+            st.error(f"Error fetching data: {e}")
+            deals = []
+
+        if not deals:
+            st.info("No deals saved. Go to the **Pro Analyzer** tab to run a deal.")
+        else:
+            # ANALYTICS SUMMARY
+            t_cf = sum(d['cashflow'] for d in deals)
+            avg_c = sum(d['coc'] for d in deals) / len(deals)
+            t_val = sum(d['price'] for d in deals)
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Total Monthly CF", f"${t_cf:,.0f}")
+            c2.metric("Portfolio Value", f"${t_val:,.0f}")
+            c3.metric("Avg Portfolio CoC", f"{avg_c:.1f}%")
+
+            # NEW: BULK EXPORT BUTTON
+            csv_export = pd.DataFrame(deals).to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Download Portfolio CSV",
+                data=csv_export,
+                file_name="My_Portfolio_YieldMap.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+            st.divider()
+
+            # MANAGE DEALS
+            st.markdown("### Manage Deals")
+            for deal in deals:
+                with st.expander(f"{deal['address']} (Grade: {deal['grade']})"):
+                    c1, c2, c3 = st.columns([2, 2, 1])
+                    c1.write(f"**Price:** ${deal['price']:,.0f}")
+                    c2.write(f"**CoC:** {deal['coc']:.1f}%")
+                    if c3.button("Delete", key=f"del_{deal['id']}"):
+                        try:
+                            supabase.table("portfolios").delete().eq("id", deal['id']).execute()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error deleting: {e}")
+
+            st.divider()
+
+            # COMPARISON
+            st.markdown("### Comparison Matrix")
+            comp_df = pd.DataFrame(deals)
+            # Rename columns to look nice
+            comp_df = comp_df[['address', 'price', 'rent', 'coc', 'cashflow', 'grade']]
+            comp_df.columns = ['Address', 'Price', 'Rent', 'CoC', 'Cashflow', 'Grade']
+
+            def highlight_max(s):
+                is_max = s == s.max()
+                return ['background-color: #d1fae5; color: #065f46; font-weight: bold' if v else '' for v in is_max]
+
+            st.dataframe(
+                comp_df.style.format({
+                    "Price": "${:,.0f}",
+                    "Rent": "${:,.0f}",
+                    "CoC": "{:.1f}%",
+                    "Cashflow": "${:,.0f}"
+                }).apply(highlight_max, subset=['CoC', 'Cashflow']),
+                use_container_width=True
+            )
+
+            # CHARTS
+            st.markdown("### Performance Visualizer")
+            c1, c2 = st.columns(2)
+            with c1:
+                fig_coc = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['CoC'], marker_color='#2563eb')])
+                fig_coc.update_layout(title="Cash-on-Cash Return (%)", yaxis_title="CoC %")
+                _ = st.plotly_chart(fig_coc, use_container_width=True, config={'staticPlot': True})  # Suppress with _ (for portfolio charts too)
+            with c2:
+                fig_cf = go.Figure(data=[go.Bar(x=comp_df['Address'], y=comp_df['Cashflow'], marker_color='#10b981')])
+                fig_cf.update_layout(title="Monthly Cashflow ($)", yaxis_title="Cashflow $")
+                _ = st.plotly_chart(fig_cf, use_container_width=True, config={'staticPlot': True})  # Suppress with _
 
 elif page == "IQ Center":
     # ==========================================
@@ -1666,7 +1723,11 @@ elif page == "IQ Center":
             """
         )
 
-# INJECT THE TITAN BAR OVERLAY
-st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
+    # INJECT THE TITAN BAR OVERLAY
+    st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
-render_footer()
+    render_footer()
+
+# === CRITICAL: RUN MAIN APP ===
+if __name__ == "__main__":
+    main()
