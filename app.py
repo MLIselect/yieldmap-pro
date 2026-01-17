@@ -462,16 +462,11 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- EXCEL GENERATOR FUNCTION ---
+# --- EXCEL GENERATOR FUNCTION (STABLE - NO XLSXWRITER) ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        workbook = writer.book
-        
-        # Styles
-        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1e3a8a', 'font_color': '#ffffff', 'border': 1})
-        money_fmt = workbook.add_format({'num_format': '$#,##0'})
-        pct_fmt = workbook.add_format({'num_format': '0.0%'})
+    # Removed engine='xlsxwriter' to use default openpyxl (standard in pandas)
+    with pd.ExcelWriter(output) as writer:
         
         # 1. SUMMARY SHEET
         summary_data = {
@@ -522,11 +517,6 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         # 5. INPUTS SHEET
         inputs_data = {"Parameter": list(inputs_dict.keys()), "Value": list(inputs_dict.values())}
         pd.DataFrame(inputs_data).to_excel(writer, sheet_name='Inputs', index=False)
-        
-        # Formatting Columns
-        for sheet in writer.sheets:
-            writer.sheets[sheet].set_column('A:A', 30)
-            writer.sheets[sheet].set_column('B:C', 20)
 
     return output.getvalue()
 
@@ -791,7 +781,6 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
-    # Fixed variable name here (int_rate -> interest_rate)
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
@@ -804,7 +793,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
+        _ = pdf.set_text_color(255, 255, 255) 
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
@@ -1519,13 +1508,13 @@ def main():
 
         st.divider()
 
-        # Create Pie Chart (Donut) - INTERACTIVE (No staticPlot=True)
+        # Create Pie Chart (Donut) - STATIC (staticPlot=True)
         expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
         expense_values = [taxes_yr/12, insurance_yr/12, maint/12, pm/12, vac_loss/12] # all monthly
         fig_pie = go.Figure(data=[go.Pie(labels=expense_labels, values=expense_values, hole=.4, hoverinfo="label+percent+value")])
         fig_pie.update_layout(title_text="Monthly Expense Breakdown", height=350, margin=dict(l=20, r=20, t=40, b=20))
-        # REMOVED staticPlot=True to make it interactive as requested
-        _ = st.plotly_chart(fig_pie, use_container_width=True)
+        # STATIC AS REQUESTED
+        _ = st.plotly_chart(fig_pie, use_container_width=True, config={'staticPlot': True, 'displayModeBar': False})
 
         st.divider()
         
