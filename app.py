@@ -397,7 +397,7 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- PDF GENERATOR CLASS (FULLY SILENCED) ---
+# --- PDF GENERATOR CLASS ---
 class ProPDF(FPDF):
     def header(self):
         _ = self.set_fill_color(30, 58, 138)
@@ -471,7 +471,10 @@ class ProPDF(FPDF):
         _ = self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
         _ = self.set_font('Helvetica', 'B', 10)
         text_width = self.get_string_width("ANALYST INSIGHT: " + text)
+        
+        # === FIX: Box height tripled to ensure text fit ===
         box_height = 20 if text_width > 180 else 15
+        
         _ = self.rect(10, self.get_y(), 190, box_height, 'DF')
         _ = self.set_xy(12, self.get_y()+4)
         if is_good:
@@ -1057,20 +1060,23 @@ if page == "Pro Analyzer":
             
             c1, c2 = st.columns(2)
             with c1:
-                user_vacancy = st.number_input("Vacancy %", value=5.0)
-                down_payment = st.number_input("Down %", value=20.0)
-                interest_rate = st.number_input("Rate %", value=7.0)
-                loan_term_years = st.number_input("Term", value=30)
-                initial_repairs = st.number_input("Repairs", value=2000)
-                appreciation = st.number_input("Appreciation %", value=2.0)
-                rent_growth = st.number_input("Rent Growth %", value=2.0)
+                user_vacancy = st.number_input("Vacancy %", value=5.0, min_value=0.0, max_value=100.0, step=0.1, help="Estimated vacancy rate (5-8% typical)")
+                down_payment = st.number_input("Down %", value=20.0, min_value=0.0, max_value=100.0, step=1.0, help="Down payment percentage")
+                interest_rate = st.number_input("Rate %", value=7.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual interest rate")
+                loan_term_years = st.number_input("Term", value=30, min_value=1, max_value=40, step=1, help="Loan term in years")
+                initial_repairs = st.number_input("Repairs", value=2000, min_value=0, step=100, help="Upfront repair costs")
+                appreciation = st.number_input("Appreciation %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual property appreciation rate")
+                rent_growth = st.number_input("Rent Growth %", value=2.0, min_value=0.0, max_value=20.0, step=0.1, help="Annual rent increase rate")
             with c2:
-                taxes_yr = st.number_input("Taxes", value=3000)
-                insurance_yr = st.number_input("Insurance", value=1200)
-                maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0)
-                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0)
-                closing_costs = st.number_input("Closing %", value=3.0)
-                target_coc_input = st.number_input("Target CoC", value=12.0)
+                # Dynamic defaults based on Price
+                default_taxes = round(price * 0.012)
+                default_ins = round(price * 0.005)
+                taxes_yr = st.number_input("Taxes ($/yr)", value=default_taxes, min_value=0, help="Annual Property Taxes (approx 1.2% of price)")
+                insurance_yr = st.number_input("Insurance ($/yr)", value=default_ins, min_value=0, help="Annual Insurance Premium (approx 0.5% of price)")
+                maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0, min_value=0.0, max_value=100.0, help="Maintenance & Capital Expenditures reserve")
+                prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, min_value=0.0, max_value=100.0, step=1.0, help="Property Management fee")
+                closing_costs = st.number_input("Closing %", value=3.0, min_value=0.0, max_value=10.0, step=0.5, help="Closing costs percentage")
+                target_coc_input = st.number_input("Target CoC", value=12.0, min_value=0.0, max_value=100.0, step=0.5, help="Desired Cash-on-Cash Return")
 
     # CALCS
     gross = rent_in * 12
@@ -1148,6 +1154,15 @@ if page == "Pro Analyzer":
         )
         _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
     
+    st.divider()
+
+    # Create Pie Chart (Donut)
+    expense_labels = ['Taxes', 'Insurance', 'Maintenance', 'Property Mgmt', 'Vacancy Loss']
+    expense_values = [taxes_yr/12, insurance_yr/12, maint/12, pm/12, vac_loss/12] # all monthly
+    fig_pie = go.Figure(data=[go.Pie(labels=expense_labels, values=expense_values, hole=.4)])
+    fig_pie.update_layout(title_text="Monthly Expense Breakdown", height=350, margin=dict(l=20, r=20, t=40, b=20))
+    _ = st.plotly_chart(fig_pie, use_container_width=True)
+
     st.divider()
     
     # --- MOVED CALCULATION LOGIC OUTSIDE THE COLUMN LAYOUT TO PREVENT GHOSTING ---
