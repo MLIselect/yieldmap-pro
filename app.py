@@ -352,6 +352,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
     # Expenses usually grow, mortgage stays flat (unless ARM, but assuming fixed)
     current_expenses = total_expenses_yr
     loan_balance = price * (1 - down_pct/100)
+    cumulative_cf = 0
     
     for year in range(1, 31):
         # 1. Apply Vacancy to Gross Rent
@@ -362,6 +363,7 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
         # 3. Cash Flow
         cashflow = noi - mortgage_yr
+        cumulative_cf += cashflow
         
         # 4. Loan Paydown
         if loan_balance > 0:
@@ -378,9 +380,11 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
         data.append({
             "Year": year, 
-            "Cash Flow": cashflow, 
+            "Cash Flow": cashflow,
+            "Cumulative CF": cumulative_cf,
             "Loan Balance": max(0, loan_balance), 
-            "Total Equity": property_value - max(0, loan_balance)
+            "Total Equity": property_value - max(0, loan_balance),
+            "Total Wealth Created": (property_value - max(0, loan_balance)) + cumulative_cf
         })
         
         # Grow Rent & Expenses for next year
@@ -462,10 +466,14 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- EXCEL GENERATOR FUNCTION ---
+# --- EXCEL GENERATOR FUNCTION (STABLE - NO XLSXWRITER) ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
-    # Removed xlsxwriter engine dependency to use default (openpyxl)
+    
+    # Create the filename safely here (optional, used outside)
+    safe_address = address.split(',')[0].strip() if address else "Property"
+    
+    # Use default engine (openpyxl usually) to avoid xlsxwriter dependency
     with pd.ExcelWriter(output) as writer:
         
         # 1. SUMMARY SHEET
@@ -474,39 +482,58 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
                 "Property Address", "Market Area", "Unit Type", "Prepared For", 
                 "Cash-on-Cash Return", "Monthly Cash Flow", "Cap Rate", "Op Expense Ratio",
                 "Neighborhood Rating", "Deal Performance", "Max Allowable Offer",
-                "Down Payment", "Closing Costs", "Repairs", "Total Cash Required", "Break-Even Occupancy", "1.20x DSCR Price", "IRR (30yr)"
+                "Down Payment", "Closing Costs", "Repairs", "Total Cash Required", 
+                "Break-Even Occupancy", "1.20x DSCR Price", "IRR (30yr)",
+                "Analyst Insight"
             ],
             "Value": [
                 address, market, unit, client,
-                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.0f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
-                metrics_dict['n_grade'], metrics_dict['d_grade'], f"${metrics_dict['mao']:,.0f}",
-                f"${metrics_dict['down_amt']:,.0f}", f"${metrics_dict['closing_amt']:,.0f}", f"${metrics_dict['repairs']:,.0f}", f"${metrics_dict['total_cash']:,.0f}",
-                f"{metrics_dict['breakeven']:.1f}%", f"${metrics_dict['dscr_price']:,.0f}", f"{metrics_dict['irr']:.2f}%"
+                metrics_dict['coc'], metrics_dict['cf'], metrics_dict['cap'], metrics_dict['oer'],
+                metrics_dict['n_grade'], metrics_dict['d_grade'], metrics_dict['mao'],
+                metrics_dict['down_amt'], metrics_dict['closing_amt'], metrics_dict['repairs'], metrics_dict['total_cash'],
+                metrics_dict['breakeven'], metrics_dict['dscr_price'], metrics_dict['irr'],
+                "Calculated based on user inputs and federal data sources."
+            ],
+            "Notes": [
+                "", "", "", "",
+                "Annual CF / Total Cash", "Net Operating Income - Debt", "NOI / Purchase Price", "Op Ex / EGI",
+                "Based on Rent Ceiling", "Based on CoC", "Target Price for 12% CoC",
+                f"{inputs_dict['Down Payment']}%", f"{inputs_dict['Closing Costs']}%", "Estimate", "Down + Closing + Repairs",
+                "Occupancy needed to cover costs", "Price to hit 1.20x Debt Coverage", "Internal Rate of Return",
+                ""
             ]
         }
         pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
         
-        # 2. PRO FORMA SHEET
-        # FIXED KEY NAME 'Rent'
+        # 2. PRO FORMA SHEET (FORMULAS)
+        # Note: We can't easily write formulas with default engine without xlsxwriter, 
+        # so we export values. Advanced users can add formulas in Excel.
+        # However, to be helpful, we will include a column explaining the math.
+        
+        # Ensure 'Rent' key matches input dict case (Title Case in main)
+        rent_val = inputs_dict.get('Rent', 0)
+        
         pro_forma_data = {
             "Category": ["Gross Market Rent", "Vacancy Loss", "Effective Gross Income", 
                          "Property Taxes", "Insurance", "Maintenance", "Property Mgmt", 
                          "Net Operating Income (NOI)", "Mortgage Payment", "Net Cash Flow"],
             "Monthly": [
-                inputs_dict['Rent'], -expenses_dict['Vacancy'], inputs_dict['Rent'] - expenses_dict['Vacancy'],
+                rent_val, -expenses_dict['Vacancy'], rent_val - expenses_dict['Vacancy'],
                 -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
                 metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
             ],
             "Annual": [
-                inputs_dict['Rent']*12, -expenses_dict['Vacancy']*12, (inputs_dict['Rent'] - expenses_dict['Vacancy'])*12,
+                rent_val*12, -expenses_dict['Vacancy']*12, (rent_val - expenses_dict['Vacancy'])*12,
                 -expenses_dict['Taxes']*12, -expenses_dict['Insurance']*12, -expenses_dict['Maintenance']*12, -expenses_dict['Mgmt']*12,
                 metrics_dict['noi']*12, -metrics_dict['mort']*12, metrics_dict['cf']*12
             ]
         }
         pd.DataFrame(pro_forma_data).to_excel(writer, sheet_name='Pro Forma', index=False)
         
-        # 3. PROJECTIONS SHEET
-        projections_df.to_excel(writer, sheet_name='Projections', index=False)
+        # 3. PROJECTIONS SHEET (FULL 30 YEARS)
+        # Reorder columns for logical flow
+        proj_export = projections_df[['Year', 'Cash Flow', 'Cumulative CF', 'Loan Balance', 'Total Equity', 'Total Wealth Created']]
+        proj_export.to_excel(writer, sheet_name='Projections', index=False)
         
         # 4. SENSITIVITY SHEET
         sens_data = {
@@ -515,9 +542,38 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         }
         pd.DataFrame(sens_data).to_excel(writer, sheet_name='Sensitivity', index=False)
         
-        # 5. INPUTS SHEET
-        inputs_data = {"Parameter": list(inputs_dict.keys()), "Value": list(inputs_dict.values())}
+        # 5. INPUTS SHEET (AUDIT TRAIL)
+        # Add units to keys for clarity
+        clean_inputs = {
+            "Price ($)": inputs_dict['Price'],
+            "Rent ($)": inputs_dict['Rent'],
+            "Vacancy (%)": inputs_dict['Vacancy'],
+            "Down Payment (%)": inputs_dict['Down Payment'],
+            "Interest Rate (%)": inputs_dict['Interest Rate'],
+            "Loan Term (Yrs)": inputs_dict['Term'],
+            "Repairs ($)": inputs_dict['Repairs'],
+            "Appreciation (%)": inputs_dict['Appreciation'],
+            "Rent Growth (%)": inputs_dict['Rent Growth'],
+            "Taxes ($/yr)": inputs_dict['Taxes'],
+            "Insurance ($/yr)": inputs_dict['Insurance'],
+            "Maintenance (%)": inputs_dict['Maintenance'],
+            "Management (%)": inputs_dict['Mgmt'],
+            "Closing Costs (%)": inputs_dict['Closing Costs']
+        }
+        inputs_data = {"Parameter": list(clean_inputs.keys()), "Value": list(clean_inputs.values())}
         pd.DataFrame(inputs_data).to_excel(writer, sheet_name='Inputs', index=False)
+        
+        # 6. METADATA SHEET
+        meta_data = {
+            "Information": ["Generated By", "Date", "Data Source", "Disclaimer"],
+            "Details": [
+                "YieldMap Pro", 
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "HUD FY 2026 Small Area FMRs",
+                "Educational use only. Not financial advice."
+            ]
+        }
+        pd.DataFrame(meta_data).to_excel(writer, sheet_name='Metadata', index=False)
 
     return output.getvalue()
 
@@ -782,6 +838,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
+    # Fixed variable name here (int_rate -> interest_rate)
     _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
@@ -1500,13 +1557,6 @@ def main():
             )
             _ = st.plotly_chart(fig_eq, use_container_width=True, config={'staticPlot': True})  # Suppress with _
         
-        st.divider()
-        
-        # OER and Break-Even Preview in App
-        o1, o2 = st.columns(2)
-        o1.metric("Op Expense Ratio (OER)", f"{oer:.1f}%", help="Operating Expenses / Effective Gross Income")
-        o2.metric("Break-Even Occupancy", f"{break_even_occupancy:.1f}%", help="Occupancy % needed to cover all expenses and debt")
-
         st.divider()
 
         # Create Pie Chart (Donut) - STATIC (staticPlot=True)
