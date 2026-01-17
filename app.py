@@ -462,10 +462,10 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- EXCEL GENERATOR FUNCTION (STABLE - NO XLSXWRITER) ---
+# --- EXCEL GENERATOR FUNCTION ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
-    # Removed engine='xlsxwriter' to use default openpyxl (standard in pandas)
+    # Removed xlsxwriter engine dependency to use default (openpyxl)
     with pd.ExcelWriter(output) as writer:
         
         # 1. SUMMARY SHEET
@@ -487,17 +487,18 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
         
         # 2. PRO FORMA SHEET
+        # FIXED KEY NAME 'Rent'
         pro_forma_data = {
             "Category": ["Gross Market Rent", "Vacancy Loss", "Effective Gross Income", 
                          "Property Taxes", "Insurance", "Maintenance", "Property Mgmt", 
                          "Net Operating Income (NOI)", "Mortgage Payment", "Net Cash Flow"],
             "Monthly": [
-                inputs_dict['rent'], -expenses_dict['Vacancy'], inputs_dict['rent'] - expenses_dict['Vacancy'],
+                inputs_dict['Rent'], -expenses_dict['Vacancy'], inputs_dict['Rent'] - expenses_dict['Vacancy'],
                 -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
                 metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
             ],
             "Annual": [
-                inputs_dict['rent']*12, -expenses_dict['Vacancy']*12, (inputs_dict['rent'] - expenses_dict['Vacancy'])*12,
+                inputs_dict['Rent']*12, -expenses_dict['Vacancy']*12, (inputs_dict['Rent'] - expenses_dict['Vacancy'])*12,
                 -expenses_dict['Taxes']*12, -expenses_dict['Insurance']*12, -expenses_dict['Maintenance']*12, -expenses_dict['Mgmt']*12,
                 metrics_dict['noi']*12, -metrics_dict['mort']*12, metrics_dict['cf']*12
             ]
