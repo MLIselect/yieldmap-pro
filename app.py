@@ -22,6 +22,7 @@ import time
 import tempfile
 import sys
 import numpy as np
+# REMOVED numpy_financial to use custom function instead
 import io # Required for Excel buffer
 
 import streamlit.components.v1 as components
@@ -465,15 +466,19 @@ def render_footer():
         unsafe_allow_html=True
     )
 
-# --- EXCEL GENERATOR FUNCTION ---
+# --- EXCEL GENERATOR FUNCTION (POWER MODE - XLSXWRITER ENABLED) ---
 def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, projections_df, expenses_dict, sensitivities):
     output = io.BytesIO()
     
-    # Create filename for display/logic (optional inside function)
-    safe_address = address.split(',')[0].strip() if address else "Property"
-    
-    # Use default engine (openpyxl usually) to avoid xlsxwriter dependency
-    with pd.ExcelWriter(output) as writer:
+    # Use xlsxwriter engine for advanced formatting
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        
+        # Styles
+        header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1e3a8a', 'font_color': '#ffffff', 'border': 1, 'align': 'center'})
+        cell_fmt = workbook.add_format({'border': 1})
+        money_fmt = workbook.add_format({'num_format': '$#,##0.00', 'border': 1})
+        pct_fmt = workbook.add_format({'num_format': '0.0%', 'border': 1})
         
         # 1. SUMMARY SHEET
         summary_data = {
@@ -487,10 +492,10 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
             ],
             "Value": [
                 address, market, unit, client,
-                f"{metrics_dict['coc']:.1f}%", f"${metrics_dict['cf']:,.2f}", f"{metrics_dict['cap']:.1f}%", f"{metrics_dict['oer']:.1f}%",
-                metrics_dict['n_grade'], metrics_dict['d_grade'], f"${metrics_dict['mao']:,.0f}",
-                f"${metrics_dict['down_amt']:,.0f}", f"${metrics_dict['closing_amt']:,.0f}", f"${metrics_dict['repairs']:,.0f}", f"${metrics_dict['total_cash']:,.0f}",
-                f"{metrics_dict['breakeven']:.1f}%", f"${metrics_dict['dscr_price']:,.0f}", f"{metrics_dict['irr']:.2f}%",
+                metrics_dict['coc']/100, metrics_dict['cf'], metrics_dict['cap']/100, metrics_dict['oer']/100,
+                metrics_dict['n_grade'], metrics_dict['d_grade'], metrics_dict['mao'],
+                metrics_dict['down_amt'], metrics_dict['closing_amt'], metrics_dict['repairs'], metrics_dict['total_cash'],
+                metrics_dict['breakeven']/100, metrics_dict['dscr_price'], metrics_dict['irr']/100,
                 "Calculated based on user inputs and federal data sources."
             ],
             "Notes": [
@@ -502,8 +507,26 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
                 ""
             ]
         }
-        pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
+        df_summary = pd.DataFrame(summary_data)
+        df_summary.to_excel(writer, sheet_name='Summary', index=False)
         
+        # Format Summary
+        ws_sum = writer.sheets['Summary']
+        ws_sum.set_column('A:A', 30, cell_fmt)
+        ws_sum.set_column('B:B', 20) # Formatting applied by code logic below
+        ws_sum.set_column('C:C', 40, cell_fmt)
+        
+        # Apply Conditional Formatting to Summary Value Column
+        for i, val in enumerate(summary_data['Value']):
+            row = i + 1
+            if isinstance(val, (int, float)):
+                if i in [4, 6, 7, 15, 17]: # Percentages
+                    ws_sum.write(row, 1, val, pct_fmt)
+                else: # Money
+                    ws_sum.write(row, 1, val, money_fmt)
+            else:
+                ws_sum.write(row, 1, val, cell_fmt)
+
         # 2. PRO FORMA SHEET
         rent_val = inputs_dict.get('Rent', 0)
         
@@ -522,11 +545,19 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
                 metrics_dict['noi']*12, -metrics_dict['mort']*12, metrics_dict['cf']*12
             ]
         }
-        pd.DataFrame(pro_forma_data).to_excel(writer, sheet_name='Pro Forma', index=False)
+        df_pf = pd.DataFrame(pro_forma_data)
+        df_pf.to_excel(writer, sheet_name='Pro Forma', index=False)
         
-        # 3. PROJECTIONS SHEET (FULL 30 YEARS)
+        ws_pf = writer.sheets['Pro Forma']
+        ws_pf.set_column('A:A', 30, cell_fmt)
+        ws_pf.set_column('B:C', 20, money_fmt)
+        
+        # 3. PROJECTIONS SHEET
         proj_export = projections_df[['Year', 'Cash Flow', 'Cumulative CF', 'Loan Balance', 'Total Equity', 'Total Wealth Created']]
         proj_export.to_excel(writer, sheet_name='Projections', index=False)
+        
+        ws_proj = writer.sheets['Projections']
+        ws_proj.set_column('A:F', 18, money_fmt)
         
         # 4. SENSITIVITY SHEET
         sens_data = {
@@ -534,26 +565,33 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
             "Monthly Cash Flow": [sensitivities['base'], sensitivities['rent_up'], sensitivities['rent_down'], sensitivities['rate_down']]
         }
         pd.DataFrame(sens_data).to_excel(writer, sheet_name='Sensitivity', index=False)
+        ws_sens = writer.sheets['Sensitivity']
+        ws_sens.set_column('A:A', 25, cell_fmt)
+        ws_sens.set_column('B:B', 20, money_fmt)
         
-        # 5. INPUTS SHEET (AUDIT TRAIL)
+        # 5. INPUTS SHEET
         clean_inputs = {
             "Price ($)": inputs_dict['Price'],
             "Rent ($)": inputs_dict['Rent'],
-            "Vacancy (%)": inputs_dict['Vacancy'],
-            "Down Payment (%)": inputs_dict['Down Payment'],
-            "Interest Rate (%)": inputs_dict['Interest Rate'],
+            "Vacancy (%)": inputs_dict['Vacancy']/100,
+            "Down Payment (%)": inputs_dict['Down Payment']/100,
+            "Interest Rate (%)": inputs_dict['Interest Rate']/100,
             "Loan Term (Yrs)": inputs_dict['Term'],
             "Repairs ($)": inputs_dict['Repairs'],
-            "Appreciation (%)": inputs_dict['Appreciation'],
-            "Rent Growth (%)": inputs_dict['Rent Growth'],
+            "Appreciation (%)": inputs_dict['Appreciation']/100,
+            "Rent Growth (%)": inputs_dict['Rent Growth']/100,
             "Taxes ($/yr)": inputs_dict['Taxes'],
             "Insurance ($/yr)": inputs_dict['Insurance'],
-            "Maintenance (%)": inputs_dict['Maintenance'],
-            "Management (%)": inputs_dict['Mgmt'],
-            "Closing Costs (%)": inputs_dict['Closing Costs']
+            "Maintenance (%)": inputs_dict['Maintenance']/100,
+            "Management (%)": inputs_dict['Mgmt']/100,
+            "Closing Costs (%)": inputs_dict['Closing Costs']/100
         }
         inputs_data = {"Parameter": list(clean_inputs.keys()), "Value": list(clean_inputs.values())}
         pd.DataFrame(inputs_data).to_excel(writer, sheet_name='Inputs', index=False)
+        
+        ws_inp = writer.sheets['Inputs']
+        ws_inp.set_column('A:A', 25, cell_fmt)
+        ws_inp.set_column('B:B', 15)
         
         # 6. METADATA SHEET
         meta_data = {
@@ -566,6 +604,9 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
             ]
         }
         pd.DataFrame(meta_data).to_excel(writer, sheet_name='Metadata', index=False)
+        ws_meta = writer.sheets['Metadata']
+        ws_meta.set_column('A:A', 20, cell_fmt)
+        ws_meta.set_column('B:B', 50, cell_fmt)
 
     return output.getvalue()
 
@@ -1589,11 +1630,11 @@ def main():
 
             # Generate Excel Data
             inputs_dict = {
-                "Price ($)": price, "Rent ($)": rent_in, "Vacancy (%)": user_vacancy, "Down Payment (%)": down_payment,
-                "Interest Rate (%)": interest_rate, "Term (Yrs)": loan_term_years, "Repairs ($)": initial_repairs,
-                "Appreciation (%)": appreciation, "Rent Growth (%)": rent_growth, "Taxes ($/yr)": taxes_yr,
-                "Insurance ($/yr)": insurance_yr, "Maintenance (%)": maint_capex, "Mgmt (%)": prop_mgmt_pct,
-                "Closing Costs (%)": closing_costs
+                "Price": price, "Rent": rent_in, "Vacancy": user_vacancy, "Down Payment": down_payment,
+                "Interest Rate": interest_rate, "Term": loan_term_years, "Repairs": initial_repairs,
+                "Appreciation": appreciation, "Rent Growth": rent_growth, "Taxes": taxes_yr,
+                "Insurance": insurance_yr, "Maintenance": maint_capex, "Mgmt": prop_mgmt_pct,
+                "Closing Costs": closing_costs
             }
             metrics_dict = {
                 "coc": coc, "cf": cf/12, "cap": cap_rate, "oer": oer, "n_grade": n_grade,
