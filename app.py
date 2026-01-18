@@ -1660,11 +1660,11 @@ def main():
 
             # Generate Excel Data
             inputs_dict = {
-                "Price ($)": price, "Rent ($)": rent_in, "Vacancy (%)": user_vacancy, "Down Payment (%)": down_payment,
-                "Interest Rate (%)": interest_rate, "Term (Yrs)": loan_term_years, "Repairs ($)": initial_repairs,
-                "Appreciation (%)": appreciation, "Rent Growth (%)": rent_growth, "Taxes ($/yr)": taxes_yr,
-                "Insurance ($/yr)": insurance_yr, "Maintenance (%)": maint_capex, "Mgmt (%)": prop_mgmt_pct,
-                "Closing Costs (%)": closing_costs
+                "Price": price, "Rent": rent_in, "Vacancy": user_vacancy, "Down Payment": down_payment,
+                "Interest Rate": interest_rate, "Term": loan_term_years, "Repairs": initial_repairs,
+                "Appreciation": appreciation, "Rent Growth": rent_growth, "Taxes": taxes_yr,
+                "Insurance": insurance_yr, "Maintenance": maint_capex, "Mgmt": prop_mgmt_pct,
+                "Closing Costs": closing_costs
             }
             metrics_dict = {
                 "coc": coc, "cf": cf/12, "cap": cap_rate, "oer": oer, "n_grade": n_grade,
