@@ -414,20 +414,17 @@ def calculate_irr(initial_investment, cash_flows):
     # 1. Try Standard Library
     if npf:
         try:
-            return npf.irr(values) * 100
+            val = npf.irr(values)
+            return val * 100 if not math.isnan(val) else -100.0
         except:
             pass
 
-    # 2. Manual Newton-Raphson method
+    # 2. Manual Newton-Raphson method (Robust for Negatives)
     try:
         # Check for Total Loss (Sum of flows < Investment)
         if sum(cash_flows) < initial_investment:
-            # If we never make money back, IRR is effectively -100% or worse
-            # but standard IRR formula might return error. 
-            # We approximate a negative return based on loss ratio.
-            loss_ratio = sum(cash_flows) / initial_investment
-            # If loss_ratio is 0.8 (we got 80% back), return is -20% roughly over time
-            # For simplicity in "Total Loss", let's start guess at -0.5 (-50%)
+            # If total return is negative, IRR will be negative
+            # Start guess at -50% to help convergence
             guess = -0.5
         else:
             guess = 0.1 # Initial guess 10%
@@ -436,7 +433,11 @@ def calculate_irr(initial_investment, cash_flows):
             npv = 0
             d_npv = 0
             for t, val in enumerate(values):
-                npv += val / ((1 + guess) ** t)
+                # Denominator protection
+                denom = (1 + guess) ** t
+                if denom == 0: denom = 1e-9
+                
+                npv += val / denom
                 d_npv -= t * val / ((1 + guess) ** (t + 1))
             
             if d_npv == 0:
@@ -1505,7 +1506,7 @@ def main():
                 # Display Sensitivity Result
                 s1, s2 = st.columns(2)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.0f}", delta=f"{sens_cf/12 - ((sens_rent*12 - sens_vac - sens_opex - sens_mort)/12):.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"{sens_cf/12 - ((sens_rent*12 - sens_vac - sens_opex - sens_mort)/12):.0f}", delta_color="normal")
 
 
         # CALCS
