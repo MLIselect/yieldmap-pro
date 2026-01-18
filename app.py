@@ -398,11 +398,12 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
     return pd.DataFrame(data)
 
-# --- HYBRID IRR FUNCTION (Includes Reversion/Sale) ---
+# --- HYBRID IRR FUNCTION (Includes Reversion/Sale + Stability Fixes) ---
 def calculate_irr(initial_investment, cash_flows, final_equity=0):
     """
     Calculates Internal Rate of Return (IRR).
     Correctly includes the property SALE (Reversion) at the end.
+    Uses multi-guess approach to prevent OverflowError on negative deals.
     """
     # Create the full cash flow list: [-Investment, Year1, Year2, ... Year30 + Sale]
     values = [-initial_investment] + cash_flows
@@ -422,24 +423,33 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
         except:
             pass
 
-    # 2. Manual Newton-Raphson method
-    try:
-        guess = 0.1 # Initial guess 10%
+    # 2. Manual Newton-Raphson method with Multi-Guess and Clamp
+    def solve_irr(guess):
         for _ in range(100): # Max 100 iterations
             npv = 0
             d_npv = 0
             for t, val in enumerate(values):
-                # Denominator protection
-                denom = (1 + guess) ** t
+                try:
+                    denom = (1 + guess) ** t
+                except OverflowError:
+                    return None # Diverged
+                
                 if denom == 0: denom = 1e-9
                 
                 npv += val / denom
-                d_npv -= t * val / ((1 + guess) ** (t + 1))
+                try:
+                    d_npv -= t * val / ((1 + guess) ** (t + 1))
+                except OverflowError:
+                    return None # Diverged
             
             if d_npv == 0:
-                return 0.0 # Division by zero implies fail
+                return None # Division by zero
             
             new_guess = guess - npv / d_npv
+            
+            # Clamp wild jumps
+            if abs(new_guess - guess) > 1.0: 
+                 new_guess = guess + 0.5 * np.sign(new_guess - guess)
             
             # Check convergence
             if abs(new_guess - guess) < 1e-6:
@@ -447,9 +457,24 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
             
             guess = new_guess
             
-        return guess * 100 # Return best guess
-    except:
-        return 0.0 # Fail safe
+            # Stop if out of reasonable bounds (-100% to 1000%)
+            if abs(guess) > 10: return None
+            
+        return None
+
+    # Try standard positive guess
+    res = solve_irr(0.1)
+    if res is not None: return res
+    
+    # Try negative guess (for loss scenarios)
+    res = solve_irr(-0.1)
+    if res is not None: return res
+    
+    # Try deep negative guess
+    res = solve_irr(-0.5)
+    if res is not None: return res
+    
+    return 0.0 # Failed to converge
 
 def create_gauge(value, title, min_v, max_v, suffix="%", flip=False):
     colors = ["#fee2e2", "#fef3c7", "#d1fae5"]
