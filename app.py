@@ -777,11 +777,13 @@ class ProPDF(FPDF):
         _ = self.cell(45, 5, label, 0, 0, 'C')
         _ = self.set_xy(x, y + 13)
         _ = self.set_font('Helvetica', 'B', 14)
-        if "-" in str(value):
-            _ = self.set_text_color(220, 38, 38)
+        # Handle conditional formatting for negative values in PDF
+        val_str = str(value)
+        if "-" in val_str or "(" in val_str:
+             _ = self.set_text_color(220, 38, 38)
         else:
-            _ = self.set_text_color(30, 58, 138)
-        _ = self.cell(45, 8, str(value), 0, 0, 'C')
+             _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, val_str, 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
         _ = self.set_x(10)
@@ -903,9 +905,9 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.multi_cell(0, 6, f"Notes: {report_notes}", 1, 'L', True)
         _ = pdf.ln(5)
     
-    total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
+    total_wealth_30 = projections_df.iloc[-1]['Total Wealth Created'] # Updated to match table consistency
     if net_cashflow < 0:
-        insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
+        insight = f"Negative cash flow detected (-${abs(net_cashflow):,.2f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in total wealth (Equity + CF) over 30 years."
         _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
         insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:,.2f}/mo in passive income."
@@ -915,8 +917,11 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.add_insight_box(insight, is_good=True)
 
     y_kpi = pdf.get_y() + 5
+    # Fix negative display for PDF KPI
+    cf_display = f"(${abs(net_cashflow):,.2f})" if net_cashflow < 0 else f"${net_cashflow:,.2f}"
+    
     _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.2f}", 60, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", cf_display, 60, y_kpi)
     _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
     # NEW: OER BOX
@@ -1563,7 +1568,7 @@ def main():
                 base_invest = (price * down_payment / 100) + (price * closing_costs / 100) + initial_repairs
                 
                 # Calculate Sensitivity CoC
-                sens_coc = (sens_cf / base_invest * 100) if base_invest > 0 else 0
+                sens_coc = (sens_cf * 12 / base_invest * 100) if base_invest > 0 else 0
                 
                 # Calculate Base Cash Flow for Delta
                 base_cf = (rent_in*12 - (rent_in*12*user_vacancy/100) - (taxes_yr + insurance_yr + (rent_in*12*maint_capex/100) + (rent_in*12*prop_mgmt_pct/100)) - (calculate_mortgage(price, down_payment, interest_rate, loan_term_years)*12))/12
