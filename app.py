@@ -870,10 +870,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
-        insight = f"Negative cash flow detected (-${abs(net_cashflow):,.2f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
+        insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
         _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
-        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:,.2f}/mo in passive income."
+        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:.0f}/mo in passive income."
         _ = pdf.add_insight_box(insight, is_good=True)
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
@@ -881,7 +881,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     y_kpi = pdf.get_y() + 5
     _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.2f}", 60, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
     _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
     # NEW: OER BOX
@@ -937,7 +937,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
+        _ = pdf.set_text_color(255, 255, 255) 
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
@@ -1527,7 +1527,9 @@ def main():
                 # Display Sensitivity Result
                 s1, s2 = st.columns(2)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"{sens_cf/12 - ((sens_rent*12 - sens_vac - sens_opex - sens_mort)/12):.0f}", delta_color="normal")
+                # FIX 1: Updated Delta Calculation
+                base_cf = (rent_in*12 - (rent_in*12*user_vacancy/100) - (taxes_yr + insurance_yr + (rent_in*12*maint_capex/100) + (rent_in*12*prop_mgmt_pct/100)) - (calculate_mortgage(price, down_payment, interest_rate, loan_term_years)*12))/12
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
 
 
         # CALCS
