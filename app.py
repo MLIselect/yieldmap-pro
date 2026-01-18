@@ -398,15 +398,18 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
     return pd.DataFrame(data)
 
-# --- HYBRID IRR FUNCTION (Numpy or Manual) ---
-def calculate_irr(initial_investment, cash_flows):
+# --- HYBRID IRR FUNCTION (Includes Reversion/Sale) ---
+def calculate_irr(initial_investment, cash_flows, final_equity=0):
     """
     Calculates Internal Rate of Return (IRR).
-    Tries numpy_financial first, falls back to Newton-Raphson approximation.
-    Handles negative cash flow (Total Loss) scenarios gracefully.
+    Correctly includes the property SALE (Reversion) at the end.
     """
-    # Create the full cash flow list: [-Investment, Year1, Year2, ... Year30]
+    # Create the full cash flow list: [-Investment, Year1, Year2, ... Year30 + Sale]
     values = [-initial_investment] + cash_flows
+    
+    # Add the sale proceeds (Equity) to the final year cash flow
+    if values:
+        values[-1] += final_equity
     
     # Check if we have valid inputs
     if not values: return 0.0
@@ -415,20 +418,13 @@ def calculate_irr(initial_investment, cash_flows):
     if npf:
         try:
             val = npf.irr(values)
-            return val * 100 if not math.isnan(val) else -100.0
+            return val * 100 if not math.isnan(val) else 0.0
         except:
             pass
 
-    # 2. Manual Newton-Raphson method (Robust for Negatives)
+    # 2. Manual Newton-Raphson method
     try:
-        # Check for Total Loss (Sum of flows < Investment)
-        if sum(cash_flows) < initial_investment:
-            # If total return is negative, IRR will be negative
-            # Start guess at -50% to help convergence
-            guess = -0.5
-        else:
-            guess = 0.1 # Initial guess 10%
-            
+        guess = 0.1 # Initial guess 10%
         for _ in range(100): # Max 100 iterations
             npv = 0
             d_npv = 0
@@ -441,7 +437,7 @@ def calculate_irr(initial_investment, cash_flows):
                 d_npv -= t * val / ((1 + guess) ** (t + 1))
             
             if d_npv == 0:
-                return -100.0 # Division by zero implies extreme negative or fail
+                return 0.0 # Division by zero implies fail
             
             new_guess = guess - npv / d_npv
             
