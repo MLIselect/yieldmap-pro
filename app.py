@@ -637,8 +637,10 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         ws_pf.write(0, 2, "Annual", header_fmt)
         
         # Write Formulas for Annual Column (Live Calculation)
-        for i in range(1, len(pro_forma_data['Category']) + 1):
-            ws_pf.write_formula(i, 2, f'=B{i+1}*12', money_fmt)
+        # Fix: Start loop from row 1 (Excel row 2) to correct offset
+        for i in range(len(pro_forma_data['Category'])):
+            row_idx = i + 1 # Data starts at row index 1
+            ws_pf.write_formula(row_idx, 2, f'=B{row_idx+1}*12', money_fmt)
             
         # 3. PROJECTIONS SHEET
         proj_export = projections_df[['Year', 'Cash Flow', 'Cumulative CF', 'Loan Balance', 'Total Equity', 'Total Wealth Created']]
@@ -1576,7 +1578,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
