@@ -22,8 +22,13 @@ import time
 import tempfile
 import sys
 import numpy as np
-# REMOVED numpy_financial to use custom function instead
 import io # Required for Excel buffer
+
+# Try to import numpy_financial, fallback if missing
+try:
+    import numpy_financial as npf
+except ImportError:
+    npf = None
 
 import streamlit.components.v1 as components
 # NEW: Import Captcha
@@ -393,11 +398,12 @@ def calculate_projections(price, rent, total_expenses_yr, mortgage_yr, down_pct,
         
     return pd.DataFrame(data)
 
-# --- REPLACED NUMPY_FINANCIAL WITH MANUAL IRR FUNCTION ---
+# --- HYBRID IRR FUNCTION (Numpy or Manual) ---
 def calculate_irr(initial_investment, cash_flows):
     """
-    Calculates Internal Rate of Return (IRR) using Newton-Raphson approximation.
-    Replaces numpy_financial.irr
+    Calculates Internal Rate of Return (IRR).
+    Tries numpy_financial first, falls back to Newton-Raphson approximation.
+    Handles negative cash flow (Total Loss) scenarios gracefully.
     """
     # Create the full cash flow list: [-Investment, Year1, Year2, ... Year30]
     values = [-initial_investment] + cash_flows
@@ -405,9 +411,27 @@ def calculate_irr(initial_investment, cash_flows):
     # Check if we have valid inputs
     if not values: return 0.0
 
-    # Newton-Raphson method
+    # 1. Try Standard Library
+    if npf:
+        try:
+            return npf.irr(values) * 100
+        except:
+            pass
+
+    # 2. Manual Newton-Raphson method
     try:
-        guess = 0.1 # Initial guess 10%
+        # Check for Total Loss (Sum of flows < Investment)
+        if sum(cash_flows) < initial_investment:
+            # If we never make money back, IRR is effectively -100% or worse
+            # but standard IRR formula might return error. 
+            # We approximate a negative return based on loss ratio.
+            loss_ratio = sum(cash_flows) / initial_investment
+            # If loss_ratio is 0.8 (we got 80% back), return is -20% roughly over time
+            # For simplicity in "Total Loss", let's start guess at -0.5 (-50%)
+            guess = -0.5
+        else:
+            guess = 0.1 # Initial guess 10%
+            
         for _ in range(100): # Max 100 iterations
             npv = 0
             d_npv = 0
@@ -416,14 +440,17 @@ def calculate_irr(initial_investment, cash_flows):
                 d_npv -= t * val / ((1 + guess) ** (t + 1))
             
             if d_npv == 0:
-                return 0 # Avoid division by zero
+                return -100.0 # Division by zero implies extreme negative or fail
             
             new_guess = guess - npv / d_npv
-            if abs(new_guess - guess) < 1e-6: # Convergence
+            
+            # Check convergence
+            if abs(new_guess - guess) < 1e-6:
                 return new_guess * 100
+            
             guess = new_guess
             
-        return guess * 100 # Return best guess if max iterations reached
+        return guess * 100 # Return best guess
     except:
         return 0.0 # Fail safe
 
@@ -479,6 +506,7 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         cell_fmt = workbook.add_format({'border': 1})
         money_fmt = workbook.add_format({'num_format': '$#,##0.00', 'border': 1})
         pct_fmt = workbook.add_format({'num_format': '0.0%', 'border': 1})
+        red_fmt = workbook.add_format({'font_color': '#9C0006', 'bg_color': '#FFC7CE', 'num_format': '$#,##0.00', 'border': 1})
         
         # 1. SUMMARY SHEET
         summary_data = {
@@ -513,10 +541,10 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         # Format Summary
         ws_sum = writer.sheets['Summary']
         ws_sum.set_column('A:A', 30, cell_fmt)
-        ws_sum.set_column('B:B', 20) # Formatting applied by code logic below
+        ws_sum.set_column('B:B', 20) 
         ws_sum.set_column('C:C', 40, cell_fmt)
         
-        # Apply Conditional Formatting to Summary Value Column
+        # Apply Formats to Value Column
         for i, val in enumerate(summary_data['Value']):
             row = i + 1
             if isinstance(val, (int, float)):
@@ -538,11 +566,6 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
                 rent_val, -expenses_dict['Vacancy'], rent_val - expenses_dict['Vacancy'],
                 -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
                 metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
-            ],
-            "Annual": [
-                rent_val*12, -expenses_dict['Vacancy']*12, (rent_val - expenses_dict['Vacancy'])*12,
-                -expenses_dict['Taxes']*12, -expenses_dict['Insurance']*12, -expenses_dict['Maintenance']*12, -expenses_dict['Mgmt']*12,
-                metrics_dict['noi']*12, -metrics_dict['mort']*12, metrics_dict['cf']*12
             ]
         }
         df_pf = pd.DataFrame(pro_forma_data)
@@ -550,8 +573,16 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         
         ws_pf = writer.sheets['Pro Forma']
         ws_pf.set_column('A:A', 30, cell_fmt)
-        ws_pf.set_column('B:C', 20, money_fmt)
+        ws_pf.set_column('B:B', 20, money_fmt)
+        ws_pf.set_column('C:C', 20, money_fmt)
         
+        # Add Header for Annual
+        ws_pf.write(0, 2, "Annual", header_fmt)
+        
+        # Write Formulas for Annual Column (Live Calculation)
+        for i in range(1, len(pro_forma_data['Category']) + 1):
+            ws_pf.write_formula(i, 2, f'=B{i+1}*12', money_fmt)
+            
         # 3. PROJECTIONS SHEET
         proj_export = projections_df[['Year', 'Cash Flow', 'Cumulative CF', 'Loan Balance', 'Total Equity', 'Total Wealth Created']]
         proj_export.to_excel(writer, sheet_name='Projections', index=False)
@@ -569,29 +600,29 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         ws_sens.set_column('A:A', 25, cell_fmt)
         ws_sens.set_column('B:B', 20, money_fmt)
         
-        # 5. INPUTS SHEET
-        clean_inputs = {
-            "Price ($)": inputs_dict['Price'],
-            "Rent ($)": inputs_dict['Rent'],
-            "Vacancy (%)": inputs_dict['Vacancy']/100,
-            "Down Payment (%)": inputs_dict['Down Payment']/100,
-            "Interest Rate (%)": inputs_dict['Interest Rate']/100,
-            "Loan Term (Yrs)": inputs_dict['Term'],
-            "Repairs ($)": inputs_dict['Repairs'],
-            "Appreciation (%)": inputs_dict['Appreciation']/100,
-            "Rent Growth (%)": inputs_dict['Rent Growth']/100,
-            "Taxes ($/yr)": inputs_dict['Taxes'],
-            "Insurance ($/yr)": inputs_dict['Insurance'],
-            "Maintenance (%)": inputs_dict['Maintenance']/100,
-            "Management (%)": inputs_dict['Mgmt']/100,
-            "Closing Costs (%)": inputs_dict['Closing Costs']/100
-        }
-        inputs_data = {"Parameter": list(clean_inputs.keys()), "Value": list(clean_inputs.values())}
+        # 5. INPUTS SHEET (Grouped)
+        inputs_data = [
+            {"Category": "ACQUISITION", "Parameter": "Purchase Price ($)", "Value": inputs_dict['Price']},
+            {"Category": "", "Parameter": "Down Payment (%)", "Value": inputs_dict['Down Payment']/100},
+            {"Category": "", "Parameter": "Closing Costs (%)", "Value": inputs_dict['Closing Costs']/100},
+            {"Category": "", "Parameter": "Repairs ($)", "Value": inputs_dict['Repairs']},
+            {"Category": "LOAN", "Parameter": "Interest Rate (%)", "Value": inputs_dict['Interest Rate']/100},
+            {"Category": "", "Parameter": "Loan Term (Yrs)", "Value": inputs_dict['Term']},
+            {"Category": "INCOME", "Parameter": "Gross Rent ($)", "Value": inputs_dict['Rent']},
+            {"Category": "", "Parameter": "Vacancy Rate (%)", "Value": inputs_dict['Vacancy']/100},
+            {"Category": "EXPENSES", "Parameter": "Property Taxes ($/yr)", "Value": inputs_dict['Taxes']},
+            {"Category": "", "Parameter": "Insurance ($/yr)", "Value": inputs_dict['Insurance']},
+            {"Category": "", "Parameter": "Maintenance (%)", "Value": inputs_dict['Maintenance']/100},
+            {"Category": "", "Parameter": "Management (%)", "Value": inputs_dict['Mgmt']/100},
+            {"Category": "GROWTH", "Parameter": "Appreciation (%)", "Value": inputs_dict['Appreciation']/100},
+            {"Category": "", "Parameter": "Rent Growth (%)", "Value": inputs_dict['Rent Growth']/100}
+        ]
         pd.DataFrame(inputs_data).to_excel(writer, sheet_name='Inputs', index=False)
         
         ws_inp = writer.sheets['Inputs']
-        ws_inp.set_column('A:A', 25, cell_fmt)
-        ws_inp.set_column('B:B', 15)
+        ws_inp.set_column('A:A', 20, cell_fmt)
+        ws_inp.set_column('B:B', 30, cell_fmt)
+        ws_inp.set_column('C:C', 15, cell_fmt)
         
         # 6. METADATA SHEET
         meta_data = {
@@ -817,10 +848,10 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     total_wealth_30 = projections_df.iloc[-1]['Total Equity'] + projections_df['Cash Flow'].sum() - ((price*down_pct/100) + repairs + (price*closing_costs/100))
     if net_cashflow < 0:
-        insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
+        insight = f"Negative cash flow detected (-${abs(net_cashflow):,.2f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
         _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
-        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:.0f}/mo in passive income."
+        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:,.2f}/mo in passive income."
         _ = pdf.add_insight_box(insight, is_good=True)
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
@@ -828,7 +859,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     y_kpi = pdf.get_y() + 5
     _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.2f}", 60, y_kpi)
     _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
     # NEW: OER BOX
@@ -1543,7 +1574,7 @@ def main():
         
         # Format CF with color and sign
         cf_val = cf / 12
-        cf_display = f"${cf_val:,.0f}"
+        cf_display = f"${cf_val:,.2f}" # Changed to .2f for consistency
         if cf_val < 0:
             cf_color = "inverse"
         else:
