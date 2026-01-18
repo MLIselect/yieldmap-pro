@@ -900,7 +900,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     _ = pdf.check_space(30) 
     _ = pdf.section_header("Debt Service")
     # Fixed variable name here (int_rate -> interest_rate)
-    _ = pdf.add_row(f"Mortgage Payment ({int_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
+    _ = pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
     _ = pdf.ln(2)
     _ = pdf.set_fill_color(30, 58, 138)
     _ = pdf.set_text_color(255, 255, 255)
@@ -998,15 +998,15 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
     
     rent_up = rent * 1.10
     rent_down = rent * 0.90
-    rate_up = int_rate + 1.0
-    rate_down = int_rate - 1.0
+    rate_up = interest_rate + 1.0
+    rate_down = interest_rate - 1.0
     def fast_cf(r, i):
         m = calculate_mortgage(price, down_pct, i, term_years)
         e = (taxes/12) + (ins/12) + (r * (maint_pct/100)) + (r * (pm_pct/100)) + (r * (v_rate/100))
         return (r - e - m)
     cf_base = net_cashflow
-    cf_rent_up = fast_cf(rent_up, int_rate)
-    cf_rent_down = fast_cf(rent_down, int_rate)
+    cf_rent_up = fast_cf(rent_up, interest_rate)
+    cf_rent_down = fast_cf(rent_down, interest_rate)
     cf_rate_down = fast_cf(rent, rate_down)
     cf_rate_up = fast_cf(rent, rate_up)
     
@@ -1529,7 +1529,12 @@ def main():
         oer = (exp / egi) * 100 if egi > 0 else 0
 
         # Break-Even Occupancy Calculation
-        # Breakeven % = (Operating Expenses + Debt Service) / Gross Potential Rent
+        # Breakeven % = (Operating Expenses + Annual Debt Service) / Gross Potential Rent * 100
+        # NOTE: expenses (exp) include vacancy loss based on percentage, but debt is full.
+        # Gross Potential Rent = rent_in * 12
+        # Correct Formula: (OpEx + Debt) / Gross Rent
+        # Note: OpEx variable `exp` includes vacancy loss. Break-even usually considers physical vacancy.
+        # Let's stick to simple Break Even: (OpEx + Debt Service) / Gross Rent
         total_annual_costs = exp + debt
         break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
         
@@ -1654,15 +1659,17 @@ def main():
             )
             
             # CALCULATE IRR
-            irr_val = calculate_irr(invest, proj['Cash Flow'].tolist())
+            # Correctly include Reversion (Sale Price at Year 30)
+            final_year_equity = proj.iloc[-1]['Total Equity']
+            irr_val = calculate_irr(invest, proj['Cash Flow'].tolist(), final_year_equity)
 
             # Generate Excel Data
             inputs_dict = {
-                "Price": price, "Rent": rent_in, "Vacancy": user_vacancy, "Down Payment": down_payment,
-                "Interest Rate": interest_rate, "Term": loan_term_years, "Repairs": initial_repairs,
-                "Appreciation": appreciation, "Rent Growth": rent_growth, "Taxes": taxes_yr,
-                "Insurance": insurance_yr, "Maintenance": maint_capex, "Mgmt": prop_mgmt_pct,
-                "Closing Costs": closing_costs
+                "Price ($)": price, "Rent ($)": rent_in, "Vacancy (%)": user_vacancy, "Down Payment (%)": down_payment,
+                "Interest Rate (%)": interest_rate, "Term (Yrs)": loan_term_years, "Repairs ($)": initial_repairs,
+                "Appreciation (%)": appreciation, "Rent Growth (%)": rent_growth, "Taxes ($/yr)": taxes_yr,
+                "Insurance ($/yr)": insurance_yr, "Maintenance (%)": maint_capex, "Mgmt (%)": prop_mgmt_pct,
+                "Closing Costs (%)": closing_costs
             }
             metrics_dict = {
                 "coc": coc, "cf": cf/12, "cap": cap_rate, "oer": oer, "n_grade": n_grade,
@@ -1725,11 +1732,19 @@ def main():
                 except Exception as e:
                     st.error(f"Error saving: {e}")
 
+        # Construct filenames safely
+        safe_addr = prop_address.strip() if prop_address else "Analysis"
+        # Sanitize filename (remove slashes etc)
+        safe_addr = "".join([c for c in safe_addr if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+        
+        pdf_name = f"YieldMap_{safe_addr}_{datetime.now().date()}.pdf"
+        xlsx_name = f"YieldMap_{safe_addr}_{datetime.now().date()}.xlsx"
+
         with e2:
             st.download_button(
                 "Download Report (PDF)",
                 data=pdf_bytes,
-                file_name=f"YieldMap_{prop_address}_{datetime.now().date()}.pdf",
+                file_name=pdf_name,
                 mime="application/pdf",
                 use_container_width=True
             )
@@ -1738,7 +1753,7 @@ def main():
             st.download_button(
                 "Export Data (Excel)",
                 data=excel_bytes,
-                file_name=f"YieldMap_{prop_address}_{datetime.now().date()}.xlsx",
+                file_name=xlsx_name,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
