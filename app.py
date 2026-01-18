@@ -818,7 +818,7 @@ def generate_sensitivity_chart(base_cf, rent_up, rent_down, rate_up):
 
 # === CRITICAL FIX: CACHE THE PDF GENERATION TO ISOLATE IT ===
 @st.cache_data(show_spinner=False)
-def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, int_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, oer, irr, logo_path=None):
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, interest_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, oer, irr, logo_path=None):
     # Pass logo path to class
     pdf = ProPDF(user_logo=logo_path)
     _ = pdf.alias_nb_pages()
@@ -1529,12 +1529,7 @@ def main():
         oer = (exp / egi) * 100 if egi > 0 else 0
 
         # Break-Even Occupancy Calculation
-        # Breakeven % = (Operating Expenses + Annual Debt Service) / Gross Potential Rent * 100
-        # NOTE: expenses (exp) include vacancy loss based on percentage, but debt is full.
-        # Gross Potential Rent = rent_in * 12
-        # Correct Formula: (OpEx + Debt) / Gross Rent
-        # Note: OpEx variable `exp` includes vacancy loss. Break-even usually considers physical vacancy.
-        # Let's stick to simple Break Even: (OpEx + Debt Service) / Gross Rent
+        # Breakeven % = (Operating Expenses + Debt Service) / Gross Potential Rent
         total_annual_costs = exp + debt
         break_even_occupancy = (total_annual_costs / gross) * 100 if gross > 0 else 0
         
