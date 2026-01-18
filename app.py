@@ -570,12 +570,47 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         for i, val in enumerate(summary_data['Value']):
             row = i + 1
             if isinstance(val, (int, float)):
-                if i in [4, 6, 7, 15, 17]: # Percentages
+                if i == 4 and val < 0: # Conditional formatting for CoC < 0
+                     ws_sum.write(row, 1, val, red_fmt)
+                elif i in [4, 6, 7, 15, 17]: # Percentages
                     ws_sum.write(row, 1, val, pct_fmt)
                 else: # Money
                     ws_sum.write(row, 1, val, money_fmt)
             else:
                 ws_sum.write(row, 1, val, cell_fmt)
+
+        # 2. VISUALS SHEET (EMBED CHARTS)
+        ws_charts = workbook.add_worksheet('Visuals')
+        
+        # -- GENERATE PIE CHART IMAGE IN MEMORY --
+        fig_pie = Figure(figsize=(5, 4))
+        ax_pie = fig_pie.add_subplot(111)
+        ax_pie.pie(list(expenses_dict.values()), labels=list(expenses_dict.keys()), autopct='%1.1f%%', startangle=90, colors=['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'])
+        ax_pie.set_title("Monthly Expense Breakdown", fontsize=12, fontweight='bold')
+        pie_buf = io.BytesIO()
+        FigureCanvasAgg(fig_pie).print_png(pie_buf)
+        pie_buf.seek(0)
+        ws_charts.insert_image('A1', 'pie_chart.png', {'image_data': pie_buf})
+        
+        # -- GENERATE SENSITIVITY CHART IMAGE IN MEMORY --
+        fig_sens = Figure(figsize=(6, 3))
+        ax_sens = fig_sens.add_subplot(111)
+        scenarios = ['Base', 'Rent+10%', 'Rent-10%', 'Rate-1%']
+        s_vals = [
+             sensitivities['base'], 
+             sensitivities['rent_up'], 
+             sensitivities['rent_down'], 
+             sensitivities['rate_down']
+        ]
+        s_colors = ['#2563eb' if v >= 0 else '#ef4444' for v in s_vals]
+        ax_sens.bar(scenarios, s_vals, color=s_colors)
+        ax_sens.axhline(0, color='black', linewidth=0.8)
+        ax_sens.set_title("Cash Flow Sensitivity ($/mo)", fontsize=10, fontweight='bold')
+        ax_sens.grid(axis='y', alpha=0.3)
+        sens_buf = io.BytesIO()
+        FigureCanvasAgg(fig_sens).print_png(sens_buf)
+        sens_buf.seek(0)
+        ws_charts.insert_image('G1', 'sens_chart.png', {'image_data': sens_buf})
 
         # 2. PRO FORMA SHEET
         rent_val = inputs_dict.get('Rent', 0)
@@ -873,7 +908,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         insight = f"Negative cash flow detected (-${abs(net_cashflow):.0f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in wealth over 30 years via paydown."
         _ = pdf.add_insight_box(insight, is_good=False)
     elif coc_return > 12:
-        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:.0f}/mo in passive income."
+        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:,.2f}/mo in passive income."
         _ = pdf.add_insight_box(insight, is_good=True)
     else:
         insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
@@ -881,7 +916,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
 
     y_kpi = pdf.get_y() + 5
     _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
-    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.0f}", 60, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", f"${net_cashflow:,.2f}", 60, y_kpi)
     _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
     
     # NEW: OER BOX
@@ -937,7 +972,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(255, 255, 255) 
+        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
@@ -1499,7 +1534,7 @@ def main():
                     # Dynamic defaults based on Price
                     default_taxes = round(price * 0.012)
                     default_ins = round(price * 0.005)
-                    taxes_yr = st.number_input("Taxes ($/yr)", value=default_taxes, min_value=0, help="Annual Property Taxes (approx 1.2% of price)")
+                    taxes_yr = st.number_input("Taxes ($/yr)", value=default_taxes, min_value=0, help="Typical range: 0.8-1.2% of property value (e.g. Ontario ~1%)")
                     insurance_yr = st.number_input("Insurance ($/yr)", value=default_ins, min_value=0, help="Annual Insurance Premium (approx 0.5% of price)")
                     maint_capex = st.number_input("Maint/CapEx (%)", value=10.0, step=1.0, min_value=0.0, max_value=100.0, help="Maintenance & Capital Expenditures reserve")
                     prop_mgmt_pct = st.number_input("Mgmt %", value=8.0, min_value=0.0, max_value=100.0, step=1.0, help="Property Management fee")
@@ -1524,12 +1559,20 @@ def main():
                 sens_mort = calculate_mortgage(price, down_payment, interest_rate, loan_term_years) * 12
                 sens_cf = sens_noi - sens_mort
                 
-                # Display Sensitivity Result
-                s1, s2 = st.columns(2)
-                s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                # FIX 1: Updated Delta Calculation
+                # Calculate Base Investment
+                base_invest = (price * down_payment / 100) + (price * closing_costs / 100) + initial_repairs
+                
+                # Calculate Sensitivity CoC
+                sens_coc = (sens_cf / base_invest * 100) if base_invest > 0 else 0
+                
+                # Calculate Base Cash Flow for Delta
                 base_cf = (rent_in*12 - (rent_in*12*user_vacancy/100) - (taxes_yr + insurance_yr + (rent_in*12*maint_capex/100) + (rent_in*12*prop_mgmt_pct/100)) - (calculate_mortgage(price, down_payment, interest_rate, loan_term_years)*12))/12
+                
+                # Display Sensitivity Result with New CoC
+                s1, s2, s3 = st.columns(3)
+                s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
                 s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
+                s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
         # CALCS
