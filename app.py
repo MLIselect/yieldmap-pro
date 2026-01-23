@@ -84,7 +84,7 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (STEALTH MODE)
+# 3. VISUAL UPGRADE: CUSTOM CSS ("NUCLEAR" HIDING)
 # ==========================================
 st.markdown(
     """
@@ -101,49 +101,45 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (The Footer Cover-Up - MAX Z-INDEX) */
+    /* 3. THE "TITAN BAR" (Bottom Footer Cover-Up) */
     .titan-bar {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
         height: 50px; 
-        background-color: #ffffff; /* Matches app background */
-        z-index: 9999999; /* Sit on top of everything */
+        background-color: #ffffff;
+        z-index: 999999; 
         pointer-events: auto;
     }
 
-    /* 4. AGGRESSIVE HIDING (STREAMLIT BRANDING) */
-    
-    /* Top Header Decoration */
-    header { visibility: hidden !important; }
-    [data-testid="stDecoration"] { display: none !important; }
-    
-    /* Footer "Made with Streamlit" */
-    footer { visibility: hidden !important; display: none !important; }
-    
-    /* Hamburger Menu */
-    #MainMenu { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    
-    /* "Manage App" Button (Bottom Right) */
-    [data-testid="manage-app-button"] { display: none !important; }
-    
-    /* "Deploy" Button (Top Right) */
-    .stAppDeployButton { display: none !important; }
-    
-    /* Sidebar (if collapsed) */
-    [data-testid="stSidebar"] { display: none !important; }
-    
-    /* Viewer Badge (The "Viewers" icon in bottom right) - WILDCARD SELECTOR */
-    div[class^="viewerBadge"] { display: none !important; }
-    .viewerBadge_container__1QSob { display: none !important; }
-    
-    /* Fullscreen Buttons */
-    button[title="View fullscreen"] { display: none !important; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    /* 4. THE "NUCLEAR PATCH" (Bottom Right Corner Cover-Up) */
+    /* This box sits exactly over the "Manage App" button area */
+    .titan-patch-right {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        width: 250px;
+        height: 60px;
+        background-color: #ffffff;
+        z-index: 2147483647; /* Maximum possible Z-index */
+        pointer-events: auto;
+    }
 
-    /* 5. THE STICKY HEADER BACKGROUND */
+    /* 5. AGGRESSIVE HIDING (STREAMLIT ELEMENTS) */
+    header { visibility: hidden !important; }
+    footer { visibility: hidden !important; display: none !important; }
+    #MainMenu { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="manage-app-button"] { display: none !important; }
+    .stAppDeployButton { display: none !important; }
+    div[class^="viewerBadge"] { display: none !important; }
+    
+    /* 6. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -159,7 +155,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 6. BRANDING */
+    /* 7. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -186,7 +182,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 7. NAVIGATION BAR STYLING */
+    /* 8. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -214,7 +210,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 8. UNIVERSAL BUTTON STYLING */
+    /* 9. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -248,10 +244,6 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 9. CARDS & CONTAINERS */
-    .stExpander, .element-container { border-radius: 8px; }
-    h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
-
     /* 10. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
@@ -270,8 +262,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# INJECT THE TITAN BAR OVERLAY (Ultimate Cover-up)
+# INJECT THE COVER-UP LAYERS
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
+st.markdown('<div class="titan-patch-right"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -795,13 +788,11 @@ class ProPDF(FPDF):
         _ = self.cell(45, 5, label, 0, 0, 'C')
         _ = self.set_xy(x, y + 13)
         _ = self.set_font('Helvetica', 'B', 14)
-        # Handle conditional formatting for negative values in PDF
-        val_str = str(value)
-        if "-" in val_str or "(" in val_str:
-             _ = self.set_text_color(220, 38, 38)
+        if "-" in str(value):
+            _ = self.set_text_color(220, 38, 38)
         else:
-             _ = self.set_text_color(30, 58, 138)
-        _ = self.cell(45, 8, val_str, 0, 0, 'C')
+            _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
         _ = self.set_x(10)
@@ -1594,7 +1585,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
@@ -2050,6 +2041,7 @@ def main():
 
     # INJECT THE TITAN BAR OVERLAY
     st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="titan-patch-right"></div>', unsafe_allow_html=True)
 
     render_footer()
 
