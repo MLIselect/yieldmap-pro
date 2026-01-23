@@ -84,7 +84,7 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (THE VOID UPDATE)
+# 3. VISUAL UPGRADE: CUSTOM CSS (CLEAN VERSION)
 # ==========================================
 st.markdown(
     """
@@ -101,49 +101,37 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (Bottom Footer Cover-Up) */
-    /* This sits at the bottom and covers EVERYTHING */
-    .titan-patch-right {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 50px; 
-        background-color: #ffffff; /* Matches app background */
-        z-index: 2147483647; /* Maximum possible Z-index */
-        pointer-events: auto;
-    }
-
-    /* 4. AGGRESSIVE HIDING (STREAMLIT ELEMENTS) */
+    /* 3. AGGRESSIVE HIDING (STREAMLIT ELEMENTS) */
     
-    /* Collapse and Hide Header/Footer */
+    /* Hide Header Decoration */
     header { visibility: hidden !important; height: 0px !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    
+    /* Hide Streamlit Footer */
     footer { visibility: hidden !important; display: none !important; height: 0px !important; }
     
-    /* Hide the Hamburger Menu */
+    /* Hide Hamburger Menu */
     #MainMenu { visibility: hidden !important; display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; }
     
-    /* Hide the "Manage App" button (Bottom Right) */
+    /* Hide "Manage App" Button (Bottom Right) */
     [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     
-    /* Hide the "Deploy" button (Top Right) */
+    /* Hide "Deploy" Button */
     .stAppDeployButton { display: none !important; visibility: hidden !important; }
     
-    /* Hide Status Widgets (Running man, Stop button) */
-    [data-testid="stStatusWidget"] { visibility: hidden !important; }
-    
-    /* Hide Sidebar completely if collapsed */
+    /* Hide Sidebar if collapsed */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
     
-    /* Hide Viewer Badge - WILDCARD */
+    /* Hide Viewer Badge */
     div[class^="viewerBadge"] { display: none !important; opacity: 0 !important; }
     
     /* Hide Fullscreen Buttons */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
 
-    /* 5. THE STICKY HEADER BACKGROUND */
+    /* 4. THE STICKY HEADER BACKGROUND */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -159,7 +147,7 @@ st.markdown(
         border-bottom: none;
     }
 
-    /* 6. BRANDING */
+    /* 5. BRANDING */
     .brand-container {
         display: flex;
         flex-direction: column;
@@ -186,7 +174,7 @@ st.markdown(
         cursor: default;
     }
 
-    /* 7. NAVIGATION BAR STYLING */
+    /* 6. NAVIGATION BAR STYLING */
     div[data-testid="stRadio"] {
         position: fixed;
         top: 20px;
@@ -214,7 +202,7 @@ st.markdown(
     div[role="radiogroup"] label[data-checked="true"] { background-color: rgba(255, 255, 255, 0.15) !important; }
     div[role="radiogroup"] label[data-checked="true"] p { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* 8. UNIVERSAL BUTTON STYLING */
+    /* 7. UNIVERSAL BUTTON STYLING */
     [data-testid="stButton"] button, 
     [data-testid="stDownloadButton"] button,
     [data-testid="stFormSubmitButton"] button {
@@ -248,11 +236,11 @@ st.markdown(
     a[data-testid="stLinkButton"] * { color: #ffffff !important; font-weight: 600 !important; }
     a[data-testid="stLinkButton"]:hover { background-color: #1e40af !important; color: #ffffff !important; }
 
-    /* 9. CARDS & CONTAINERS */
+    /* 8. CARDS & CONTAINERS */
     .stExpander, .element-container { border-radius: 8px; }
     h1, h2, h3, h4, h5 { color: #0f172a; font-weight: 700; letter-spacing: -0.025em; }
 
-    /* 10. MOBILE RESPONSIVENESS */
+    /* 9. MOBILE RESPONSIVENESS */
     @media (max-width: 900px) {
         .brand-subtitle { display: none; }
         div[data-testid="stRadio"] {
@@ -269,9 +257,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# INJECT THE COVER-UP LAYERS
-st.markdown('<div class="titan-patch-right"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -424,7 +409,7 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
     # Check if we have valid inputs
     if not values: return 0.0
 
-    # 1. Try Standard Library (Most Robust)
+    # 1. Try Standard Library
     if npf:
         try:
             val = npf.irr(values)
@@ -795,13 +780,11 @@ class ProPDF(FPDF):
         _ = self.cell(45, 5, label, 0, 0, 'C')
         _ = self.set_xy(x, y + 13)
         _ = self.set_font('Helvetica', 'B', 14)
-        # Handle conditional formatting for negative values in PDF
-        val_str = str(value)
-        if "-" in val_str or "(" in val_str:
-             _ = self.set_text_color(220, 38, 38)
+        if "-" in str(value):
+            _ = self.set_text_color(220, 38, 38)
         else:
-             _ = self.set_text_color(30, 58, 138)
-        _ = self.cell(45, 8, val_str, 0, 0, 'C')
+            _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
         _ = self.set_x(10)
@@ -995,7 +978,7 @@ def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_v
         _ = pdf.set_text_color(220, 38, 38) 
         _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
     else:
-        _ = pdf.set_text_color(255, 255, 255) 
+        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
         _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
 
     # --- PAGE 2: BREAK-EVEN & CHARTS ---
@@ -2049,7 +2032,6 @@ def main():
             )
 
     # INJECT THE TITAN BAR OVERLAY
-    st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
     st.markdown('<div class="titan-patch-right"></div>', unsafe_allow_html=True)
 
     render_footer()
