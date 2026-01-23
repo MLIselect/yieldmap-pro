@@ -84,7 +84,7 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (CLEAN VERSION)
+# 3. VISUAL UPGRADE: CUSTOM CSS (INVISIBLE MODE)
 # ==========================================
 st.markdown(
     """
@@ -101,37 +101,52 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING (STREAMLIT ELEMENTS) */
+    /* 3. AGGRESSIVE HIDING (THE INVISIBLE FIX) */
     
-    /* Hide Header Decoration */
-    header { visibility: hidden !important; height: 0px !important; }
-    [data-testid="stDecoration"] { display: none !important; }
+    /* Hide the top header bar completely */
+    header[data-testid="stHeader"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Hide the footer ("Made with Streamlit") */
+    footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Hide the Toolbar (Hamburger menu, Deploy button, etc) */
+    [data-testid="stToolbar"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+    }
+
+    /* Hide the specific "Manage App" button container */
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
+    }
     
-    /* Hide Streamlit Footer */
-    footer { visibility: hidden !important; display: none !important; height: 0px !important; }
-    
-    /* Hide Hamburger Menu */
-    #MainMenu { visibility: hidden !important; display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; }
-    
-    /* Hide "Manage App" Button (Bottom Right) */
-    [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
-    
-    /* Hide "Deploy" Button */
-    .stAppDeployButton { display: none !important; visibility: hidden !important; }
-    
-    /* Hide Sidebar if collapsed */
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
-    
-    /* Hide Viewer Badge */
-    div[class^="viewerBadge"] { display: none !important; opacity: 0 !important; }
-    
-    /* Hide Fullscreen Buttons */
-    button[title="View fullscreen"] { display: none !important; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    /* Hide the floating "Manage App" button at bottom right */
+    .stAppDeployButton {
+        display: none !important;
+    }
+    [data-testid="manage-app-button"] {
+        display: none !important;
+    }
+
+    /* Hide the Viewer Badge (User count) */
+    div[class*="viewerBadge"] {
+        display: none !important;
+    }
+
+    /* Hide the Sidebar control arrow if collapsed */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
 
     /* 4. THE STICKY HEADER BACKGROUND */
+    /* This creates your custom Blue Header */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -257,6 +272,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# NO TITAN BAR INJECTED (To prevent double banners)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
@@ -409,7 +426,7 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
     # Check if we have valid inputs
     if not values: return 0.0
 
-    # 1. Try Standard Library
+    # 1. Try Standard Library (Most Robust)
     if npf:
         try:
             val = npf.irr(values)
@@ -780,11 +797,13 @@ class ProPDF(FPDF):
         _ = self.cell(45, 5, label, 0, 0, 'C')
         _ = self.set_xy(x, y + 13)
         _ = self.set_font('Helvetica', 'B', 14)
-        if "-" in str(value):
-            _ = self.set_text_color(220, 38, 38)
+        # Handle conditional formatting for negative values in PDF
+        val_str = str(value)
+        if "-" in val_str or "(" in val_str:
+             _ = self.set_text_color(220, 38, 38)
         else:
-            _ = self.set_text_color(30, 58, 138)
-        _ = self.cell(45, 8, str(value), 0, 0, 'C')
+             _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, val_str, 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
         _ = self.set_x(10)
@@ -1577,7 +1596,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
@@ -2032,7 +2051,7 @@ def main():
             )
 
     # INJECT THE TITAN BAR OVERLAY
-    st.markdown('<div class="titan-patch-right"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
     render_footer()
 
