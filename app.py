@@ -84,7 +84,7 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS
+# 3. VISUAL UPGRADE: CUSTOM CSS (HIDING BRANDING)
 # ==========================================
 st.markdown(
     """
@@ -113,21 +113,28 @@ st.markdown(
         pointer-events: auto;
     }
 
-    /* 4. AGGRESSIVE HIDING */
+    /* 4. AGGRESSIVE HIDING (STREAMLIT BRANDING) */
+    /* Hide the top header decoration */
     header { visibility: hidden !important; }
+    
+    /* Hide the footer "Made with Streamlit" */
     footer { visibility: hidden !important; display: none !important; }
+    
+    /* Hide the Hamburger Menu */
     #MainMenu { display: none !important; }
     
+    /* Hide the "Manage App" button (Bottom Right) */
+    [data-testid="manage-app-button"] { display: none !important; }
+    
+    /* Hide the "Deploy" button (Top Right) */
+    .stAppDeployButton { display: none !important; }
+    
+    /* Hide specific Streamlit UI elements */
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
-    
-    /* SPECIFICALLY HIDE "MANAGE APP" & DEPLOY BUTTONS */
-    [data-testid="manage-app-button"] { display: none !important; }
-    .stAppDeployButton { display: none !important; }
-    [data-testid="stMainMenu"] { display: none !important; }
     
     /* Hide Fullscreen & Viewer Badge */
     button[title="View fullscreen"] { display: none !important; }
@@ -261,7 +268,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# INJECT THE TITAN BAR OVERLAY
+# INJECT THE TITAN BAR OVERLAY (Extra protection for bottom footer)
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -415,7 +422,7 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
     # Check if we have valid inputs
     if not values: return 0.0
 
-    # 1. Try Standard Library
+    # 1. Try Standard Library (Most Robust)
     if npf:
         try:
             val = npf.irr(values)
@@ -615,15 +622,22 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
         # 2. PRO FORMA SHEET
         rent_val = inputs_dict.get('Rent', 0)
         
+        # PRE-CALCULATE ANNUAL VALUES (Python Side) for Preview Accuracy
+        # Monthly List
+        monthly_vals = [
+            rent_val, -expenses_dict['Vacancy'], rent_val - expenses_dict['Vacancy'],
+            -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
+            metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
+        ]
+        # Annual List
+        annual_vals = [val * 12 for val in monthly_vals]
+        
         pro_forma_data = {
             "Category": ["Gross Market Rent", "Vacancy Loss", "Effective Gross Income", 
                          "Property Taxes", "Insurance", "Maintenance", "Property Mgmt", 
                          "Net Operating Income (NOI)", "Mortgage Payment", "Net Cash Flow"],
-            "Monthly": [
-                rent_val, -expenses_dict['Vacancy'], rent_val - expenses_dict['Vacancy'],
-                -expenses_dict['Taxes'], -expenses_dict['Insurance'], -expenses_dict['Maintenance'], -expenses_dict['Mgmt'],
-                metrics_dict['noi'], -metrics_dict['mort'], metrics_dict['cf']
-            ]
+            "Monthly": monthly_vals,
+            "Annual": annual_vals
         }
         df_pf = pd.DataFrame(pro_forma_data)
         df_pf.to_excel(writer, sheet_name='Pro Forma', index=False)
@@ -1578,7 +1592,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
