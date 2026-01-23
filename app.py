@@ -43,7 +43,12 @@ st.set_page_config(
     page_title="YieldMap Pro",
     page_icon="favicon.ico",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
 
 # ==========================================
@@ -71,20 +76,30 @@ def js_redirect(url):
     """
     components.html(redirect_code, height=0, width=0)
 
-# --- FIX: HANDLE EMAIL CONFIRMATION CODE ---
+# --- CRITICAL FIX: FORCE EMBED MODE (HIDES STREAMLIT BRANDING) ---
+# This block checks if 'embed=true' is in the URL. If not, it reloads the page with it.
+# This forces Streamlit to hide the "Manage App" button, Footer, and Header decoration.
+if "embed" not in st.query_params:
+    st.query_params["embed"] = "true"
+    st.rerun()
+
+# --- HANDLE EMAIL CONFIRMATION CODE ---
 if "code" in st.query_params:
     try:
         code = st.query_params["code"]
+        # Exchange code for session
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
+        
+        # Clear params but KEEP embed=true
         st.query_params.clear()
-        js_redirect("https://yieldmappro.com/app?embed=true")
-        st.stop()
+        st.query_params["embed"] = "true"
+        st.rerun()
     except Exception as e:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (INVISIBLE MODE)
+# 3. VISUAL UPGRADE: CUSTOM CSS
 # ==========================================
 st.markdown(
     """
@@ -101,52 +116,16 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING (THE INVISIBLE FIX) */
+    /* 3. AGGRESSIVE HIDING (BACKUP FOR EMBED MODE) */
+    header { visibility: hidden !important; height: 0px !important; }
+    footer { visibility: hidden !important; display: none !important; height: 0px !important; }
+    #MainMenu { visibility: hidden !important; display: none !important; }
+    [data-testid="stToolbar"] { visibility: hidden !important; height: 0px !important; }
+    [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
+    .stAppDeployButton { display: none !important; visibility: hidden !important; }
+    div[class^="viewerBadge"] { display: none !important; }
     
-    /* Hide the top header bar completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Hide the footer ("Made with Streamlit") */
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Hide the Toolbar (Hamburger menu, Deploy button, etc) */
-    [data-testid="stToolbar"] {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0px !important;
-    }
-
-    /* Hide the specific "Manage App" button container */
-    div[data-testid="stStatusWidget"] {
-        display: none !important;
-    }
-    
-    /* Hide the floating "Manage App" button at bottom right */
-    .stAppDeployButton {
-        display: none !important;
-    }
-    [data-testid="manage-app-button"] {
-        display: none !important;
-    }
-
-    /* Hide the Viewer Badge (User count) */
-    div[class*="viewerBadge"] {
-        display: none !important;
-    }
-
-    /* Hide the Sidebar control arrow if collapsed */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-
     /* 4. THE STICKY HEADER BACKGROUND */
-    /* This creates your custom Blue Header */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -272,8 +251,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# NO TITAN BAR INJECTED (To prevent double banners)
 
 # ==========================================
 # 4. REFERENCE DATA (STATE MAP)
