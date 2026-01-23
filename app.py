@@ -84,7 +84,7 @@ if "code" in st.query_params:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (HIDING BRANDING)
+# 3. VISUAL UPGRADE: CUSTOM CSS (STEALTH MODE)
 # ==========================================
 st.markdown(
     """
@@ -101,7 +101,7 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. THE "TITAN BAR" (The Footer Cover-Up) */
+    /* 3. THE "TITAN BAR" (The Footer Cover-Up - MAX Z-INDEX) */
     .titan-bar {
         position: fixed;
         left: 0;
@@ -109,37 +109,39 @@ st.markdown(
         width: 100vw;
         height: 50px; 
         background-color: #ffffff; /* Matches app background */
-        z-index: 2147483647; 
+        z-index: 9999999; /* Sit on top of everything */
         pointer-events: auto;
     }
 
     /* 4. AGGRESSIVE HIDING (STREAMLIT BRANDING) */
-    /* Hide the top header decoration */
-    header { visibility: hidden !important; }
     
-    /* Hide the footer "Made with Streamlit" */
+    /* Top Header Decoration */
+    header { visibility: hidden !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    
+    /* Footer "Made with Streamlit" */
     footer { visibility: hidden !important; display: none !important; }
     
-    /* Hide the Hamburger Menu */
+    /* Hamburger Menu */
     #MainMenu { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
     
-    /* Hide the "Manage App" button (Bottom Right) */
+    /* "Manage App" Button (Bottom Right) */
     [data-testid="manage-app-button"] { display: none !important; }
     
-    /* Hide the "Deploy" button (Top Right) */
+    /* "Deploy" Button (Top Right) */
     .stAppDeployButton { display: none !important; }
     
-    /* Hide specific Streamlit UI elements */
-    [data-testid="stDecoration"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
+    /* Sidebar (if collapsed) */
     [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stHeader"] { display: none !important; }
     
-    /* Hide Fullscreen & Viewer Badge */
+    /* Viewer Badge (The "Viewers" icon in bottom right) - WILDCARD SELECTOR */
+    div[class^="viewerBadge"] { display: none !important; }
+    .viewerBadge_container__1QSob { display: none !important; }
+    
+    /* Fullscreen Buttons */
     button[title="View fullscreen"] { display: none !important; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
-    .viewerBadge_container__1QSob { display: none !important; }
 
     /* 5. THE STICKY HEADER BACKGROUND */
     .fixed-header {
@@ -268,7 +270,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# INJECT THE TITAN BAR OVERLAY (Extra protection for bottom footer)
+# INJECT THE TITAN BAR OVERLAY (Ultimate Cover-up)
 st.markdown('<div class="titan-bar"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -422,7 +424,7 @@ def calculate_irr(initial_investment, cash_flows, final_equity=0):
     # Check if we have valid inputs
     if not values: return 0.0
 
-    # 1. Try Standard Library (Most Robust)
+    # 1. Try Standard Library
     if npf:
         try:
             val = npf.irr(values)
@@ -1592,7 +1594,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
