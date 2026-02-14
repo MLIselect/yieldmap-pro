@@ -1,0 +1,14 @@
+[client]
+toolbarMode = "viewer"  # Hides the hamburger menu for everyone
+showErrorDetails = false
+
+[theme]
+base = "light"
+primaryColor = "#1e3a8a"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#1e293b"
+font = "sans serif"
+
+[ui]
+hideTopBar = true  # Hides the colored running man/stop button bar
