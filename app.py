@@ -52,16 +52,26 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. SUPABASE CONNECTION & AUTH HANDLER
+# 2. SUPABASE CONNECTION & AUTH HANDLER (RENDER COMPATIBLE)
 # ==========================================
 @st.cache_resource
 def init_connection():
     try:
-        url = st.secrets["supabase"]["url"]
-        key = st.secrets["supabase"]["key"]
+        # Option A: Try Streamlit Secrets (for local testing or Streamlit Cloud)
+        if hasattr(st, "secrets") and "supabase" in st.secrets:
+            url = st.secrets["supabase"]["url"]
+            key = st.secrets["supabase"]["key"]
+        # Option B: Try Environment Variables (for Render/Docker)
+        else:
+            url = os.environ.get("SUPABASE_URL")
+            key = os.environ.get("SUPABASE_KEY")
+            
+        if not url or not key:
+            return None
+            
         return create_client(url, key)
     except Exception as e:
-        st.error(f"Error connecting to Database: {e}")
+        st.error(f"Database Connection Error: {e}")
         return None
 
 supabase = init_connection()
@@ -84,15 +94,14 @@ if "code" in st.query_params:
         session = supabase.auth.exchange_code_for_session({"auth_code": code})
         st.session_state.user = session.user
         
-        # Clear params and redirect
+        # Clear params and simply rerun to load the main app state
         st.query_params.clear()
-        js_redirect("https://yieldmappro.com/app?embed=true")
-        st.stop()
+        st.rerun()
     except Exception as e:
         pass
 
 # ==========================================
-# 3. VISUAL UPGRADE: CUSTOM CSS (THE FINAL CLEAN VERSION)
+# 3. VISUAL UPGRADE: CUSTOM CSS (RENDER EDITION)
 # ==========================================
 st.markdown(
     """
@@ -109,54 +118,34 @@ st.markdown(
         padding-bottom: 5rem;
     }
 
-    /* 3. AGGRESSIVE HIDING (CSS ONLY - NO CRASHING) */
+    /* 3. AGGRESSIVE HIDING (STREAMLIT BRANDING) */
     
-    /* Hide the top header bar completely */
-    header[data-testid="stHeader"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Hide the footer ("Made with Streamlit") */
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0px !important;
-    }
-
-    /* Hide the Toolbar (Hamburger menu, Deploy button, etc) */
-    [data-testid="stToolbar"] {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0px !important;
-    }
-
-    /* Hide the specific "Manage App" button container */
-    div[data-testid="stStatusWidget"] {
-        display: none !important;
-    }
+    /* Hide Header Decoration */
+    header { visibility: hidden !important; height: 0px !important; }
     
-    /* Hide the floating "Manage App" button at bottom right */
-    .stAppDeployButton {
-        display: none !important;
-    }
-    [data-testid="manage-app-button"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Hide the Viewer Badge (User count) */
-    div[class*="viewerBadge"] {
-        display: none !important;
-    }
-
-    /* Hide the Sidebar control arrow if collapsed */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
+    /* Hide Footer (The "Made with Streamlit" bar) */
+    footer { visibility: hidden !important; display: none !important; height: 0px !important; }
+    
+    /* Hide the specific footer container often used in open-source Streamlit */
+    .stFooter { display: none !important; visibility: hidden !important; }
+    
+    /* Hide Toolbar (Hamburger menu, etc) */
+    [data-testid="stToolbar"] { visibility: hidden !important; height: 0px !important; }
+    
+    /* Hide "Manage App" Button (Bottom Right - Just in case) */
+    [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
+    
+    /* Hide Status Widgets */
+    [data-testid="stStatusWidget"] { visibility: hidden !important; }
+    
+    /* Hide Sidebar Control */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    
+    /* Hide Viewer Badge */
+    div[class^="viewerBadge"] { display: none !important; }
 
     /* 4. THE STICKY HEADER BACKGROUND */
-    /* This creates your custom Blue Header */
     .fixed-header {
         position: fixed;
         top: 0;
@@ -805,13 +794,11 @@ class ProPDF(FPDF):
         _ = self.cell(45, 5, label, 0, 0, 'C')
         _ = self.set_xy(x, y + 13)
         _ = self.set_font('Helvetica', 'B', 14)
-        # Handle conditional formatting for negative values in PDF
-        val_str = str(value)
-        if "-" in val_str or "(" in val_str:
-             _ = self.set_text_color(220, 38, 38)
+        if "-" in str(value):
+            _ = self.set_text_color(220, 38, 38)
         else:
-             _ = self.set_text_color(30, 58, 138)
-        _ = self.cell(45, 8, val_str, 0, 0, 'C')
+            _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, str(value), 0, 0, 'C')
 
     def add_row(self, col1, col2, is_total=False):
         _ = self.set_x(10)
@@ -1328,7 +1315,11 @@ def main():
                                 st.session_state.user = response.user 
                                 
                                 # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                                js_redirect("https://yieldmappro.com/app?embed=true")
+                                # Check if running on Streamlit Cloud or elsewhere
+                                if "streamlit.app" in st.query_params.get("base_url", ""):
+                                     js_redirect("https://yieldmappro.com/app?embed=true")
+                                else:
+                                     st.rerun()
                                 
                             except Exception as e:
                                 st.error(f"Login failed: {e}")
@@ -1608,7 +1599,7 @@ def main():
                 # Display Sensitivity Result with New CoC
                 s1, s2, s3 = st.columns(3)
                 s1.metric("Adjusted Rent", f"${sens_rent:,.0f}")
-                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf/12):,.0f}", delta_color="normal")
+                s2.metric("Est. Monthly CF", f"${sens_cf/12:,.2f}", delta=f"${(sens_cf/12 - base_cf):,.0f}", delta_color="normal")
                 s3.metric("New CoC Return", f"{sens_coc:.1f}%", delta=None)
 
 
