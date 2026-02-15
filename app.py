@@ -713,6 +713,427 @@ def generate_excel(address, market, unit, client, metrics_dict, inputs_dict, pro
 
     return output.getvalue()
 
+# --- PDF GENERATOR CLASS ---
+class ProPDF(FPDF):
+    def __init__(self, user_logo=None):
+        super().__init__()
+        self.user_logo = user_logo
+
+    def header(self):
+        # LOGO LOGIC (White Label)
+        if self.user_logo:
+            # We must use a temp file because FPDF loads from path
+            try:
+                # Assuming user_logo is a file-like object from Streamlit or a path
+                # If it's the temp path string passed from main function:
+                _ = self.image(self.user_logo, 10, 8, 30) # Custom Logo
+            except:
+                pass # Fallback if image fails
+        else:
+            # Default YieldMap Header
+            _ = self.set_fill_color(30, 58, 138)
+            _ = self.rect(0, 0, 210, 30, 'F')
+            _ = self.set_font('Helvetica', 'B', 24)
+            _ = self.set_text_color(255, 255, 255)
+            _ = self.set_xy(10, 8)
+            _ = self.cell(0, 10, "YieldMap Pro", 0, 0, 'L')
+
+        _ = self.set_font('Helvetica', '', 12)
+        if self.user_logo:
+             _ = self.set_text_color(100, 100, 100) # Darker text if white bg
+        else:
+             _ = self.set_text_color(147, 197, 253) # Lighter text if blue bg
+             
+        _ = self.set_xy(10, 18)
+        _ = self.cell(0, 6, "SECTION 8 INTELLIGENCE REPORT", 0, 0, 'L')
+        _ = self.set_font('Helvetica', 'B', 10)
+        
+        if self.user_logo:
+             _ = self.set_text_color(50, 50, 50)
+        else:
+             _ = self.set_text_color(255, 255, 255)
+             
+        _ = self.set_xy(160, 10)
+        _ = self.cell(40, 10, datetime.now().strftime('%Y-%m-%d'), 0, 0, 'R')
+        _ = self.ln(25)
+
+    def footer(self):
+        _ = self.set_y(-15)
+        _ = self.set_font('Helvetica', 'I', 8)
+        _ = self.set_text_color(128, 128, 128)
+        _ = self.cell(0, 10, f'YieldMap Pro | Generated for Pro Members | Page {self.page_no()} of {{nb}}', 0, 0, 'C')
+
+    def check_space(self, height_needed):
+        if self.get_y() + height_needed > 270:
+            _ = self.add_page()
+
+    def chapter_title(self, title):
+        _ = self.ln(5)
+        _ = self.set_font('Helvetica', 'B', 14)
+        _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(0, 8, title, 0, 1, 'L')
+        _ = self.set_draw_color(200, 200, 200)
+        _ = self.line(10, self.get_y(), 200, self.get_y())
+        _ = self.ln(4)
+
+    def section_header(self, title):
+        _ = self.ln(3)
+        _ = self.set_font('Helvetica', 'B', 11)
+        _ = self.set_text_color(50, 50, 50)
+        _ = self.cell(0, 6, title, 0, 1, 'L')
+
+    def kpi_box(self, label, value, x, y):
+        _ = self.set_fill_color(248, 250, 252)
+        _ = self.set_draw_color(200, 200, 200)
+        _ = self.rect(x, y, 45, 25, 'DF')
+        _ = self.set_xy(x, y + 5)
+        _ = self.set_font('Helvetica', '', 9)
+        _ = self.set_text_color(100, 100, 100)
+        _ = self.cell(45, 5, label, 0, 0, 'C')
+        _ = self.set_xy(x, y + 13)
+        _ = self.set_font('Helvetica', 'B', 14)
+        if "-" in str(value):
+            _ = self.set_text_color(220, 38, 38)
+        else:
+            _ = self.set_text_color(30, 58, 138)
+        _ = self.cell(45, 8, str(value), 0, 0, 'C')
+
+    def add_row(self, col1, col2, is_total=False):
+        _ = self.set_x(10)
+        _ = self.set_font('Helvetica', 'B' if is_total else '', 10)
+        fill = True if is_total else False
+        _ = self.set_fill_color(240, 249, 255)
+        
+        # Conditional Red Text for Negatives
+        if "-" in str(col2) or "(" in str(col2):
+            _ = self.set_text_color(220, 38, 38) # Red
+            _ = self.set_font('Helvetica', 'B', 10) # Bold
+        else:
+            _ = self.set_text_color(0, 0, 0) # Black
+            
+        _ = self.cell(140, 7, col1, 1, 0, 'L', fill)
+        _ = self.cell(50, 7, col2, 1, 1, 'R', fill)
+        
+    def add_insight_box(self, text, is_good=True):
+        _ = self.set_fill_color(240, 253, 244) if is_good else self.set_fill_color(254, 242, 242)
+        _ = self.set_draw_color(22, 163, 74) if is_good else self.set_draw_color(220, 38, 38)
+        _ = self.set_font('Helvetica', 'B', 10)
+        text_width = self.get_string_width("ANALYST INSIGHT: " + text)
+        
+        # === FIX: Box height tripled to ensure text fit ===
+        box_height = 20 if text_width > 180 else 15
+        
+        _ = self.rect(10, self.get_y(), 190, box_height, 'DF')
+        _ = self.set_xy(12, self.get_y()+4)
+        if is_good:
+            _ = self.set_text_color(22, 101, 52)
+        else:
+            _ = self.set_text_color(153, 27, 27)
+        _ = self.multi_cell(186, 6, "ANALYST INSIGHT: " + text, 0, 'L')
+        _ = self.ln(box_height - 6)
+
+def generate_chart_image(proj_df):
+    # === GHOST TEXT FIX: Explicit Assignment to _ for ALL calls ===
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+        fig = Figure(figsize=(7, 4))
+        _ = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
+        
+        _ = ax.fill_between(proj_df['Year'], 0, proj_df['Total Equity'], color='#1e3a8a', alpha=0.3, label='Equity')
+        _ = ax.plot(proj_df['Year'], proj_df['Total Equity'], color='#1e3a8a', linewidth=2)
+        _ = ax.plot(proj_df['Year'], proj_df['Loan Balance'], color='#ef4444', linestyle='--', label='Loan Balance')
+        
+        _ = ax.set_title("30-Year Equity Build-Up", fontsize=14, fontweight='bold')
+        _ = ax.set_xlabel("Year")
+        _ = ax.set_ylabel("Value ($)")
+        _ = ax.legend()
+        _ = ax.grid(True, alpha=0.3)
+        
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
+        
+        return tmpfile.name
+
+def generate_pie_chart(expenses):
+    # Matplotlib Pie Chart for PDF
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+        fig = Figure(figsize=(5, 4))
+        _ = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
+        
+        labels = list(expenses.keys())
+        values = list(expenses.values())
+        
+        _ = ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'])
+        _ = ax.set_title("Monthly Expense Breakdown", fontsize=12, fontweight='bold')
+        
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
+        return tmpfile.name
+
+def generate_sensitivity_chart(base_cf, rent_up, rent_down, rate_up):
+    # Matplotlib Bar Chart for Sensitivity
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+        fig = Figure(figsize=(6, 3))
+        _ = FigureCanvasAgg(fig)
+        ax = fig.add_subplot(111)
+        
+        scenarios = ['Base Case', 'Rent +10%', 'Rent -10%', 'Rate +1%']
+        values = [base_cf, rent_up, rent_down, rate_up]
+        colors = ['#2563eb' if v >= 0 else '#ef4444' for v in values]
+        
+        _ = ax.bar(scenarios, values, color=colors)
+        _ = ax.axhline(0, color='black', linewidth=0.8)
+        _ = ax.set_title("Cash Flow Sensitivity ($/mo)", fontsize=10, fontweight='bold')
+        _ = ax.grid(axis='y', alpha=0.3)
+        
+        _ = fig.tight_layout()
+        _ = fig.savefig(tmpfile.name, dpi=100)
+        return tmpfile.name
+
+# === CRITICAL FIX: REMOVED @st.cache_data TO PREVENT HASHING CRASH ===
+def generate_pro_report(client, address, row, unit, price, rent, v_rate, yield_val, coc_return, net_cashflow, d_grade, n_grade, down_pct, interest_rate, taxes, ins, maint_cost, loan_pmt, hud_limit, ua_val, maint_pct, pm_pct, term_years, repairs, projections_df, rent_growth, appreciation, closing_costs, mao, break_even_occ, price_120_dscr, report_notes, oer, irr, logo_path=None):
+    # Pass logo path to class
+    pdf = ProPDF(user_logo=logo_path)
+    _ = pdf.alias_nb_pages()
+    _ = pdf.add_page()
+    
+    # PAGE 1: EXECUTIVE SUMMARY
+    _ = pdf.set_font('Helvetica', 'B', 16)
+    _ = pdf.set_text_color(30, 58, 138)
+    # Simplify row access to prevent hashing error if row is complex object
+    try:
+        area_name = row.get('area_name', 'Unknown')
+    except:
+        area_name = "Unknown Area"
+        
+    _ = pdf.cell(0, 10, f"Analysis: {address}", 0, 1, 'L')
+    _ = pdf.set_font('Helvetica', '', 10)
+    _ = pdf.set_text_color(80, 80, 80)
+    _ = pdf.cell(0, 5, f"Market Area: {area_name} | Unit Type: {unit}", 0, 1, 'L')
+    _ = pdf.cell(0, 5, f"Prepared For: {client if client else 'Valued Client'}", 0, 1, 'L')
+    _ = pdf.ln(5)
+
+    # USER NOTES (If any)
+    if report_notes:
+        _ = pdf.set_fill_color(255, 255, 240) # Light yellow
+        _ = pdf.set_text_color(50, 50, 50)
+        _ = pdf.set_font('Helvetica', 'I', 9)
+        _ = pdf.multi_cell(0, 6, f"Notes: {report_notes}", 1, 'L', True)
+        _ = pdf.ln(5)
+    
+    total_wealth_30 = projections_df.iloc[-1]['Total Wealth Created'] # Updated to match table consistency
+    if net_cashflow < 0:
+        insight = f"Negative cash flow detected (-${abs(net_cashflow):,.2f}/mo). However, this asset builds ${total_wealth_30/1000:.0f}k in total wealth (Equity + CF) over 30 years."
+        _ = pdf.add_insight_box(insight, is_good=False)
+    elif coc_return > 12:
+        insight = f"Excellent Performance! This deal exceeds the 12% CoC target and generates ${net_cashflow:,.2f}/mo in passive income."
+        _ = pdf.add_insight_box(insight, is_good=True)
+    else:
+        insight = f"Stable Performance. This asset generates steady income and projects ${total_wealth_30/1000:.0f}k in long-term wealth creation."
+        _ = pdf.add_insight_box(insight, is_good=True)
+
+    y_kpi = pdf.get_y() + 5
+    # Fix negative display for PDF KPI
+    cf_display = f"(${abs(net_cashflow):,.2f})" if net_cashflow < 0 else f"${net_cashflow:,.2f}"
+    
+    _ = pdf.kpi_box("Cash-on-Cash", f"{coc_return:.1f}%", 10, y_kpi)
+    _ = pdf.kpi_box("Monthly Flow", cf_display, 60, y_kpi)
+    _ = pdf.kpi_box("Cap Rate", f"{yield_val:.1f}%", 110, y_kpi)
+    
+    # NEW: OER BOX
+    _ = pdf.kpi_box("Op Expense Ratio", f"{oer:.1f}%", 160, y_kpi)
+    _ = pdf.set_y(y_kpi + 35)
+
+    _ = pdf.check_space(30)
+    _ = pdf.chapter_title("Scorecard & Strategy")
+    _ = pdf.set_font('Helvetica', '', 10)
+    _ = pdf.cell(65, 8, f"Neighborhood Rating: {n_grade}", 1, 0, 'C')
+    _ = pdf.cell(65, 8, f"Deal Performance: {d_grade}", 1, 0, 'C')
+    _ = pdf.set_font('Helvetica', 'B', 10)
+    _ = pdf.set_text_color(22, 101, 52)
+    _ = pdf.cell(60, 8, f"Max Allowable Offer: ${mao:,.0f}", 1, 1, 'C') 
+    _ = pdf.ln(10)
+
+    _ = pdf.check_space(50)
+    _ = pdf.chapter_title("Capital Requirements (Cash to Close)")
+    down_amt = price * (down_pct / 100)
+    closing_amt = price * (closing_costs / 100)
+    total_cash = down_amt + closing_amt + repairs
+    _ = pdf.add_row(f"Down Payment ({down_pct}%)", f"${down_amt:,.0f}")
+    _ = pdf.add_row(f"Estimated Closing Costs ({closing_costs}%)", f"${closing_amt:,.0f}")
+    _ = pdf.add_row("Immediate Repairs / HQS Prep", f"${repairs:,.0f}")
+    _ = pdf.add_row("TOTAL CASH REQUIRED", f"${total_cash:,.0f}", True)
+
+    _ = pdf.check_space(120)
+    _ = pdf.chapter_title("Pro Forma Monthly Operating Statement")
+    _ = pdf.section_header("Income")
+    _ = pdf.add_row("Gross Market Rent (HUD FMR)", f"${rent:,.2f}")
+    _ = pdf.add_row(f"Vacancy Allowance ({v_rate}%)", f"(${rent * (v_rate/100):,.2f})")
+    _ = pdf.add_row("EFFECTIVE GROSS INCOME", f"${rent * (1 - v_rate/100):,.2f}", True)
+    _ = pdf.section_header("Operating Expenses")
+    _ = pdf.add_row("Property Taxes", f"(${taxes/12:,.2f})")
+    _ = pdf.add_row("Insurance", f"(${ins/12:,.2f})")
+    maint_monthly = maint_cost / 12
+    _ = pdf.add_row(f"Maintenance Reserves ({maint_pct}%)", f"(${maint_monthly:,.2f})")
+    _ = pdf.add_row(f"Property Management ({pm_pct}%)", f"(${rent * (pm_pct/100):,.2f})")
+    noi_val = (rent * (1 - v_rate/100)) - (taxes/12 + ins/12 + maint_monthly + rent*(pm_pct/100))
+    _ = pdf.add_row("NET OPERATING INCOME (NOI)", f"${noi_val:,.2f}", True)
+    _ = pdf.check_space(30) 
+    _ = pdf.section_header("Debt Service")
+    # Fixed variable name here (int_rate -> interest_rate)
+    _ = pdf.add_row(f"Mortgage Payment ({interest_rate}% @ {term_years}yrs)", f"(${loan_pmt:,.2f})")
+    _ = pdf.ln(2)
+    _ = pdf.set_fill_color(30, 58, 138)
+    _ = pdf.set_text_color(255, 255, 255)
+    _ = pdf.set_font('Helvetica', 'B', 12)
+    _ = pdf.cell(140, 10, "ESTIMATED NET MONTHLY CASH FLOW", 1, 0, 'L', True)
+    
+    # Conditional formatting for final cashflow
+    if net_cashflow < 0:
+        _ = pdf.set_text_color(220, 38, 38) 
+        _ = pdf.cell(50, 10, f"(${abs(net_cashflow):,.2f})", 1, 1, 'R', True)
+    else:
+        _ = pdf.set_text_color(22, 101, 52) # Green for positive!
+        _ = pdf.cell(50, 10, f"${net_cashflow:,.2f}", 1, 1, 'R', True)
+
+    # --- PAGE 2: BREAK-EVEN & CHARTS ---
+    _ = pdf.add_page()
+    _ = pdf.chapter_title("Break-Even & Risk Analysis")
+    _ = pdf.add_row("Break-Even Occupancy", f"{break_even_occ:.1f}%")
+    _ = pdf.add_row("Price for 1.20x DSCR", f"${price_120_dscr:,.0f}")
+    # NEW: IRR ROW
+    _ = pdf.add_row("30-Year Internal Rate of Return (IRR)", f"{irr:.2f}%")
+    
+    _ = pdf.ln(10)
+    _ = pdf.chapter_title("Expense Breakdown")
+    
+    expenses_dict = {
+        "Taxes": taxes/12,
+        "Insurance": ins/12,
+        "Maintenance": maint_monthly,
+        "Mgmt": rent * (pm_pct/100),
+        "Vacancy": rent * (v_rate/100)
+    }
+    pie_path = generate_pie_chart(expenses_dict)
+    _ = pdf.image(pie_path, x=60, y=pdf.get_y(), w=90)
+    _ = pdf.ln(95)
+    _ = os.remove(pie_path)
+
+    _ = pdf.chapter_title("Long-Term Wealth Projections")
+    chart_path = generate_chart_image(projections_df)
+    _ = pdf.image(chart_path, x=10, y=pdf.get_y(), w=190)
+    _ = pdf.ln(95)
+    _ = os.remove(chart_path)
+    
+    _ = pdf.set_fill_color(30, 58, 138)
+    _ = pdf.set_text_color(255, 255, 255)
+    _ = pdf.set_font('Helvetica', 'B', 9)
+    _ = pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+    _ = pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+    _ = pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
+    _ = pdf.set_text_color(50, 50, 50)
+    _ = pdf.set_font('Helvetica', '', 9)
+    
+    snapshot_years = [1, 2, 3, 5, 7, 10, 15, 20, 30]
+    cumulative_cf = 0
+    for index, r in projections_df.iterrows():
+        yr = int(r['Year'])
+        cumulative_cf += r['Cash Flow']
+        if yr in snapshot_years:
+            if pdf.get_y() > 260:
+                _ = pdf.add_page()
+                _ = pdf.set_fill_color(30, 58, 138)
+                _ = pdf.set_text_color(255, 255, 255)
+                _ = pdf.set_font('Helvetica', 'B', 9)
+                _ = pdf.cell(18, 8, "Year", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Annual CF", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Loan Balance", 1, 0, 'C', True)
+                _ = pdf.cell(38, 8, "Property Equity", 1, 0, 'C', True)
+                _ = pdf.cell(56, 8, "Total Wealth Created", 1, 1, 'C', True)
+                _ = pdf.set_text_color(50, 50, 50)
+                _ = pdf.set_font('Helvetica', '', 9)
+            total_wealth = r['Total Equity'] + cumulative_cf - total_cash
+            _ = pdf.set_x(10)
+            _ = pdf.cell(18, 8, str(yr), 1, 0, 'C')
+            
+            # Format negative CF in red
+            cf_val = r['Cash Flow']
+            cf_str = f"${cf_val:,.0f}"
+            if cf_val < 0:
+                _ = pdf.set_text_color(220, 38, 38)
+                cf_str = f"(${abs(cf_val):,.0f})"
+            else:
+                _ = pdf.set_text_color(50, 50, 50)
+            _ = pdf.cell(38, 8, cf_str, 1, 0, 'C')
+            
+            _ = pdf.set_text_color(50, 50, 50) # Reset
+            _ = pdf.cell(38, 8, f"${r['Loan Balance']:,.0f}", 1, 0, 'C')
+            _ = pdf.cell(38, 8, f"${r['Total Equity']:,.0f}", 1, 0, 'C')
+            _ = pdf.cell(56, 8, f"${total_wealth:,.0f}", 1, 1, 'C')
+
+    _ = pdf.ln(10)
+    _ = pdf.check_space(50)
+    _ = pdf.chapter_title("Sensitivity Analysis (What-If)")
+    
+    rent_up = rent * 1.10
+    rent_down = rent * 0.90
+    rate_up = interest_rate + 1.0
+    rate_down = interest_rate - 1.0
+    def fast_cf(r, i):
+        m = calculate_mortgage(price, down_pct, i, term_years)
+        e = (taxes/12) + (ins/12) + (r * (maint_pct/100)) + (r * (pm_pct/100)) + (r * (v_rate/100))
+        return (r - e - m)
+    cf_base = net_cashflow
+    cf_rent_up = fast_cf(rent_up, interest_rate)
+    cf_rent_down = fast_cf(rent_down, interest_rate)
+    cf_rate_down = fast_cf(rent, rate_down)
+    cf_rate_up = fast_cf(rent, rate_up)
+    
+    _ = pdf.add_row("Base Case", f"${cf_base:,.0f}/mo")
+    _ = pdf.add_row("Rent +10%", f"${cf_rent_up:,.0f}/mo")
+    _ = pdf.add_row("Rent -10%", f"${cf_rent_down:,.0f}/mo")
+    _ = pdf.add_row("Interest Rate -1%", f"${cf_rate_down:,.0f}/mo")
+    
+    _ = pdf.ln(5)
+    # INCREASED BUFFER HERE TO 85mm
+    sens_path = generate_sensitivity_chart(cf_base, cf_rent_up, cf_rent_down, cf_rate_up)
+    _ = pdf.image(sens_path, x=10, y=pdf.get_y(), w=190)
+    _ = pdf.ln(85) 
+    _ = os.remove(sens_path)
+    
+    _ = pdf.ln(10)
+    _ = pdf.set_font('Helvetica', 'B', 10)
+    _ = pdf.cell(0, 6, "Analysis Assumptions:", 0, 1, 'L')
+    _ = pdf.set_font('Helvetica', 'I', 8)
+    _ = pdf.multi_cell(0, 5, f"Vacancy: {v_rate}% | Maint: {maint_pct}% | Mgmt: {pm_pct}% | Rent Growth: {rent_growth}% | Appreciation: {appreciation}% | Closing Costs: {closing_costs}%")
+    _ = pdf.set_text_color(220, 38, 38)
+    _ = pdf.multi_cell(0, 5, "** HUD FMRs are baselines. Local Housing Authorities (PHAs) determine final Voucher Payment Standards (VPS). Consult local PHA for overrides.")
+    
+    # === NEW: LEGAL DISCLAIMER ===
+    _ = pdf.ln(10)
+    _ = pdf.set_draw_color(100, 100, 100)
+    _ = pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    _ = pdf.ln(2)
+    _ = pdf.set_font('Helvetica', 'B', 8)
+    _ = pdf.set_text_color(80, 80, 80)
+    _ = pdf.cell(0, 5, "LEGAL & FINANCIAL DISCLAIMER", 0, 1, 'C')
+    _ = pdf.set_font('Helvetica', '', 7)
+    _ = pdf.set_text_color(100, 100, 100)
+    disclaimer_text = (
+        "This report is for educational and informational purposes only. "
+        "YieldMap Pro is an analytical tool and does not constitute financial, legal, tax, or real estate investment advice. "
+        "All calculations, projections, and grades are estimates based on user inputs and historical data. "
+        "Actual results will vary. You should conduct your own independent due diligence and consult with qualified "
+        "professionals (CPA, Attorney, Financial Advisor) before making any investment decisions. "
+        "YieldMap Pro is not responsible for any financial losses or damages resulting from the use of this report."
+    )
+    _ = pdf.multi_cell(0, 4, disclaimer_text, 0, 'C')
+
+    return pdf.output(dest='S').encode('latin-1')
+
 # ==========================================
 # 8. INITIALIZE DATABASE & STATE
 # ==========================================
