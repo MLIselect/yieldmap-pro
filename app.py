@@ -1307,22 +1307,37 @@ def main():
                     with st.form("login_form"):
                         email = st.text_input("Email", key="login_email")
                         password = st.text_input("Password", type="password", key="login_pass")
+                        
+                        # === NEW: LOGIN CAPTCHA ===
+                        image = ImageCaptcha(width=280, height=90)
+                        data = image.generate(st.session_state.captcha_text)
+                        st.image(data)
+                        captcha_input_login = st.text_input("Enter the code above:", key="captcha_input_login")
+                        
                         submitted = st.form_submit_button("Log In", type="primary")
+                        
                         if submitted:
-                            try:
-                                # FIX: Store the USER object
-                                response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                                st.session_state.user = response.user 
-                                
-                                # *** NEW: REDIRECT ON LOGIN SUCCESS ***
-                                # Check if running on Streamlit Cloud or elsewhere
-                                if "streamlit.app" in st.query_params.get("base_url", ""):
-                                     js_redirect("https://yieldmappro.com/app?embed=true")
-                                else:
-                                     st.rerun()
-                                
-                            except Exception as e:
-                                st.error(f"Login failed: {e}")
+                            if captcha_input_login.upper() == st.session_state.captcha_text:
+                                try:
+                                    # FIX: Store the USER object
+                                    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                                    st.session_state.user = response.user 
+                                    
+                                    # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                                    # Check if running on Streamlit Cloud or elsewhere
+                                    if "streamlit.app" in st.query_params.get("base_url", ""):
+                                         js_redirect("https://yieldmappro.com/app?embed=true")
+                                    else:
+                                         st.rerun()
+                                    
+                                except Exception as e:
+                                    st.error(f"Login failed: {e}")
+                            else:
+                                st.error("❌ Incorrect CAPTCHA code.")
+                                # Reset captcha text
+                                st.session_state.captcha_text = ''.join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+                                time.sleep(1)
+                                st.rerun()
                     
                     st.markdown("---")
                     if st.button("Don't have an account? Create one"):
