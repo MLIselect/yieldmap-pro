@@ -12,3 +12,4 @@ supabase
 matplotlib
 xlsxwriter
 openpyxl
+pgeocode
