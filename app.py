@@ -98,6 +98,17 @@ if "code" in st.query_params:
     except Exception as e:
         pass
 
+# --- HANDLE LOGOUT TRIGGER ---
+if "logout" in st.query_params:
+    try:
+        supabase.auth.sign_out()
+    except:
+        pass
+    st.session_state.user = None
+    # Redirect to home page after logout
+    js_redirect("https://yieldmappro.com") 
+    st.stop()
+
 # ==========================================
 # 3. VISUAL UPGRADE: CUSTOM CSS (RENDER EDITION)
 # ==========================================
@@ -154,9 +165,11 @@ st.markdown(
         z-index: 100000;
         display: flex;
         align-items: center;
+        justify-content: space-between; /* Space out Logo and Logout */
         padding: 0 2rem;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border-bottom: none;
+        backdrop-filter: blur(10px); /* Glass effect for scrollbar overlap */
     }
 
     /* 5. BRANDING */
@@ -164,7 +177,6 @@ st.markdown(
         display: flex;
         flex-direction: column;
         justify-content: center;
-        margin-right: 40px;
         z-index: 100003;
     }
     .brand-title {
@@ -184,6 +196,24 @@ st.markdown(
         text-transform: uppercase;
         margin-top: 4px;
         cursor: default;
+    }
+
+    /* LOGOUT BUTTON IN HEADER */
+    .logout-btn {
+        background-color: rgba(255, 255, 255, 0.15);
+        color: white !important;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        transition: all 0.2s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        z-index: 100004;
+    }
+    .logout-btn:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
     }
 
     /* 6. NAVIGATION BAR STYLING */
@@ -264,6 +294,7 @@ st.markdown(
         div[role="radiogroup"] label[data-checked="true"] { background-color: #1e3a8a !important; }
         div[role="radiogroup"] label[data-checked="true"] p { color: white !important; }
         .block-container { padding-top: 10rem; }
+        .logout-btn { display: none; } /* Hide header logout on mobile, rely on scroll */
     }
     </style>
     """,
@@ -1154,12 +1185,16 @@ if 'auth_mode' not in st.session_state:
 # ==========================================
 # WRAP EVERYTHING IN MAIN() TO PREVENT GLOBAL SCOPE LEAKS
 def main():
+    # --- PRO HEADER WITH LOGOUT (Render Compatible) ---
     st.markdown(
         """
         <div class="fixed-header">
             <div class="brand-container">
                 <div class="brand-title">YieldMap Pro</div>
                 <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
+            </div>
+            <div class="user-menu">
+                <a href="?logout=true" class="logout-btn">Sign Out</a>
             </div>
         </div>
         """,
@@ -1426,31 +1461,11 @@ def main():
         try:
             user_meta = st.session_state.user.user_metadata
             user_name = user_meta.get('first_name', 'Investor')
-            email_display = st.session_state.user.email
         except:
             user_name = "Investor"
-            email_display = "User"
 
-        # Use columns to put logout on the right
-        h1, h2 = st.columns([3, 1])
-        with h1:
-            st.markdown(f"### Welcome, {user_name}")
-            st.caption("Ready to find your next deal?")
-        with h2:
-            # Profile Dropdown (Popover)
-            with st.popover("👤 Account"):
-                st.markdown(f"**Signed in as:**")
-                st.caption(email_display)
-                st.divider()
-                if st.button("Sign Out", type="primary", use_container_width=True):
-                    try:
-                        supabase.auth.sign_out()
-                    except:
-                        pass
-                    st.session_state.user = None
-                    js_redirect("https://yieldmappro.com") # Redirect to home
-                    st.rerun()
-        
+        st.markdown(f"### Welcome, {user_name}")
+        st.caption("Ready to find your next deal?")
         st.markdown("---")
 
         # ==========================================
