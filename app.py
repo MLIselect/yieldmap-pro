@@ -1422,16 +1422,35 @@ def main():
     page = st.radio("Navigation", ["Pro Analyzer", "My Portfolio", "IQ Center"], horizontal=True, label_visibility="collapsed")
 
     if page == "Pro Analyzer":
-        # === WELCOME HEADER ===
+        # === WELCOME HEADER & PROFILE/LOGOUT ===
         try:
-            user_name = st.session_state.user.user_metadata.get('first_name', '')
-            if not user_name:
-                user_name = "Investor"
+            user_meta = st.session_state.user.user_metadata
+            user_name = user_meta.get('first_name', 'Investor')
+            email_display = st.session_state.user.email
         except:
             user_name = "Investor"
+            email_display = "User"
+
+        # Use columns to put logout on the right
+        h1, h2 = st.columns([3, 1])
+        with h1:
+            st.markdown(f"### Welcome, {user_name}")
+            st.caption("Ready to find your next deal?")
+        with h2:
+            # Profile Dropdown (Popover)
+            with st.popover("👤 Account"):
+                st.markdown(f"**Signed in as:**")
+                st.caption(email_display)
+                st.divider()
+                if st.button("Sign Out", type="primary", use_container_width=True):
+                    try:
+                        supabase.auth.sign_out()
+                    except:
+                        pass
+                    st.session_state.user = None
+                    js_redirect("https://yieldmappro.com") # Redirect to home
+                    st.rerun()
         
-        st.markdown(f"### Welcome, {user_name}")
-        st.caption("Ready to find your next deal?")
         st.markdown("---")
 
         # ==========================================
