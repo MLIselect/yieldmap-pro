@@ -544,7 +544,7 @@ def render_footer():
     st.markdown(
         """
         <div style="text-align: center; font-size: 12px; color: #64748b;">
-            <p><strong>Yieldmappro.com</strong> | © 2025 All Rights Reserved</p>
+            <p><strong>Yieldmappro.com</strong> | © 2026 All Rights Reserved</p>
             <p>Data Source: U.S. Housing & Urban Development (HUD) FY 2026 Small Area FMRs</p>
             <p style="font-style: italic;">Disclaimer: This tool is for educational purposes only and does not constitute financial advice. Always verify data with your local Housing Authority.</p>
         </div>
@@ -2109,3 +2109,4 @@ def main():
 # === CRITICAL: RUN MAIN APP ===
 if __name__ == "__main__":
     main()
+
