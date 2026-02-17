@@ -98,16 +98,16 @@ if "code" in st.query_params:
     except Exception as e:
         pass
 
-# --- HANDLE LOGOUT TRIGGER ---
+# --- HANDLE LOGOUT TRIGGER (FIXED) ---
 if "logout" in st.query_params:
     try:
         supabase.auth.sign_out()
     except:
         pass
     st.session_state.user = None
-    # Redirect to home page after logout
-    js_redirect("https://yieldmappro.com") 
-    st.stop()
+    # FIX: Clear params and rerun locally instead of redirecting externally
+    st.query_params.clear()
+    st.rerun()
 
 # ==========================================
 # 3. VISUAL UPGRADE: CUSTOM CSS (RENDER EDITION)
