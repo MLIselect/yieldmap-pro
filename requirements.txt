@@ -13,3 +13,5 @@ matplotlib
 xlsxwriter
 openpyxl
 pgeocode
+pyarrow
+
