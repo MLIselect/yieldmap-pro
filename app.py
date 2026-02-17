@@ -106,6 +106,7 @@ if "logout" in st.query_params:
         pass
     st.session_state.user = None
     # FIX: Clear params and rerun locally instead of redirecting externally
+    # This prevents the "White Screen of Death" on logout
     st.query_params.clear()
     st.rerun()
 
@@ -319,12 +320,20 @@ STATE_MAP = {
 }
 
 # ==========================================
-# 5. DATA UTILITIES
+# 5. DATA UTILITIES (OPTIMIZED FOR PARQUET)
 # ==========================================
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
+        # --- SPEED OPTIMIZATION START ---
+        # Checks if Parquet exists (Fast Mode), else uses Excel (Slow Mode)
+        if os.path.exists("hud_2026.parquet"):
+            df = pd.read_parquet("hud_2026.parquet")
+        else:
+            # Fallback to slow read if parquet isn't uploaded yet
+            df = pd.read_excel("hud_2026.xlsx", header=0, dtype=str)
+        # --- SPEED OPTIMIZATION END ---
+
         df.columns = df.columns.astype(str).str.replace('\n', '_').str.replace(' ', '_').str.upper().str.strip()
         if 'ZIP_CODE' in df.columns: df = df.dropna(subset=['ZIP_CODE'])
         
@@ -335,7 +344,10 @@ def load_data():
         df['state'] = df['state_abbr'].map(STATE_MAP).fillna('Other')
 
         for c in ['Studio', '1-Bedroom', '2-Bedroom', '3-Bedroom', '4-Bedroom']:
-            if c in df.columns: df[c] = pd.to_numeric(df[c].str.replace('$', '').str.replace(',', ''), errors='coerce').fillna(0)
+            if c in df.columns: 
+                # Cleanup potential string formatting from Parquet/Excel
+                df[c] = df[c].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+                df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
         return df
     except Exception as e:
         st.error(f"CRITICAL ERROR loading data: {e}"); return pd.DataFrame()
@@ -343,16 +355,16 @@ def load_data():
 @st.cache_data(ttl=86400)
 def get_vacancy_rate(zip_code):
     try:
-        time.sleep(0.5) 
+        time.sleep(0.1)  # Faster API ping
         url_rate = f"https://api.census.gov/data/2023/acs/acs5/profile?get=DP04_0005PE&for=zip%20code%20tabulation%20area:{zip_code}"
-        r = requests.get(url_rate, timeout=3)
+        r = requests.get(url_rate, timeout=2) # Shorter timeout
         data = r.json()
         if len(data) > 1 and data[1][0]: return float(data[1][0])
     except: pass 
 
     try:
         url_raw = f"https://api.census.gov/data/2023/acs/acs5?get=B25004_002E,B25003_003E&for=zip%20code%20tabulation%20area:{zip_code}"
-        r = requests.get(url_raw, timeout=3)
+        r = requests.get(url_raw, timeout=2)
         data = r.json()
         if len(data) > 1:
             vacant_for_rent = float(data[1][0]); renter_occupied = float(data[1][1])
@@ -1462,7 +1474,7 @@ def main():
         df = load_data()
 
     if df.empty:
-        st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' is uploaded.")
+        st.error("DATABASE NOT FOUND: Please ensure 'hud_2026.xlsx' or 'hud_2026.parquet' is uploaded.")
         st.stop()
 
     # --- NAVIGATION ---
