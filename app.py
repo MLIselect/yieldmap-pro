@@ -1185,29 +1185,275 @@ if 'auth_mode' not in st.session_state:
 # ==========================================
 # WRAP EVERYTHING IN MAIN() TO PREVENT GLOBAL SCOPE LEAKS
 def main():
-    # --- LOGIC: Only show Logout button if user is logged in ---
-    logout_html = ""
-    if st.session_state.user:
-        logout_html = """
-        <div class="user-menu">
-            <a href="?logout=true" class="logout-btn">Sign Out</a>
-        </div>
-        """
-
-    # --- PRO HEADER WITH LOGOUT (Render Compatible) ---
-    # Note the use of f""" to inject the logout_html variable
-    st.markdown(
-        f"""
+    # --- PRO HEADER WITH LOGOUT (Corrected Logic) ---
+    # We define distinct header HTML based on login status to prevent button ghosting
+    if st.session_state.get('user') is not None:
+        header_content = """
         <div class="fixed-header">
             <div class="brand-container">
                 <div class="brand-title">YieldMap Pro</div>
                 <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
             </div>
-            {logout_html}
+            <div class="user-menu">
+                <a href="?logout=true" class="logout-btn">Sign Out</a>
+            </div>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+        """
+    else:
+        # User is NOT logged in - Header WITHOUT the logout button
+        header_content = """
+        <div class="fixed-header">
+            <div class="brand-container">
+                <div class="brand-title">YieldMap Pro</div>
+                <div class="brand-subtitle">Section 8 Intelligence • FY 2026</div>
+            </div>
+        </div>
+        """
+
+    # Render the chosen header
+    st.markdown(header_content, unsafe_allow_html=True)
+
+    # DIALOG FUNCTION FOR TERMS
+    @st.dialog("Terms of Service")
+    def show_terms():
+        st.markdown("""
+    ### Terms of Use
+    **Last Updated: December 30, 2025**
+
+    **Introduction**
+    YieldMap Pro is provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. These Terms of Use govern your access to and use of our website, services, and tools. By using YieldMap Pro, you agree to these terms.
+
+    **1. Acceptance of Terms**
+    By accessing YieldMap Pro, you agree to be bound by these Terms of Use. This agreement governs your use of our underwriting dashboard, data exports, and audit reports.
+
+    **2. No Professional Advice**
+    YieldMap Pro is an analytical tool for informational purposes only. We do not provide financial, legal, tax, or real estate investment advice.
+    All deal grades (A-F), ROI percentages, and cash flow projections are estimates based on your manual inputs and historical government data. You should perform your own independent due diligence before making any financial commitments.
+
+    **3. Data Accuracy & HUD Compliance**
+    While we use official federal data sources (HUD User API and US Census), local Housing Authorities (PHAs) have the final authority to set voucher payment standards. YieldMap Pro does not guarantee that a specific PHA will approve the exact contract rent calculated by our tool.
+
+    **4. Usage Restrictions**
+    You are granted a non-exclusive license to use this tool for professional underwriting. You agree not to:
+    * Scrape data from our interface for use in competing products.
+    * Attempt to reverse-engineer our proprietary Asset Rating logic.
+    * Redistribute "Investor Pro" features or PDF reports without a valid subscription.
+
+    **Intellectual Property**
+    All content, features, and functionality (including software, algorithms, and data integrations) are owned by YieldMap Pro or its licensors and protected by intellectual property laws. You may not copy, modify, or distribute any part without written permission.
+
+    **5. Limitation of Liability**
+    YieldMap Pro shall not be liable for any financial losses, investment failures, or damages arising from your reliance on our projections. All calculations are provided "as-is" without warranty of any kind.
+
+    **Indemnification**
+    You agree to indemnify and hold harmless YieldMap Pro, its affiliates, and employees from any claims, damages, or expenses arising from your misuse of the service or violation of these terms.
+
+    **6. Subscription & Cancellation**
+    Investor Pro subscriptions are billed monthly. You may cancel at any time via your dashboard. Fees already paid are non-refundable for the current billing cycle.
+
+    **Dispute Resolution**
+    Any disputes arising from these terms will be resolved through binding arbitration in [Your Location, e.g., California], under the rules of [e.g., AAA]. You waive the right to class actions.
+
+    **Governing Law**
+    These terms are governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+
+    **Changes to Terms**
+    We may update these terms periodically. We will notify you via email or site notice for material changes. Continued use constitutes acceptance.
+        """)
+
+    # DIALOG FUNCTION FOR PRIVACY
+    @st.dialog("Privacy Policy")
+    def show_privacy():
+        st.markdown("""
+    ### Privacy Policy
+    **Last Updated: December 30, 2025**
+
+    **Introduction**
+    YieldMap Pro is a Section 8 deal analysis tool provided by [Your Company Name/LLC], located in [Your Location, e.g., USA]. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services. By using YieldMap Pro, you agree to the practices described here.
+
+    **1. Data Philosophy**
+    At YieldMap Pro, we believe your investment strategy is your own business. Unlike mainstream listing scrapers, we prioritize a "Privacy-First" underwriting environment. We do not sell your deal data to third-party brokers or lenders.
+
+    **2. Information We Collect**
+    * **Account Information:** Email addresses provided during Pro registration are used solely for account management and support.
+    * **Usage Data:** We use basic analytics to monitor tool performance and ensure federal API connection stability.
+    * **Underwriting Data:** Input values like "Target Contract Rent" or "Interest Rate" are processed in-session. We do not permanently store specific property addresses on our public-tier servers.
+
+    **How We Use Your Information**
+    * To provide and improve our services, such as generating reports and analyzing deals.
+    * For internal analytics to enhance tool performance and user experience.
+    * To communicate with you about updates, support, or account-related matters.
+    * To comply with legal obligations, such as responding to subpoenas.
+
+    **Data Sharing and Disclosure**
+    We do not sell or rent your personal information. We may share data with:
+    * Service providers (e.g., hosting, analytics) under strict confidentiality agreements.
+    * Government APIs (HUD, Census) as described, but only anonymized queries.
+    * Legal authorities if required by law.
+    * We do not engage in targeted advertising or share data for marketing purposes.
+
+    **Cookies and Tracking Technologies**
+    We use essential cookies for session management and basic analytics (e.g., via Google Analytics). These help us understand usage patterns without identifying individuals. You can manage cookies via your browser settings, but disabling them may limit functionality.
+
+    **3. Federal API Integrations**
+    YieldMap Pro connects directly to the **HUD User API** and **US Census Bureau ACS Survey**. When you query a ZIP code, your request is sent to these government servers to fetch the most recent FY 2026 data. These requests are anonymized.
+
+    **4. Security**
+    We use industry-standard SSL encryption for all data transmissions. Your "Lender-Ready PDF Reports" are generated locally in your browser session to ensure your deal numbers remain private until you choose to export them.
+
+    **Your Rights**
+    Depending on your location, you may have rights under laws like CCPA (California) or GDPR (EU):
+    * Access, correct, or delete your personal data.
+    * Opt-out of data sharing (though we don't sell data).
+    * Request information on data processing.
+    * To exercise these rights, email support@yieldmappro.com. We respond within 30-45 days, as required by law.
+
+    **Children's Privacy**
+    YieldMap Pro is not intended for users under 18. We do not knowingly collect data from children. If we learn of such collection, we will delete it promptly.
+
+    **Changes to This Policy**
+    We may update this policy to reflect changes in our practices or laws. We will notify users via email or site notice for material changes. Continued use after updates constitutes acceptance.
+
+    **Governing Law**
+    This policy is governed by the laws of [Your State/Country, e.g., the United States and the State of California], without regard to conflict of law principles.
+
+    **5. Contact Us**
+    For questions regarding your data or to request account deletion, please contact us at:
+    support@yieldmappro.com
+        """)
+
+    # --- NEW: AUTH CALLBACK FUNCTION (Bulletproof State Switching) ---
+    def switch_to_login_callback():
+        st.session_state.auth_mode = 'login'
+        # Clear signup keys just in case
+        for key in list(st.session_state.keys()):
+            if key.startswith("signup_"):
+                del st.session_state[key]
+
+    # NEW: SUCCESS DIALOG (FIXED WITH STREAMLIT STATE BUTTON)
+    @st.dialog("Account Created Successfully")
+    def show_success_modal():
+        st.write("Your account has been created.")
+        st.write("Please check your email to confirm your address.")
+        
+        # === THE FIX: Use native Streamlit button logic ===
+        if st.button("OK, Go to Login", type="primary", key="modal_ok_btn"):
+            st.session_state.auth_mode = 'login'
+            st.rerun()
+
+    # LOGIN LOGIC
+    if not st.session_state.user:
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1,1,1])
+        with c2:
+            # LOG IN FORM
+            if st.session_state.auth_mode == 'login':
+                with st.container(border=True):
+                    st.markdown("### Welcome Back")
+                    with st.form("login_form"):
+                        email = st.text_input("Email", key="login_email")
+                        password = st.text_input("Password", type="password", key="login_pass")
+                        
+                        # === NEW: MATH CAPTCHA FOR LOGIN (Standard, No extra libraries) ===
+                        st.markdown(f"**Security Check:** What is {st.session_state.captcha_math_a} + {st.session_state.captcha_math_b}?")
+                        captcha_input_login = st.text_input("Answer", key="captcha_input_login")
+                        
+                        submitted = st.form_submit_button("Log In", type="primary")
+                        
+                        if submitted:
+                            correct_sum = st.session_state.captcha_math_a + st.session_state.captcha_math_b
+                            if captcha_input_login == str(correct_sum):
+                                try:
+                                    # FIX: Store the USER object
+                                    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                                    st.session_state.user = response.user 
+                                    
+                                    # *** NEW: REDIRECT ON LOGIN SUCCESS ***
+                                    if "streamlit.app" in st.query_params.get("base_url", ""):
+                                         js_redirect("https://yieldmappro.com/app?embed=true")
+                                    else:
+                                         st.rerun()
+                                    
+                                except Exception as e:
+                                    st.error(f"Login failed: {e}")
+                            else:
+                                st.error("❌ Incorrect Security Answer.")
+                                # Reset captcha numbers
+                                st.session_state.captcha_math_a = random.randint(1, 10)
+                                st.session_state.captcha_math_b = random.randint(1, 10)
+                                time.sleep(1)
+                                st.rerun()
+                    
+                    st.markdown("---")
+                    if st.button("Don't have an account? Create one"):
+                        st.session_state.auth_mode = 'signup'
+                        st.rerun()
+
+            # SIGN UP FORM
+            else:
+                with st.container(border=True):
+                    st.markdown("### New Account")
+                    new_email = st.text_input("Email", key="signup_email")
+                    new_password = st.text_input("Password", type="password", key="signup_pass")
+                    confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_pass")
+                    
+                    first_name = st.text_input("First Name", key="signup_fname")
+                    role = st.selectbox("I am a...", ["Investor", "Agent", "Wholesaler", "Property Manager", "Other"], key="signup_role")
+                    
+                    # === NEW: MATH CAPTCHA FOR SIGNUP ===
+                    st.markdown(f"**Security Check:** What is {st.session_state.captcha_math_a} + {st.session_state.captcha_math_b}?")
+                    captcha_input = st.text_input("Answer", key="captcha_input")
+                    
+                    # TERMS
+                    st.markdown("---")
+                    c_check, c_terms, c_priv = st.columns([0.1, 0.45, 0.45])
+                    with c_check:
+                        tos_agreed = st.checkbox("", label_visibility="collapsed")
+                    with c_terms:
+                        if st.button("📄 Read Terms", use_container_width=True):
+                            show_terms()
+                    with c_priv:
+                        if st.button("🔒 Read Privacy", use_container_width=True):
+                            show_privacy()
+                    
+                    st.caption("By checking the box, you agree to the Terms of Service and Privacy Policy.")
+
+                    if st.button("Create Account", type="primary"):
+                        correct_sum = st.session_state.captcha_math_a + st.session_state.captcha_math_b
+                        
+                        if not tos_agreed:
+                            st.error("⚠️ You must agree to the Terms of Service.")
+                        elif len(new_password) < 6:
+                            st.error("⚠️ Password must be at least 6 characters.")
+                        elif new_password != confirm_password:
+                            st.error("⚠️ Passwords do not match.")
+                        elif captcha_input == str(correct_sum):
+                            try:
+                                response = supabase.auth.sign_up({
+                                    "email": new_email, 
+                                    "password": new_password,
+                                    "options": {
+                                        "data": {
+                                            "first_name": str(first_name),
+                                            "role": str(role)
+                                        }
+                                    }
+                                })
+                                show_success_modal()
+                            except Exception as e:
+                                st.error(f"Registration failed: {str(e)}")
+                        else:
+                            st.error("❌ Incorrect Security Answer.")
+                            time.sleep(1.5)
+                            st.session_state.captcha_math_a = random.randint(1, 10)
+                            st.session_state.captcha_math_b = random.randint(1, 10)
+                            st.rerun()
+                    
+                    st.markdown("---")
+                    if st.button("Already have an account? Log In"):
+                        st.session_state.auth_mode = 'login'
+                        st.rerun()
+        return
 
     # ==========================================
     # 10. MAIN APP (AFTER LOGIN)
@@ -1607,7 +1853,7 @@ def main():
                 cf / 12, d_grade, n_grade, down_payment, interest_rate, taxes_yr, insurance_yr, 
                 maint, mort, limit, ua_input, maint_capex, prop_mgmt_pct, loan_term_years, 
                 initial_repairs, proj, rent_growth, appreciation, closing_costs, mao, 
-                break_even_occupancy, price_120_dscr, report_notes, oer, irr_val, logo_path
+                break_even_occ=break_even_occupancy, price_120_dscr=price_120_dscr, report_notes=report_notes, oer=oer, irr=irr_val, logo_path=logo_path
             )
             
             excel_bytes = generate_excel(
@@ -1875,5 +2121,3 @@ def main():
 # === CRITICAL: RUN MAIN APP ===
 if __name__ == "__main__":
     main()
-
-
